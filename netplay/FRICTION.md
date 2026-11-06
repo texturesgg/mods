@@ -88,3 +88,16 @@ from the API until two games played each other:
 - Disc reads finished whenever the disc thread was done; a rollback could land while one was
   in flight and its completion arrived in the restored state. Every request now finishes at
   the frame boundary.
+
+## Mods that weren't ready for rollback
+
+`tgg.stadium-preload` keeps whether it has preloaded a transformation, and which, in plain
+statics, so a rollback past its preload left it out of step with the stage, and the next
+transformation loaded the wrong file (`lbArchive_InitializeDAT` asserted). Synctest never
+saw it: the frames that preload load a file, and synctest skips those. Declaring the two
+variables with `TGG_STATE` fixes it (the scratch copy the netplay tests used does; the mod's
+own repository doesn't yet).
+
+Fix: `TGG_ROLLBACK_TEST=<n>,guess` with the replay check finds this kind of bug in one
+process; the port could run it as part of a mod's checks, or synctest could re-run the frames
+that load files now that rollback can.

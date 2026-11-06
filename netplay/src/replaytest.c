@@ -40,9 +40,12 @@ int replaytest_open(const char* path)
         return 0;
     }
     int n = 0;
-    for (int port = 0; port < 4 && n < 2; port++) {
+    for (int port = 0; port < 4; port++) {
         if (slp.frame_count > 0 && slp.frames[slp.frame_count - 1].input[port].have) {
-            ports[n++] = port;
+            if (n < 2) {
+                ports[n] = port;
+            }
+            n++;
         }
     }
     if (n != 2) {
@@ -64,6 +67,9 @@ int replaytest_open(const char* path)
         match.rules.check_for_pauser_override = online_pauser;
     }
     tgg_boot_match(&match);
+    if (slp.major_scene != 8) {
+        tgg_log("an offline replay: if its match paused, the frames after the pause won't line up");
+    }
     tgg_log("replay test: %s, Slippi %u.%u.%u, stage %u, %d frames, ports %d and %d", path,
             slp.version[0], slp.version[1], slp.version[2], slp_be16(slp.info + 0xE),
             slp.frame_count, ports[0] + 1, ports[1] + 1);
