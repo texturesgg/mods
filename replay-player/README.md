@@ -63,7 +63,10 @@ The port's replay check compares every frame with what the console recorded. Wit
 TGG_REPLAY=game.slp TGG_REPLAY_CHECK_ONLY=1 TGG_REPLAY_PLAYER_FILE=game.slp tgg mod dev
 ```
 
-It exits when the replay ends, saying `replay: MATCH` if every frame matched.
+It exits when the replay ends, saying `replay: MATCH` if every frame matched. The check turns
+on `TGG_SYNC_DISC=1`, whose clock moves with the frames drawn, which is slow to watch: add
+`TGG_UNPACED=1 TGG_BACKEND=null` to check as fast as the machine goes, or `TGG_SYNC_DISC=0` to
+watch it in real time. Pausing, stepping and changing the speed don't change the result.
 
 ## Build
 

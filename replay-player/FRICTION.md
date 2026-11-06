@@ -120,6 +120,11 @@ short.
   `TGG_GAME_SDK=<build>/tgg-melee-sdk`, and a scratch `HOME` so `tgg` doesn't touch the real
   one. Both work, but `tgg mod build --sdk` exists and `tgg mod dev` has no equivalent for a
   local port build's executable; `--game <path>` would make a port developer's loop shorter.
+- **Watching the check.** The replay check sets `TGG_SYNC_DISC=1`, whose clock moves 100 us
+  per read between frames drawn; paced (not `TGG_UNPACED`), on a busy machine, the game then
+  runs at a few frames a second, and at a speed below 1 much slower still. It looks hung. The
+  check could leave the clock alone when it isn't driving the input (`TGG_REPLAY_CHECK_ONLY`),
+  or the sync clock could fall back to real time while paced.
 - **`dlopen` in a mod.** Nothing says whether a mod may use `dlopen`/`dlsym` (it may: they're
   in the C library). Worth a line in the hooks page's list of what a mod can call.
 
