@@ -85,6 +85,11 @@ from the API until two games played each other:
   RNG within the first second. Under rollback the mixer now follows the logic frames.
 - ARAM holds files the game streams in, and a frame run on a guess could load something over
   what the real timeline needed. Copies into ARAM are now undone on a restore.
+- The game's drawing writes state the simulation reads (the camera's render callback, a
+  fighter's on-screen flag for the magnifier). A frame the mod held drew an extra time on one
+  machine, and a machine running behind ran two logic frames before one drawing: either
+  desynced Dream Land at frame 9061 of one replay. Under rollback the port now undoes what a
+  held frame's drawing writes, and runs one logic frame per displayed frame.
 - Disc reads finished whenever the disc thread was done; a rollback could land while one was
   in flight and its completion arrived in the restored state. Every request now finishes at
   the frame boundary.
