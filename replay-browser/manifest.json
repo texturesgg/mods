@@ -1,0 +1,8 @@
+{
+  "api": "tgg-melee/0",
+  "id": "tgg.replay-browser",
+  "name": "Replays",
+  "version": "0.1.0",
+  "depends": { "tgg.replay-player": "^0.2" },
+  "description": "Browse your Slippi replays and watch them."
+}
