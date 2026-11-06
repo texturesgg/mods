@@ -43,14 +43,16 @@ src/keys.c     the keyboard, through the X server
 ```
 
 - `tgg_boot_match` (in `TGG_INIT`) starts the game in the replay's match, built from its Game
-  Info block: the console's `StartMeleeRules` and each port's `PlayerInitData`.
-- A before hook on `fn_8016E730`, the VS match setup, sets the RNG seed the replay started
-  with before anything draws from it.
+  Info block (the console's `StartMeleeData`) with `tgg_match_from_console`.
+- The `match_setup` event sets the RNG seed the replay started with before anything draws
+  from it.
 - The `pad_read` event sets every port's input each logic frame: the processed state the game
   uses, and the raw report UCF reads. It also sets the RNG seed to the replay's, as Slippi's
   playback does. The replay's place is in `TGG_STATE`.
-- A pause on the console leaves no frames in the replay. While the match is paused, every
-  port lets go until the pause can end, then the next recorded frame presses Start again.
+- The `tick_end` event moves the replay's place on after each logic frame, unless the match
+  was paused through it: a pause on the console leaves no frames in the replay. While the
+  match is paused, every port lets go until the pause can end, then the next recorded frame
+  presses Start again.
 - The `frame` event reads the keys and calls the frame control functions (`tgg_pause`,
   `tgg_step`, `tgg_set_speed`), which only change when frames run, never what they do.
 

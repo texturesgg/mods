@@ -5,13 +5,14 @@
  * the game straight into its match with tgg_boot_match. Then, as Slippi's own
  * playback does:
  *
- * - the match is set up from the RNG seed the replay started with (a before
- *   hook on fn_8016E730, the VS match setup, before anything draws from it);
+ * - the match is set up from the RNG seed the replay started with (the
+ *   match_setup event, before anything draws from it);
  * - each logic frame, in the pad_read event, every port gets the inputs the
  *   replay recorded for that frame, and the RNG seed is set to the replay's;
- * - a pause on the console leaves no frames in the replay, so while the match
- *   is paused every port lets go until the pause can end, then the next
- *   recorded frame presses Start again.
+ * - after each logic frame (tick_end), the replay's frame moves on, unless
+ *   the match was paused through it: a pause on the console leaves no frames
+ *   in the replay, so while the match is paused every port lets go until the
+ *   pause can end, then the next recorded frame presses Start again.
  *
  * Space pauses, . (or the right arrow) steps a frame while paused, = and -
  * (or up and down) double and halve the speed, 0 goes back to normal
@@ -71,8 +72,8 @@ static void init(void)
 }
 TGG_INIT(init);
 
-/* The VS match setup, before the stage and the players draw from the RNG */
-static void before_setup(StartMeleeData* data)
+/* The match's setup, before the stage and the players draw from the RNG */
+static void on_setup(const StartMeleeData* data)
 {
     (void) data;
     if (loaded && !st.set_up) {
@@ -80,7 +81,7 @@ static void before_setup(StartMeleeData* data)
         *HSD_RandSeedPtr = slp.start_seed;
     }
 }
-TGG_BEFORE(fn_8016E730, before_setup);
+TGG_ON(match_setup, on_setup);
 
 /* Sets one port to what the replay recorded: the processed state the game
  * uses, and the raw report UCF reads its sticks from (rebuilt from the
@@ -128,16 +129,9 @@ static void on_pads(tgg_pads* pads)
     if (!loaded || !st.set_up || st.ended || !tgg_in_match()) {
         return;
     }
-    /* The frame before this one: the replay's frame count moves on unless
-     * the match was paused through it */
     if (!st.started) {
         st.started = 1;
         st.frame = SLP_FIRST_FRAME;
-    } else if (gm_GetDbPauseFlag(1)) {
-        st.pause_ticks++;
-    } else {
-        st.pause_ticks = 0;
-        st.frame++;
     }
     const int i = st.frame - SLP_FIRST_FRAME;
     if (i >= slp.frame_count) {
@@ -161,6 +155,22 @@ static void on_pads(tgg_pads* pads)
 }
 TGG_ON(pad_read, on_pads);
 
+/* After the frame: the replay's frame moves on unless the match was paused
+ * through it */
+static void on_tick_end(void)
+{
+    if (!st.started || st.ended || !tgg_in_match()) {
+        return;
+    }
+    if (gm_GetDbPauseFlag(1)) {
+        st.pause_ticks++;
+    } else {
+        st.pause_ticks = 0;
+        st.frame++;
+    }
+}
+TGG_ON(tick_end, on_tick_end);
+
 /* The playback keys, and the pause at the end, once per displayed frame */
 static void on_frame(void)
 {
@@ -176,7 +186,8 @@ static void on_frame(void)
     const Keys k = keys_pressed();
     if (k.pause) {
         tgg_pause(!tgg_paused());
-        tgg_log(tgg_paused() ? "paused at frame %d" : "playing from frame %d", st.frame);
+        tgg_log(tgg_paused() ? "paused at frame %d" : "playing from frame %d",
+                tgg_paused() ? st.frame - 1 : st.frame);
     }
     if (k.step) {
         tgg_step(1);

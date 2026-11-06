@@ -1,9 +1,10 @@
 # Friction
 
 What got in the way of writing this mod, as a mod maker would meet it, each with a
-suggested fix. The port gained three general APIs for it (`tgg_boot_match`, the `pad_read`
-event and frame control, in `tgg/control.h` and `tgg/events.h`); everything below is what's
-still missing or rough after them.
+suggested fix. The port gained general APIs for it: `tgg_boot_match` and frame control
+(`tgg/control.h`), and the `pad_read` event (`tgg/events.h`) at first, then the
+`match_setup` and `tick_end` events, `tgg_pad_process` and `tgg_match_from_console`. The
+last section lists what those took away; everything else is what's still missing or rough.
 
 ## Missing API
 
@@ -46,39 +47,6 @@ dependency in the manifest (`"optional": {"tgg.neutral-spawns": "*"}`) that load
 when present. Further out, a way for a mod to turn on another installed mod for the match
 it boots.
 
-### No event before the match setup draws from the RNG
-
-Slippi plays a replay from the RNG seed the match was set up with, and the stage and the
-players draw from it during the setup. `match_start` runs after the setup, too late, so the
-mod hooks the setup itself: `TGG_BEFORE(fn_8016E730, ...)`, a function with an address name
-it had to find by reading `gmvs.c` and the replay check.
-
-Fix: a `match_setup` sim event at the start of the VS match setup, with the
-`StartMeleeData`, before anything draws from the RNG. Netplay will need the same point to
-agree on a seed.
-
-### No end-of-frame event
-
-The replay's frame count moves on after each logic frame that wasn't paused, which the check
-works out after the frame (`host_replay_frame_end`). There's no sim event after the game's
-objects run, so the mod works it out at the next `pad_read` from `gm_GetDbPauseFlag(1)`, as
-"was the frame before this one paused". It works, but it's a subtle off-by-one to get
-right.
-
-Fix: a `tick_end` (or `frame_end`) sim event after `HSD_GObj_RunProcs`. The game has
-`StartMeleeRules::on_frame_end`, but it's one slot per match, which a mod shouldn't take.
-
-### Turning a raw controller report into the game's pad state
-
-`pad_read` hands the processed state (`HSD_PadStatus`) and the raw report (`PADStatus`).
-The replay has both, so it sets both. A mod with only raw reports (netplay, a recorded
-controller) would want the game to process them as it does its own, but `HSD_PadClamp`,
-`HSD_PadADConvert`, `HSD_PadScale` and `HSD_PadCrossDir` are statics in `controller.c`,
-reachable only by `TGG_ORIGINAL_NAMED` with a hand-written signature.
-
-Fix: a field in `tgg_pads` a subscriber sets to say "I replaced the raw report, process it",
-or a helper `tgg_pad_process(int port)`.
-
 ### `tgg_boot_match` needs a whole `StartMeleeData`
 
 That's right for a replay, which has every field. For a mod that wants "Fox against Marth
@@ -90,22 +58,6 @@ not what a training mod wants.
 Fix: the docs' example covers it for now. A `tgg_boot_match_defaults(StartMeleeData*)` that
 fills in what the VS menus would (including the saved rules) would make the short case
 short.
-
-## Confusing or missing docs
-
-- **The Game Info block's bitfields.** `StartMeleeRules` is the console's struct, and Slippi
-  records it as the console laid it out, most significant bit first. The port reorders
-  bitfields on PC, so the mod sets each field by name from the right bit (`src/setup.c`,
-  copied from the check's mapping). Without the check to copy from, finding that order means
-  reading `melee/mn/types.h` against the console layout bit by bit. A note in the docs (or a
-  helper that takes the console's bytes) would save a mod maker an afternoon.
-- **Which game functions a mod may call.** `gm_SetupRulesDefaults`, `gm_GetDbPauseFlag` and
-  `HSD_RandSeedPtr` all work, but finding them is grep. The docs' "finding your way around"
-  section could list the match and pad entry points (`gmvs.c`, `gmscene.c`, `controller.c`).
-- **Where the seed goes.** The docs say to use the game's RNG in simulation code, and nothing
-  about setting it. A replay or netplay mod has to set it; one line in
-  `state-and-rollback.md` saying writing `*HSD_RandSeedPtr` from simulation code is fine (it
-  rolls back) would help.
 
 ## Build and CLI
 
@@ -130,8 +82,28 @@ short.
 
 ## Things the mod had to copy
 
-The mod carries its own copies of the check's `.slp` reader, the Game Info mapping and the
-input mapping, since a mod can't use the port's host code. That's the right boundary, but
-it means two copies to keep in step. If a replay player is wanted in the port itself, a
-built-in module (as UCF is) would let the check use it too, and the check would become a
-comparison only.
+The mod carries its own copies of the check's `.slp` reader and the input mapping, since a
+mod can't use the port's host code. That's the right boundary, but it means two copies to
+keep in step. If a replay player is wanted in the port itself, a built-in module (as UCF is)
+would let the check use it too, and the check would become a comparison only.
+
+## Addressed
+
+- **The match setup.** The `match_setup` event comes at the start of a match's setup, before
+  the stage and the players draw from the RNG; the mod sets the replay's starting seed there
+  instead of hooking `fn_8016E730`. The port's replay check sets its seed at the same point.
+- **The end of a frame.** The `tick_end` event comes after each logic frame's objects ran; the
+  mod moves the replay's place on there, from `gm_GetDbPauseFlag(1)` for the frame that just
+  ran, instead of working out the frame before at the next `pad_read`.
+- **Raw controller reports.** `tgg_pad_process(status, raw)` makes a port's state from a
+  report as the game's own read does (clamp, stick directions, scale). This mod doesn't need
+  it, since a replay records the processed state too, but a netplay or controller-recording
+  mod does.
+- **The Game Info block's bitfields.** `tgg_match_from_console` fills a `StartMeleeData` from
+  the console's 0x138 bytes, and the game-control docs give the bit order for anyone reading
+  them by hand. The mod and the replay check both use it, so the mapping isn't copied.
+- **Which game functions a mod may call.** The writing-mods page's "finding your way around"
+  lists the match and controller entry points (`gmvs.c`, `gmscene.c`, `controller.c`,
+  `gm_SetupRulesDefaults`, `gm_GetDbPauseFlag`).
+- **Where the seed goes.** The state-and-rollback page says setting `*HSD_RandSeedPtr` from
+  simulation code is fine and rolls back, and points at `match_setup`.

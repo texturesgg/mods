@@ -2,22 +2,12 @@
  * the Slippi rules its console ran. */
 #include "player.h"
 
-#include <melee/gm/gm_1601.h>
+#include "tgg/control.h"
+
 #include <melee/mn/types.h>
 
 #include <stdio.h>
 #include <string.h>
-
-/* Bit k of a byte, most significant first, as the console lays out bitfields */
-#define BIT(byte, k) (((byte) >> (7 - (k))) & 1)
-
-static float be_float(const uint8_t* p)
-{
-    const uint32_t bits = slp_be32(p);
-    float f;
-    memcpy(&f, &bits, sizeof f);
-    return f;
-}
 
 /* Slippi Online pauses on the client only (Online/Core/InitPause.asm): its
  * pauser check shows the pause screen to the local player and always returns
@@ -29,120 +19,14 @@ static int online_pauser(void)
 
 void player_match(const Slp* slp, StartMeleeData* start)
 {
-    const uint8_t* info = slp->info;
-    StartMeleeRules* r = &start->rules;
-    gm_SetupRulesDefaults(r);
-    gm_SetupAllPlayerDefaults(start->players);
-
-    /* The Game Info block is the console's StartMeleeRules, big-endian */
-    r->match_kind = info[0] >> 5;
-    r->x0_3 = (info[0] >> 2) & 7;
-    r->timer_enabled = BIT(info[0], 6);
-    r->timer_counts_up = BIT(info[0], 7);
-    r->x1_0 = BIT(info[1], 0);
-    r->x1_1 = BIT(info[1], 1);
-    r->x1_2 = BIT(info[1], 2);
-    r->x1_3 = BIT(info[1], 3);
-    r->x1_4 = BIT(info[1], 4);
-    r->x1_5 = BIT(info[1], 5);
-    r->timer_shows_hours = BIT(info[1], 6);
-    r->friendly_fire = BIT(info[1], 7);
-    r->is_stock = BIT(info[2], 0);
-    r->x2_1 = BIT(info[2], 1);
-    r->x2_2 = BIT(info[2], 2);
-    r->single_button = BIT(info[2], 3);
+    /* The Game Info block is the console's StartMeleeData */
+    tgg_match_from_console(start, slp->info);
     /* An online game never pauses: unranked games record pausing as on, but
      * Slippi's online code replaces the game's pause with one only that
      * player's screen shows */
-    r->disable_pausing = BIT(info[2], 4) || slp->major_scene == 8;
-    r->x2_5 = BIT(info[2], 5);
-    r->x2_6 = BIT(info[2], 6);
-    r->x2_7 = BIT(info[2], 7);
-    r->x3_0 = BIT(info[3], 0);
-    r->x3_1 = BIT(info[3], 1);
-    r->x3_2 = BIT(info[3], 2);
-    r->x3_3 = BIT(info[3], 3);
-    r->x3_4 = BIT(info[3], 4);
-    r->x3_5 = BIT(info[3], 5);
-    r->x3_6 = BIT(info[3], 6);
-    r->x3_7 = BIT(info[3], 7);
-    r->x4_0 = BIT(info[4], 0);
-    r->is_vs = BIT(info[4], 1);
-    r->x4_2 = BIT(info[4], 2);
-    r->x4_3 = BIT(info[4], 3);
-    r->x4_4 = BIT(info[4], 4);
-    r->x4_5 = BIT(info[4], 5);
-    r->x4_6 = BIT(info[4], 6);
-    r->x4_7 = BIT(info[4], 7);
-    r->x5_0 = BIT(info[5], 0);
-    r->x5_1 = BIT(info[5], 1);
-    r->x5_2 = BIT(info[5], 2);
-    r->x5_3 = BIT(info[5], 3);
-    r->x5_4 = BIT(info[5], 4);
-    r->x5_5 = BIT(info[5], 5);
-    r->x5_6 = BIT(info[5], 6);
-    r->x5_7 = BIT(info[5], 7);
-    r->x6 = info[0x6];
-    r->x7 = info[0x7];
-    r->is_teams = info[0x8];
-    r->x9 = info[0x9];
-    r->xA = info[0xA];
-    r->item_freq = (int8_t) info[0xB];
-    r->sd_penalty = (int8_t) info[0xC];
-    r->xD = info[0xD];
-    r->stkind = slp_be16(info + 0xE);
-    r->time_limit = slp_be32(info + 0x10);
-    r->x14 = info[0x14];
-    r->x18 = slp_be32(info + 0x18);
-    r->x20 = (uint64_t) slp_be32(info + 0x20) << 32 | slp_be32(info + 0x24);
-    r->x28 = (int) slp_be32(info + 0x28);
-    r->x2C = be_float(info + 0x2C);
-    r->x30 = be_float(info + 0x30);
-    r->game_speed = be_float(info + 0x34);
     if (slp->major_scene == 8) {
-        r->check_for_pauser_override = online_pauser;
-    }
-
-    /* Then each port's PlayerInitData */
-    for (int i = 0; i < 4; i++) {
-        const uint8_t* p = info + 0x60 + 0x24 * i;
-        PlayerInitData* pl = &start->players[i];
-        pl->ckind = (int8_t) p[0x0];
-        pl->slot_type = p[0x1];
-        pl->stocks = (int8_t) p[0x2];
-        pl->color = p[0x3];
-        pl->slot = p[0x4];
-        pl->spawn_pos = (int8_t) p[0x5];
-        pl->spawn_dir = (int8_t) p[0x6];
-        pl->sub_color = p[0x7];
-        pl->handicap = (int8_t) p[0x8];
-        pl->team = p[0x9];
-        pl->nametag = p[0xA];
-        pl->xB = p[0xB];
-        pl->rumble_enabled = BIT(p[0xC], 0);
-        pl->xC_b1 = BIT(p[0xC], 1);
-        pl->vs_metal = BIT(p[0xC], 2);
-        pl->xC_b3 = BIT(p[0xC], 3);
-        pl->vs_invisible = BIT(p[0xC], 4);
-        pl->xC_b5 = BIT(p[0xC], 5);
-        pl->xC_b6 = BIT(p[0xC], 6);
-        pl->xC_b7 = BIT(p[0xC], 7);
-        pl->xD_b0 = BIT(p[0xD], 0);
-        pl->xD_b1 = BIT(p[0xD], 1);
-        pl->xD_b2 = BIT(p[0xD], 2);
-        pl->xD_b3 = BIT(p[0xD], 3);
-        pl->xD_b4 = BIT(p[0xD], 4);
-        pl->xD_b5 = BIT(p[0xD], 5);
-        pl->xD_b6 = BIT(p[0xD], 6);
-        pl->xD_b7 = BIT(p[0xD], 7);
-        pl->cpu_kind = p[0xE];
-        pl->cpu_level = p[0xF];
-        pl->damage = slp_be16(p + 0x10);
-        pl->damage1 = slp_be16(p + 0x12);
-        pl->hp = slp_be16(p + 0x14);
-        pl->attack_ratio = be_float(p + 0x18);
-        pl->defense_ratio = be_float(p + 0x1C);
-        pl->model_scale = be_float(p + 0x20);
+        start->rules.disable_pausing = 1;
+        start->rules.check_for_pauser_override = online_pauser;
     }
 }
 
