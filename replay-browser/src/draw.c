@@ -160,7 +160,11 @@ static void draw_preview(void)
             continue;
         }
         tgg_draw_image(tgg_image_stock_icon(pl->ckind, pl->costume), x + 12, y + 2, 30, 30, WHITE);
-        tgg_text_fit(text, sizeof text, 19, w - 120, who(pl));
+        const int won = s->winner >= 0 &&
+                        (p == s->winner || (s->teams && pl->team == s->players[s->winner].team));
+        /* Room for "Winner" on the right */
+        const float room = won ? w - 150 : w - 62;
+        tgg_text_fit(text, sizeof text, 19, room, who(pl));
         tgg_draw_text(x + 50, y, 19, WHITE, TGG_ALIGN_LEFT, text);
         char sub[80];
         if (pl->cpu) {
@@ -170,14 +174,35 @@ static void draw_preview(void)
         } else {
             snprintf(sub, sizeof sub, "P%d  %s", p + 1, fighter_name(pl->ckind));
         }
-        tgg_text_fit(text, sizeof text, 15, w - 120, sub);
+        tgg_text_fit(text, sizeof text, 15, room, sub);
         tgg_draw_text(x + 50, y + 20, 15, DIM, TGG_ALIGN_LEFT, text);
-        const int won = s->winner >= 0 &&
-                        (p == s->winner || (s->teams && pl->team == s->players[s->winner].team));
         if (won) {
             tgg_draw_text(x + w - 12, y + 8, 19, GOLD, TGG_ALIGN_RIGHT, "Winner");
         }
         y += 40;
+    }
+
+    /* The Slippi rules it was played with that no installed mod plays, a
+     * line per mod or two */
+    if (s->missing[0] != '\0') {
+        char line[200] = "Needs";
+        const char* p = s->missing;
+        float ly = y + 2;
+        while (*p != '\0' && ly < TOP + ROW_H * LIST_ROWS - 84) {
+            const char* comma = strstr(p, ", ");
+            const size_t n = comma != NULL ? (size_t) (comma - p) : strlen(p);
+            char next[200];
+            snprintf(next, sizeof next, "%s %.*s%s", line, (int) n, p, comma != NULL ? "," : "");
+            if (strcmp(line, "Needs") != 0 && tgg_text_width(15, next) > w - 24) {
+                tgg_draw_text(x + 12, ly, 15, TGG_RGBA(255, 140, 60, 255), TGG_ALIGN_LEFT, line);
+                ly += 18;
+                snprintf(line, sizeof line, "  %.*s%s", (int) n, p, comma != NULL ? "," : "");
+            } else {
+                snprintf(line, sizeof line, "%s", next);
+            }
+            p = comma != NULL ? comma + 2 : p + n;
+        }
+        tgg_draw_text(x + 12, ly, 15, TGG_RGBA(255, 140, 60, 255), TGG_ALIGN_LEFT, line);
     }
 
     /* How it went */
@@ -202,7 +227,8 @@ static void draw_preview(void)
         const size_t n = strlen(line);
         snprintf(line + n, sizeof line - n, "   Online");
     }
-    tgg_draw_text(x + 12, y, 19, WHITE, TGG_ALIGN_LEFT, line);
+    tgg_text_fit(text, sizeof text, 18, w - 24, line);
+    tgg_draw_text(x + 12, y, 18, WHITE, TGG_ALIGN_LEFT, text);
     long_date(s->date, text, sizeof text);
     tgg_draw_text(x + 12, y + 25, 15, DIM, TGG_ALIGN_LEFT, text);
     snprintf(line, sizeof line, "Slippi %d.%d.%d", s->version[0], s->version[1], s->version[2]);
@@ -212,7 +238,8 @@ static void draw_preview(void)
 void browser_draw(void)
 {
     /* The title, and the folder shown */
-    tgg_draw_rect(0, 22, 640, 52, BAND);
+    const tgg_rect b = tgg_draw_bounds();
+    tgg_draw_rect(b.x, 22, b.w, 52, BAND);
     tgg_draw_text(40, 30, 40, TGG_RGBA(200, 205, 225, 255), TGG_ALIGN_LEFT, "Replays");
     char text[PATH_MAX_LEN];
     tgg_text_fit_end(text, sizeof text, 16, 380, br.folder);
@@ -221,7 +248,7 @@ void browser_draw(void)
     draw_list();
     draw_preview();
 
-    tgg_draw_rect(0, 440, 640, 40, BAND);
+    tgg_draw_rect(b.x, 440, b.w, 40, BAND);
     if (br.message_frames > 0) {
         tgg_draw_text(320, 450, 20, GOLD, TGG_ALIGN_CENTER, br.message);
     } else {

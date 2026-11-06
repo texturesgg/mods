@@ -42,6 +42,9 @@ typedef struct replay_summary {
     int quitter;       /* the port that quit with L+R+A+Start, or -1 */
     int winner;        /* the port that won (in a team match, one of the
                         * winning team's), or -1 when unknown or none */
+    char missing[160]; /* the Slippi rule mods it needs (tgg.neutral-spawns, ...)
+                        * that aren't loaded, ", "-separated, or "": without
+                        * them the match plays out differently */
     replay_player_slot players[4];
 } replay_summary;
 
