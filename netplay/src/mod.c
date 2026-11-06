@@ -142,7 +142,9 @@ static void init(void)
     const char* replay = getenv("TGG_NETPLAY_REPLAY");
     if (replay != NULL && replay[0] != '\0') {
         if (!replaytest_open(replay)) {
-            return;
+            fflush(stdout);
+            fflush(stderr);
+            _Exit(3);
         }
         np.replay = 1;
         np.ports[0] = replaytest_port(0);
