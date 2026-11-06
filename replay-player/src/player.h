@@ -1,5 +1,6 @@
 /* The replay player's parts: the match setup and rules report (setup.c), the
- * keyboard (keys.c), and the playback itself (mod.c). */
+ * controls (keys.c), the summary other mods read (summary.c), and the
+ * playback itself (mod.c). */
 #ifndef REPLAY_PLAYER_H
 #define REPLAY_PLAYER_H
 
@@ -14,13 +15,11 @@ void player_match(const Slp* slp, StartMeleeData* start);
 /* Logs the replay and the Slippi rules its console ran. */
 void player_log_rules(const Slp* slp);
 
-/* The keys the player reads, each nonzero on the frame it goes down. */
+/* The controls the player reads, each nonzero on the frame it's pressed. */
 typedef struct Keys {
-    int pause, step, faster, slower, normal;
+    int pause, step, faster, slower, normal, leave;
 } Keys;
-/* Whether the keyboard can be read; logs how, or why not. Call once. */
-int keys_open(void);
-/* The keys pressed since the last call. */
+/* The controls pressed this displayed frame. */
 Keys keys_pressed(void);
 
 #endif
