@@ -160,8 +160,11 @@ static void init(void)
     }
     const char* why = net_open(setting("TGG_NETPLAY_PORT", 51000), peer);
     if (why != NULL) {
+        /* Asked for netplay and can't: playing on alone would only mislead */
         tgg_log("%s", why);
-        return;
+        fflush(stdout);
+        fflush(stderr);
+        _Exit(3);
     }
     fakenet_init(getenv("TGG_NETPLAY_FAKE"));
     tgg_rollback_init(np.max_rollback);

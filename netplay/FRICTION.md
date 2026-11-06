@@ -1,0 +1,90 @@
+# Friction
+
+What got in the way of writing this mod, as a mod maker would meet it, each with a suggested
+fix. The port gained general APIs for it: `tgg/rollback.h` (`tgg_rollback_init`, `tgg_frame`,
+`tgg_rollback`, `tgg_rollback_confirm`, `tgg_frame_checksum`), the `advance` and `quit`
+events, and `tgg_mod_set_id`, `tgg_mod_set_names` and `tgg_game_build` in `tgg/mod.h`.
+
+## Missing API
+
+### This side's controller is read in simulation code
+
+The input a player gives for a frame is read in `pad_read`, the only place the game's own read
+of the controller can be seen, and only on a frame's first run (`!tgg_resim()`), since a
+re-run reads the recorded report again. That's the right data, but `pad_read` is simulation
+code, and the docs tell a mod not to read anything from outside there; netplay has to, and
+then keep it outside the state.
+
+Fix: a presentation-side read of a controller, for example
+`tgg_controller(int port, HSD_PadStatus* status, PADStatus* raw)` in `advance`, giving the
+report the next frame will read and the state the game will make of it. A netplay mod would
+then read and send input outside the simulation, and only set inputs in `pad_read`. It would
+also let side 1 play with the controller in its own port 1 instead of having to use port 2:
+the port the game plays and the controller that drives it would be separate.
+
+### Hashing the match's setup by hand
+
+Both sides must play the same match, so the mod hashes `StartMeleeData` in `match_setup`. The
+struct holds callbacks and pointers (in the rules), which differ between games, so the mod
+hashes from `players` on and adds the stage by hand. That depends on the struct's layout and
+on knowing which fields are addresses.
+
+Fix: `uint32_t tgg_match_hash(const StartMeleeData*)`, a hash of the fields that decide the
+match, the way `tgg_match_from_console` knows its fields.
+
+### No way to stop the game with a message
+
+When the two games can't play together (another build, other mods, another match) the only
+thing a mod can do is log and `_Exit`, which skips the port's own shutdown. `exit` from a mod
+hangs in the port's teardown with its threads still running.
+
+Fix: `tgg_quit(int code, const char* why)`, which shows or logs the message, runs the `quit`
+event and exits the way the window's close does.
+
+### The checksum is one number
+
+`tgg_frame_checksum` gives one 64-bit value, so a desync says "frame 1834 differs" and nothing
+about what. The port knows which part differed (fighters, items, RNG, a mod's variable).
+
+Fix: `tgg_frame_checksum_parts`, or an id for the part, so a mod can log
+"fighters differ at frame 1834" or even send the parts and let the other side name it.
+`TGG_ROLLBACK_SUMS` writes every part and every `TGG_STATE` variable to a file, which is how
+this mod's desyncs were found, but that's a test tool, not an API.
+
+### No frame time
+
+The pacing works out where the other side is from its last frame and the round trip, in
+frames of 1/60 s. The mod assumes 60 Hz; a port that ran at another rate, or at
+`tgg_set_speed`, would pace wrongly.
+
+Fix: `tgg_frame_time()` (or the rate), the seconds one logic frame stands for.
+
+## Settings
+
+The same as the replay player's: settings are environment variables, so there's nothing a
+player can pick in the game, and the settings that must agree between the two sides (the
+replay played, the controller ports) aren't in the mod-set id. The mod sends what must agree
+in its hello and checks it, but a settings API with "counts for netplay" settings would let
+the port compare them with the mods.
+
+## Things the mod had to copy
+
+- The Slippi replay reader is the replay player's (`src/slp.c`), the third copy after the
+  port's own replay check. A replay library both mods depend on (a mod others import from)
+  would keep one.
+- Turning a replay's recorded input into what the game holds is the replay player's
+  `play_input` again.
+
+## What the port had to change
+
+Kept here for the record of what a netplay mod needs from a port, since none of it was visible
+from the API until two games played each other:
+
+- The game's sound code makes decisions the simulation reads (a free voice, a random pan
+  drawn from the game's RNG), and the mixer ran on the wall clock. Two games desynced on the
+  RNG within the first second. Under rollback the mixer now follows the logic frames.
+- ARAM holds files the game streams in, and a frame run on a guess could load something over
+  what the real timeline needed. Copies into ARAM are now undone on a restore.
+- Disc reads finished whenever the disc thread was done; a rollback could land while one was
+  in flight and its completion arrived in the restored state. Every request now finishes at
+  the frame boundary.
