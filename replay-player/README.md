@@ -1,24 +1,41 @@
 # Replay player
 
-Plays a Slippi replay (`.slp`) in tgg-melee: the game starts straight into the replay's
-match and every frame plays the inputs the console recorded, so the match plays out as it
-did. You watch it, pause it, step through it a frame at a time, and speed it up or slow it
-down.
+Plays a Slippi replay (`.slp`) in tgg-melee: the match starts and every frame plays the
+inputs the console recorded, so the match plays out as it did. You watch it, pause it, step
+through it a frame at a time, and speed it up or slow it down.
+
+Two ways to start one. A mod's screen asks for it, as `tgg.replay-browser` (Replays, on the
+Mods page) does, and the screen comes back when the replay ends. Or the environment names one,
+and the game starts straight into it:
 
 ```sh
 TGG_REPLAY_PLAYER_FILE=~/Slippi/Game_20250101T120000.slp tgg mod dev
 ```
 
-| Key | Does |
-|---|---|
-| space | pause, play |
-| `.` or right arrow | one frame, while paused |
-| `=` or up arrow | twice as fast (up to 4x) |
-| `-` or down arrow | half as fast (down to 1/16x) |
-| `0` | normal speed |
+| Key | Button | Does |
+|---|---|---|
+| space | Start | pause, play |
+| `.` or right arrow | D-pad right | one frame, while paused |
+| `=` or up arrow | D-pad up | twice as fast (up to 4x) |
+| `-` or down arrow | D-pad down | half as fast (down to 1/16x) |
+| `0` | Z | normal speed |
+| Escape | B | back to the screen that started it |
 
-The match pauses when the replay ends. The keys work under X11 (and XWayland); see
-[FRICTION.md](FRICTION.md) for why.
+The keys and buttons are the viewer's own (`tgg/input.h`), whatever the replay plays on the
+game's ports. The corner says when the replay is paused or sped up. Started from the
+environment, the match pauses when the replay ends.
+
+## For other mods
+
+`include/replay_player.h` is the player's API. A mod lists `"tgg.replay-player": "^0.2"` in
+its manifest's `depends` and includes the header:
+
+- `replay_read_summary(path, &summary)` reads what a replay holds without playing it, from the
+  start and the end of the file: the stage, the players (fighter, costume, name, connect code,
+  placement), who won and how it ended, its length, date and Slippi version, and the Slippi
+  rule mods it needs that aren't loaded.
+- `replay_play(path, &why)` plays it from the mod's screen (`tgg/screen.h`); the screen comes
+  back when the replay ends or the viewer leaves it.
 
 ## Slippi's rules
 
@@ -30,20 +47,22 @@ which this replay needs:
 ```text
 tgg.replay-player: Slippi 3.18.0, stage 31, 12034 frames, played online
 tgg.replay-player: its console ran Slippi rules these mods reproduce: tgg.neutral-spawns, tgg.offscreen-damage
-tgg.replay-player: install and turn them on, or the match plays out differently
+tgg.replay-player: not loaded: tgg.offscreen-damage; install and turn them on, or the match plays out differently
 ```
 
 ## How it works
 
 ```text
-src/mod.c      the playback: boot the match, each frame's inputs and RNG seed, the keys
+src/mod.c      the playback: start the match, each frame's inputs and RNG seed, the controls
 src/slp.c      reading the replay
-src/setup.c    the replay's match as the game sets one up, and the rules report
-src/keys.c     the keyboard, through the X server
+src/summary.c  a replay's summary for other mods, from the start and end of its file
+src/setup.c    the replay's match as the game sets one up, and the rules it needs
+src/keys.c     the viewer's keys and buttons (tgg/input.h)
 ```
 
-- `tgg_boot_match` (in `TGG_INIT`) starts the game in the replay's match, built from its Game
-  Info block (the console's `StartMeleeData`) with `tgg_match_from_console`.
+- The match is built from the replay's Game Info block (the console's `StartMeleeData`) with
+  `tgg_match_from_console`. A screen starts it with `tgg_screen_play_match`; from the
+  environment, `tgg_boot_match` (in `TGG_INIT`) does.
 - The `match_setup` event sets the RNG seed the replay started with before anything draws
   from it.
 - The `pad_read` event sets every port's input each logic frame: the processed state the game
@@ -53,7 +72,7 @@ src/keys.c     the keyboard, through the X server
   was paused through it: a pause on the console leaves no frames in the replay. While the
   match is paused, every port lets go until the pause can end, then the next recorded frame
   presses Start again.
-- The `frame` event reads the keys and calls the frame control functions (`tgg_pause`,
+- The `frame` event reads the viewer's controls and calls the frame control functions (`tgg_pause`,
   `tgg_step`, `tgg_set_speed`), which only change when frames run, never what they do.
 
 ## Checking it against the console

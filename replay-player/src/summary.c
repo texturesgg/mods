@@ -91,7 +91,8 @@ int replay_read_summary(const char* path, replay_summary* out)
     if (f == NULL) {
         return -1;
     }
-    uint8_t head[0x1000];
+    /* The setup and the gecko code list come before the first frame */
+    static uint8_t head[256 * 1024];
     const size_t got = fread(head, 1, sizeof head, f);
     static const uint8_t magic[] = { '{', 'U', 3, 'r', 'a', 'w', '[', '$', 'U', '#', 'l' };
     if (got < 0x40 || memcmp(head, magic, sizeof magic) != 0 || head[15] != 0x35) {
@@ -138,6 +139,28 @@ int replay_read_summary(const char* path, replay_summary* out)
         }
     }
 
+
+    /* The gecko code list, in Message Splitter parts before the first frame:
+     * which Slippi rules the console ran */
+    static uint8_t gecko[192 * 1024];
+    size_t gecko_len = 0;
+    for (size_t at = start; at < got;) {
+        const uint8_t cmd = head[at];
+        const uint16_t size = sizes[cmd];
+        if (size == 0 || at + 1 + size > got || cmd == 0x37 || cmd == 0x3A) {
+            break;
+        }
+        const uint8_t* m = head + at;
+        if (cmd == 0x10 && size >= 0x204 && m[0x203] == 0x3D) {
+            const uint16_t part = slp_be16(m + 0x201);
+            if (part <= 0x200 && gecko_len + part <= sizeof gecko) {
+                memcpy(gecko + gecko_len, m + 1, part);
+                gecko_len += part;
+            }
+        }
+        at += 1 + size;
+    }
+    player_rule_mods(gecko, gecko_len, out->stage, -1, 1, out->missing, sizeof out->missing);
     /* The Game End event closes the raw stream */
     const uint16_t ge = sizes[0x39];
     if (raw_len != 0 && ge >= 2 && fseek(f, (long) (15 + raw_len - (1 + ge)), SEEK_SET) == 0) {

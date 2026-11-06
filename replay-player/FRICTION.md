@@ -8,45 +8,6 @@ last section lists what those took away; everything else is what's still missing
 
 ## Missing API
 
-### No settings, so the replay is an environment variable
-
-The replay to play is `TGG_REPLAY_PLAYER_FILE`. There's no settings API
-(`docs/state-and-rollback.md#settings` says to read the environment in `TGG_INIT`), so a
-player who starts the game from a launcher can't pick a replay at all, and nothing tells
-them the variable exists unless they read this README.
-
-Fix: the settings records the design doc reserves (kind 12: `TGG_SETTING_*`, with a Mods
-page in the options menu). A path setting, or better a file picker, is what a replay player
-needs; a list of replays from Slippi's folder would be nicer still.
-
-### No keyboard for presentation code
-
-The playback keys (pause, step, speed) have no API to read from. The game reads the
-keyboard through SDL, which is linked into the executable and not exported, so a mod can't
-reach it, and `HSD_PadMasterStatus` is the replay's input, not the viewer's. The mod asks the
-X server directly: it `dlopen`s `libX11.so.6` and polls `XQueryKeymap` in the `frame`
-event (`src/keys.c`). That reads the whole display's keyboard, whatever window has focus,
-works only under X11 and XWayland (nothing on native Wayland, Windows or macOS), and opens
-a second X connection.
-
-Fix: a presentation-only input API, for example `tgg_key_down(TGG_KEY_SPACE)` and
-`tgg_key_pressed(...)` (went down since the last displayed frame), answered from the SDL
-events the host already pumps, valid only in the `frame` event and never in simulation
-code. A replay player, a training mode's menu, a debug overlay and a camera mod all want
-it. The same for the viewer's own controller, separate from what `pad_read` plays.
-
-### No way to ask which mods are loaded
-
-The player knows which Slippi rule mods a replay needs (it reads the console's gecko list),
-but it can't tell whether they're installed and on, so it can only say "install and turn
-them on". A replay that needs `tgg.neutral-spawns` and doesn't have it plays out wrong, and
-the viewer has no idea.
-
-Fix: `int tgg_mod_loaded(const char* id)` (and maybe its version), or an optional
-dependency in the manifest (`"optional": {"tgg.neutral-spawns": "*"}`) that loads it first
-when present. Further out, a way for a mod to turn on another installed mod for the match
-it boots.
-
 ### `tgg_boot_match` needs a whole `StartMeleeData`
 
 That's right for a replay, which has every field. For a mod that wants "Fox against Marth
@@ -66,8 +27,6 @@ short.
   runs at a few frames a second, and at a speed below 1 much slower still. It looks hung. The
   check could leave the clock alone when it isn't driving the input (`TGG_REPLAY_CHECK_ONLY`),
   or the sync clock could fall back to real time while paced.
-- **`dlopen` in a mod.** Nothing says whether a mod may use `dlopen`/`dlsym` (it may: they're
-  in the C library). Worth a line in the hooks page's list of what a mod can call.
 
 ## Things the mod had to copy
 
@@ -78,6 +37,17 @@ would let the check use it too, and the check would become a comparison only.
 
 ## Addressed
 
+- **Picking a replay.** A replay no longer needs `TGG_REPLAY_PLAYER_FILE`: another mod's
+  screen (`tgg.replay-browser`) lists the player's replays and calls `replay_play`, which starts
+  the match with `tgg_screen_play_match` (`tgg/screen.h`) and gets the screen back after. The
+  environment variable stays for scripted runs and the replay check.
+- **The viewer's keys.** `tgg/input.h` reads the viewer's keyboard and controllers from what
+  the host already polls, on every platform; `keys.c` no longer `dlopen`s X11, and the
+  controls work on a controller too.
+- **Which mods are loaded.** `tgg_mod_loaded(id)` (`tgg/mod.h`): the player says which of the
+  Slippi rule mods a replay needs aren't loaded, in the log and in `replay_read_summary`, so
+  a browser can show it before playing. Turning one on for a match is still missing (see the
+  browser's FRICTION.md).
 - **The match setup.** The `match_setup` event comes at the start of a match's setup, before
   the stage and the players draw from the RNG; the mod sets the replay's starting seed there
   instead of hooking `fn_8016E730`. The port's replay check sets its seed at the same point.

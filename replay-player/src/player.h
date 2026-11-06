@@ -14,6 +14,11 @@ typedef struct StartMeleeData StartMeleeData;
 void player_match(const Slp* slp, StartMeleeData* start);
 /* Logs the replay and the Slippi rules its console ran. */
 void player_log_rules(const Slp* slp);
+/* The Slippi rule mods a console's gecko list (and its Stadium
+ * transformations, -1 when unknown) call for, ", "-separated into `out`;
+ * with `missing_only`, only those that aren't loaded. Returns how many. */
+int player_rule_mods(const uint8_t* gecko, size_t len, int stage, int transformations,
+                     int missing_only, char* out, size_t cap);
 
 /* The controls the player reads, each nonzero on the frame it's pressed. */
 typedef struct Keys {
