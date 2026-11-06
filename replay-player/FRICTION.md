@@ -61,17 +61,6 @@ short.
 
 ## Build and CLI
 
-- **`tgg mod new` makes a git repository with no commit.** It runs `git init` and leaves
-  everything untracked. Either commit the template ("Start from the template") or don't
-  init; a half-made repo surprises.
-- **The template's README stays.** It describes the template ("It logs a line when the game
-  starts"), and every mod made from it ships that text until someone rewrites it (the rule
-  mods in `~/dev/texturesgg/mods` still do). `tgg mod new` could write a README with only
-  the mod's name and the build commands.
-- **`HOME` and `TGG_GAME_SDK`.** Building against a port build that isn't installed means
-  `TGG_GAME_SDK=<build>/tgg-melee-sdk`, and a scratch `HOME` so `tgg` doesn't touch the real
-  one. Both work, but `tgg mod build --sdk` exists and `tgg mod dev` has no equivalent for a
-  local port build's executable; `--game <path>` would make a port developer's loop shorter.
 - **Watching the check.** The replay check sets `TGG_SYNC_DISC=1`, whose clock moves 100 us
   per read between frames drawn; paced (not `TGG_UNPACED`), on a busy machine, the game then
   runs at a few frames a second, and at a speed below 1 much slower still. It looks hung. The
@@ -107,3 +96,7 @@ would let the check use it too, and the check would become a comparison only.
   `gm_SetupRulesDefaults`, `gm_GetDbPauseFlag`).
 - **Where the seed goes.** The state-and-rollback page says setting `*HSD_RandSeedPtr` from
   simulation code is fine and rolls back, and points at `match_setup`.
+- **The CLI and a local port build** (tgg-cli on core's `cli/mod-lab` branch, not yet in a
+  release). `tgg mod new` takes `--sdk`/`TGG_GAME_SDK` as `tgg mod build` does, makes a first
+  commit in the repository it creates, and gives a mod started from the template its own
+  README; `tgg mod dev --game <build folder>` (or `TGG_GAME`) runs a local port build.
