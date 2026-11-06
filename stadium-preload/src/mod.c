@@ -30,6 +30,9 @@ static const char* const files[] = { "GrPs1.dat", "GrPs2.dat", "GrPs4.dat", "GrP
 
 static bool preloaded;
 static int preloaded_kind;
+/* What a later frame reads: rolled back with the game */
+TGG_STATE(preloaded);
+TGG_STATE(preloaded_kind);
 
 /* While grStadium_801D4548 runs: its stage and its step when it started */
 static Ground* deciding;
