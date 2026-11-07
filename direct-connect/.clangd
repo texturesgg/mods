@@ -1,0 +1,6 @@
+# clangd: the flags come from the build (cmake writes build/compile_commands.json),
+# and the game's headers in the SDK carry GCC's scalar_storage_order attribute,
+# which clang doesn't know.
+CompileFlags:
+  CompilationDatabase: build
+  Add: [-Wno-unknown-attributes]
