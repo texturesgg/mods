@@ -64,4 +64,10 @@ TGG_API(REPLAY_PLAYER, int, replay_read_summary, (const char* path, replay_summa
  * says why, for the player to see. */
 TGG_API(REPLAY_PLAYER, int, replay_play, (const char* path, const char** why));
 
+/* Nonzero while the player has a replay to play: from replay_play until its
+ * match ends, or for the whole run when TGG_REPLAY_PLAYER_FILE names one.
+ * A mod that records matches skips these. Safe from any code: it changes
+ * only between matches. */
+TGG_API(REPLAY_PLAYER, int, replay_playing, (void));
+
 #endif

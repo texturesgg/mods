@@ -127,6 +127,11 @@ int replay_play(const char* path, const char** why)
     return 0;
 }
 
+int replay_playing(void)
+{
+    return loaded;
+}
+
 /* The match's setup, before the stage and the players draw from the RNG */
 static void on_setup(const StartMeleeData* data)
 {

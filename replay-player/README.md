@@ -36,6 +36,9 @@ its manifest's `depends` and includes the header:
   rule mods it needs that aren't loaded.
 - `replay_play(path, &why)` plays it from the mod's screen (`tgg/screen.h`); the screen comes
   back when the replay ends or the viewer leaves it.
+- `replay_playing()` is nonzero while the player has a replay to play, so a mod that records
+  matches can skip them. A mod that only wants this asks for it with
+  `tgg_mod_export("tgg.replay-player", "replay_playing@1")` instead of depending on the player.
 
 ## Slippi's rules
 
