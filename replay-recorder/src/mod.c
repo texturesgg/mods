@@ -54,6 +54,11 @@ TGG_SETTING_BOOL(playback, "playback", "Record replays being watched", 0);
 static RecMatch match;
 static int pending;    /* a match was set up to record */
 static int match_left; /* its scene left (match_end) */
+/* The next match, set up while the last one's file was still open (a
+ * sudden death straight after a match, under rollback): it starts once that
+ * file is finished, before the new match's first frame */
+static RecMatch queued;
+static int queued_pending;
 static SlpFile* file;
 static int next;       /* the next Slippi frame to write */
 static char path[1024];
@@ -76,18 +81,25 @@ TGG_INIT(init);
  * start of the VS scene's setup, before anything draws from the RNG */
 static void on_setup(const StartMeleeData* data)
 {
-    pending = 0;
-    match_left = 0;
+    const int busy = file != NULL;
+    if (!busy) {
+        pending = 0;
+        match_left = 0;
+    }
+    queued_pending = 0;
     if (!enabled || gm_GetCurrentGameMode() != GM_VS ||
         (player_playing != NULL && player_playing() && !playback))
     {
-        capture_stop();
+        if (!busy) {
+            capture_stop();
+        }
         return;
     }
-    memset(&match, 0, sizeof match);
-    tgg_match_to_console(data, match.info);
+    RecMatch m;
+    memset(&m, 0, sizeof m);
+    tgg_match_to_console(data, m.info);
     for (int i = 0; i < 4; i++) {
-        uint8_t* p = match.info + 0x60 + 0x24 * i;
+        uint8_t* p = m.info + 0x60 + 0x24 * i;
         const PlayerInitData* pl = &data->players[i];
         /* Zelda with A held as the match starts plays as Sheik, which the
          * console records as Sheik */
@@ -100,16 +112,22 @@ static void on_setup(const StartMeleeData* data)
         if (pl->slot_type == Gm_PKind_Human && pl->nametag != 0x78) {
             const char* tag = GetNameText(pl->nametag);
             if (tag != NULL) {
-                memcpy(match.nametags[i], tag, strnlen(tag, 8));
+                memcpy(m.nametags[i], tag, strnlen(tag, 8));
             }
         }
-        match.ucf[i] = tgg_mod_loaded("tgg.ucf") != NULL;
+        m.ucf[i] = tgg_mod_loaded("tgg.ucf") != NULL;
     }
-    match.seed = *HSD_RandSeedPtr;
-    match.frozen_stadium = tgg_mod_loaded("tgg.frozen-stadium") != NULL;
-    match.major_scene = (uint8_t) gm_GetCurrentGameMode();
-    match.minor_scene = 2; /* in game */
-    match.language = (uint8_t) lbLang_GetSavedLanguage();
+    m.seed = *HSD_RandSeedPtr;
+    m.frozen_stadium = tgg_mod_loaded("tgg.frozen-stadium") != NULL;
+    m.major_scene = (uint8_t) gm_GetCurrentGameMode();
+    m.minor_scene = 2; /* in game */
+    m.language = (uint8_t) lbLang_GetSavedLanguage();
+    if (busy) {
+        queued = m;
+        queued_pending = 1;
+        return;
+    }
+    match = m;
     capture_start();
     pending = 1;
 }
@@ -213,22 +231,27 @@ static void finish(void)
 
 static void pump(void)
 {
-    if (!pending) {
-        return;
-    }
-    if (file == NULL) {
-        open_file();
-        if (file == NULL) {
-            return;
+    if (pending && file != NULL) {
+        write_final();
+        /* Done once the end is final: with rollback off it is as soon as it
+         * happens, and with rollback on once the scene has left */
+        if ((capture_end()->known && tgg_frame_final() == INT_MAX) || match_left ||
+            !tgg_in_match())
+        {
+            finish();
         }
     }
-    write_final();
-    /* Done once the end is final: with rollback off it is as soon as it
-     * happens, and with rollback on once the scene has left */
-    if ((capture_end()->known && tgg_frame_final() == INT_MAX) || match_left ||
-        !tgg_in_match())
-    {
-        finish();
+    if (queued_pending && file == NULL) {
+        /* The match set up while the last file was open, before its first
+         * frame: every run of the match starts from here, as from its setup */
+        queued_pending = 0;
+        match = queued;
+        match_left = 0;
+        capture_start();
+        pending = 1;
+    }
+    if (pending && file == NULL) {
+        open_file();
     }
 }
 
