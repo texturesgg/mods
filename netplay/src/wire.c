@@ -1,7 +1,7 @@
 /* What goes over the network: a port's input as the game made it, and the
  * packets, written field by field in little-endian order so both ends read
  * them alike whatever their compiler lays a struct out as. */
-#include "netplay.h"
+#include "internal.h"
 
 #include <sysdolphin/baselib/controller.h>
 
@@ -201,12 +201,16 @@ size_t wire_encode(const WirePacket* p, uint8_t* buf)
         const WireHello* h = &p->u.hello;
         put_bytes(&c, h->build, sizeof h->build);
         put_bytes(&c, h->mod_set, sizeof h->mod_set);
+        put_bytes(&c, h->versions, sizeof h->versions);
+        put_bytes(&c, h->target, sizeof h->target);
         put(&c, h->side, 1);
         put(&c, h->delay, 1);
+        put(&c, h->heard, 1);
         put(&c, h->seed, 4);
         put(&c, h->replay, 4);
     } else if (p->type == WIRE_INPUT) {
         const WireInputs* in = &p->u.inputs;
+        put(&c, in->number, 4);
         put(&c, (uint32_t) in->frame, 4);
         put(&c, (uint32_t) in->ack, 4);
         put(&c, in->match, 4);
@@ -214,10 +218,27 @@ size_t wire_encode(const WirePacket* p, uint8_t* buf)
         put(&c, in->sum, 8);
         put(&c, in->ping, 4);
         put(&c, in->pong, 4);
+        put(&c, in->pong_age, 2);
         put(&c, (uint32_t) in->first, 4);
         put(&c, in->count, 1);
         for (int i = 0; i < in->count && i < WIRE_MAX_INPUTS; i++) {
             put_input(&c, &in->inputs[i]);
+        }
+    } else if (p->type == WIRE_LOBBY) {
+        const WireLobby* l = &p->u.lobby;
+        put(&c, l->ping, 4);
+        put(&c, l->pong, 4);
+        put(&c, l->pong_age, 2);
+        put(&c, l->msg_ack, 4);
+        put(&c, l->number, 4);
+        put(&c, (uint32_t) l->input_ack, 4);
+        put(&c, l->count, 1);
+        for (int i = 0; i < l->count && i < WIRE_MAX_MSGS; i++) {
+            const WireMsg* m = &l->msgs[i];
+            put(&c, m->seq, 4);
+            put(&c, m->kind, 1);
+            put(&c, m->len, 2);
+            put_bytes(&c, m->data, m->len);
         }
     }
     return (size_t) (c.w - buf);
@@ -235,14 +256,20 @@ int wire_decode(const uint8_t* buf, size_t len, WirePacket* p)
         WireHello* h = &p->u.hello;
         get_bytes(&c, h->build, sizeof h->build);
         get_bytes(&c, h->mod_set, sizeof h->mod_set);
+        get_bytes(&c, h->versions, sizeof h->versions);
+        get_bytes(&c, h->target, sizeof h->target);
+        h->versions[sizeof h->versions - 1] = '\0';
+        h->target[sizeof h->target - 1] = '\0';
         h->build[sizeof h->build - 1] = '\0';
         h->mod_set[sizeof h->mod_set - 1] = '\0';
         h->side = (uint8_t) get(&c, 1);
         h->delay = (uint8_t) get(&c, 1);
+        h->heard = (uint8_t) get(&c, 1);
         h->seed = (uint32_t) get(&c, 4);
         h->replay = (uint32_t) get(&c, 4);
     } else if (p->type == WIRE_INPUT) {
         WireInputs* in = &p->u.inputs;
+        in->number = (uint32_t) get(&c, 4);
         in->frame = (int32_t) get(&c, 4);
         in->ack = (int32_t) get(&c, 4);
         in->match = (uint32_t) get(&c, 4);
@@ -250,6 +277,7 @@ int wire_decode(const uint8_t* buf, size_t len, WirePacket* p)
         in->sum = get(&c, 8);
         in->ping = (uint32_t) get(&c, 4);
         in->pong = (uint32_t) get(&c, 4);
+        in->pong_age = (uint16_t) get(&c, 2);
         in->first = (int32_t) get(&c, 4);
         in->count = (uint8_t) get(&c, 1);
         if (in->count > WIRE_MAX_INPUTS) {
@@ -257,6 +285,28 @@ int wire_decode(const uint8_t* buf, size_t len, WirePacket* p)
         }
         for (int i = 0; i < in->count; i++) {
             get_input(&c, &in->inputs[i]);
+        }
+    } else if (p->type == WIRE_LOBBY) {
+        WireLobby* l = &p->u.lobby;
+        l->ping = (uint32_t) get(&c, 4);
+        l->pong = (uint32_t) get(&c, 4);
+        l->pong_age = (uint16_t) get(&c, 2);
+        l->msg_ack = (uint32_t) get(&c, 4);
+        l->number = (uint32_t) get(&c, 4);
+        l->input_ack = (int32_t) get(&c, 4);
+        l->count = (uint8_t) get(&c, 1);
+        if (l->count > WIRE_MAX_MSGS) {
+            return 0;
+        }
+        for (int i = 0; i < l->count; i++) {
+            WireMsg* m = &l->msgs[i];
+            m->seq = (uint32_t) get(&c, 4);
+            m->kind = (uint8_t) get(&c, 1);
+            m->len = (uint16_t) get(&c, 2);
+            if (m->len > WIRE_MSG_MAX) {
+                return 0;
+            }
+            get_bytes(&c, m->data, m->len);
         }
     } else if (p->type != WIRE_BYE) {
         return 0;

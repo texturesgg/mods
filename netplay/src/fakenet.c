@@ -1,7 +1,7 @@
 /* A fake network for tests: each datagram sent waits its latency, plus or
  * minus the jitter, and some are lost. Jitter reorders them. The randomness
  * is its own generator, seeded from the spec, never the game's. */
-#include "netplay.h"
+#include "internal.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,6 +35,7 @@ static double next_random(void)
 
 void fakenet_init(const char* spec)
 {
+    fk.count = 0;
     if (spec == NULL || spec[0] == '\0') {
         return;
     }

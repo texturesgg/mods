@@ -9,7 +9,7 @@
  * recorded, as Slippi's own netplay keeps the two consoles' seeds together.
  * The input playing turns a recorded frame into what the game holds the same
  * way the replay player does. */
-#include "netplay.h"
+#include "internal.h"
 #include "slp.h"
 
 #include "tgg/control.h"

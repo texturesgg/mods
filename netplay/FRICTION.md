@@ -18,9 +18,9 @@ then keep it outside the state.
 Fix: a presentation-side read of a controller, for example
 `tgg_controller(int port, HSD_PadStatus* status, PADStatus* raw)` in `advance`, giving the
 report the next frame will read and the state the game will make of it. A netplay mod would
-then read and send input outside the simulation, and only set inputs in `pad_read`. It would
-also let side 1 play with the controller in its own port 1 instead of having to use port 2:
-the port the game plays and the controller that drives it would be separate.
+then read and send input outside the simulation, and only set inputs in `pad_read`. The mod
+already separates the port a side plays from the controller that drives it (the "Your
+controller" setting), but only by reading every port's raw report in `pad_read`.
 
 ### Hashing the match's setup by hand
 
@@ -61,11 +61,17 @@ Fix: `tgg_frame_time()` (or the rate), the seconds one logic frame stands for.
 
 ## Settings
 
-The same as the replay player's: settings are environment variables, so there's nothing a
-player can pick in the game, and the settings that must agree between the two sides (the
-replay played, the controller ports) aren't in the mod-set id. The mod sends what must agree
-in its hello and checks it, but a settings API with "counts for netplay" settings would let
-the port compare them with the mods.
+The input delay and which controller a person plays with are their own: two players setting
+them differently mustn't keep them apart, while every other setting of a counted mod is part
+of the mod-set id. The port gained `TGG_SETTING_*_LOCAL` for this: a local setting stays out
+of the id. Netplay's two settings and all of direct-connect's are local.
+
+Between platforms the mod-set id can't match at all (the libraries differ), so the port gained
+`tgg_mod_set_versions`: the id without the libraries' hashes, which a Linux game and a macOS
+game compare instead.
+
+The test settings (the replay played, the fake network, the ports) are still environment
+variables, outside the id.
 
 ## Things the mod had to copy
 
