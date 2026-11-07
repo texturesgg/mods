@@ -25,7 +25,11 @@ is in the save. So the mod keeps every value of the rules screens in its setting
 them back after the game resets its rules and after it loads the save.
 
 The same values are on the Mods page. A change there goes to the game, and a change in the
-game's menus goes to the Mods page.
+game's rules menus goes to the Mods page. Only the rules menus count: Custom Rules (also
+opened from the rules banner at the top of the character select), Additional Rules and the
+item switch. If anything else changes the rules outside a match, the mod puts your rules
+back. Tournament mode turns automatic handicap off by itself, so its changes stay until you
+leave it.
 
 Stage selection and self-destructs are saved as the text the game shows ("On", "-1"), so
 the mod needs a port that reads a choice setting's own text before reading it as a

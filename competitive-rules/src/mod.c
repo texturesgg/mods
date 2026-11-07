@@ -7,15 +7,26 @@
  * every start (gmMainLib_8015FBA4). Only the item switch is in the save. So
  * the mod keeps every value of the rules menus in its settings, whose defaults
  * are the competitive ones, and puts them in place after the game resets its
- * rules and after it loads the save. Each displayed frame outside a match it
- * compares the game's rules with the settings: a change in the game's menus is
- * saved to the settings, and a change on the Mods page goes to the game.
+ * rules and after it loads the save.
+ *
+ * Only the rules menus are the player's choice: Custom Rules and the character
+ * select's rules banner (mnmainrule.c), Additional Rules (mnruleplus.c) and
+ * the item switch (mnitemsw.c). After each of their frames the mod saves what
+ * they changed. Each displayed frame outside a match it compares the rules
+ * with the settings: a change on the Mods page goes to the game, and any other
+ * change in the game is put back. Tournament mode changes the handicap itself,
+ * so its changes stay until it ends.
  */
 #include "tgg/events.h"
 #include "tgg/settings.h"
 
+#include <melee/gm/forward.h>
+#include <melee/gm/gm_1A3F.h>
 #include <melee/gm/gmmain_lib.h>
 #include <melee/gm/types.h>
+#include <melee/mn/mnitemsw.h>
+#include <melee/mn/mnmainrule.h>
+#include <melee/mn/mnruleplus.h>
 
 #include <string.h>
 
@@ -114,9 +125,52 @@ static void after_save_load(s32 card_state)
 }
 TGG_AFTER(gmMainLib_8015FA34, after_save_load);
 
+/* A rules menu ran its frame: what it changed is the player's choice */
+static void after_rules_menu(HSD_GObj* gobj)
+{
+    (void) gobj;
+    if (!ready) {
+        return;
+    }
+    int game[N_RULES];
+    read_game(game);
+    for (int i = 0; i < N_RULES; i++) {
+        if (game[i] != synced[i]) {
+            rule[i] = game[i];
+            tgg_setting_store(&rule[i]);
+            /* a value the setting can't hold comes back to the game on the
+             * next frame, as one changed on the Mods page */
+            synced[i] = game[i];
+        }
+    }
+}
+TGG_AFTER(fn_8022F538, after_rules_menu); /* Custom Rules' input */
+TGG_AFTER(fn_802309F0, after_rules_menu); /* Custom Rules' values */
+TGG_AFTER(fn_8023201C, after_rules_menu); /* Additional Rules' input */
+TGG_AFTER(fn_80232F44, after_rules_menu); /* Additional Rules' values */
+TGG_AFTER(fn_80233E10, after_rules_menu); /* item switch's input */
+TGG_AFTER(fn_80234C24, after_rules_menu); /* item switch's values */
+
+/* Tournament mode changed the rules: they go back when it ends */
+static bool in_tournament;
+
 static void on_frame(void)
 {
     if (!ready || tgg_in_match()) {
+        return;
+    }
+    int game[N_RULES];
+    read_game(game);
+    if (gm_GetCurrentGameMode() == GM_TOURNAMENT) {
+        if (memcmp(game, synced, sizeof game) != 0) {
+            memcpy(synced, game, sizeof synced);
+            in_tournament = true;
+        }
+        return;
+    }
+    if (in_tournament) {
+        in_tournament = false;
+        apply();
         return;
     }
     if (memcmp(rule, synced, sizeof rule) != 0) {
@@ -124,17 +178,15 @@ static void on_frame(void)
         apply();
         return;
     }
-    int game[N_RULES];
-    read_game(game);
-    for (int i = 0; i < N_RULES; i++) {
-        if (game[i] != synced[i]) {
-            /* changed in the game's menus */
-            rule[i] = game[i];
-            tgg_setting_store(&rule[i]);
-            /* a value the setting can't hold comes back to the game on the
-             * next frame, as one changed on the Mods page */
-            synced[i] = game[i];
+    if (memcmp(game, synced, sizeof game) != 0) {
+        /* changed outside the rules menus: not the player's choice */
+        for (int i = 0; i < N_RULES; i++) {
+            if (game[i] != synced[i]) {
+                tgg_log("rule %d changed outside the rules menus (%d, was %d): put back", i,
+                        game[i], synced[i]);
+            }
         }
+        apply();
     }
 }
 TGG_ON(frame, on_frame);
