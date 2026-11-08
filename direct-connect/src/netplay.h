@@ -24,7 +24,7 @@
  *
  * A mod that uses it lists netplay in its manifest's "depends":
  *
- *     "depends": { "tgg.netplay": "^0.2" }
+ *     "depends": { "tgg.netplay": "^0.3" }
  *
  * and includes this header (copy it, or add netplay's include/ to the
  * include path). */

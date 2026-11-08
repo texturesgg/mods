@@ -11,7 +11,8 @@ It's a screen on the Mods page (Y on the main menu, then Direct connect). The ne
    only `tgg.netplay` and `tgg.direct-connect`, on both sides.
 2. The host picks **Host**. The screen shows the host's addresses, a Tailscale address first
    (in gold) when there is one. The host's port (51000 unless changed) must be reachable: let
-   UDP 51000 through the firewall, or have the other player host.
+   UDP 51000 through the firewall (Windows asks the first time you host: allow it), or have the
+   other player host.
 3. The other player picks **Join**, types the address with the on-screen keyboard (or a real
    keyboard) and presses Start. The port is added if you leave it out. Next time,
    **Join &lt;last address&gt;** is right there: press A.
@@ -61,8 +62,10 @@ itself is the `StartMeleeData` the host builds, and netplay hands it to both gam
 - `src/keyboard.c`: an on-screen keyboard for a controller, plus the real keyboard
   (`tgg/input.h`).
 - `src/draw.c`: the screen in the menus' look, with `tgg/draw.h`.
-- `src/addr.c`: this machine's IPv4 addresses, Tailscale's first. The one file with
-  platform calls.
+- `src/addr.c`: this machine's IPv4 addresses, Tailscale's first, from the port's `tgg/net.h`
+  (`tgg_net_interfaces`): an address in Tailscale's range on an interface named for it, or
+  alone on its interface, counts as Tailscale's. No file has platform calls, so the mod builds
+  unchanged for Linux, macOS and Windows.
 - `src/names.c`: the character grid in the character select's order, and the stages.
 - `src/netplay.h`: a copy of `tgg.netplay`'s `include/netplay.h`.
 
@@ -71,7 +74,8 @@ check.
 
 ## Requirements
 
-`tgg.netplay` 0.2 (`"depends": { "tgg.netplay": "^0.2" }`).
+`tgg.netplay` 0.3 (`"depends": { "tgg.netplay": "^0.3" }`), and tgg-melee 0.1.0-rc.9 or later
+(the first with `tgg/net.h`).
 
 ## Build
 
