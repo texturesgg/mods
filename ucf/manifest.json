@@ -1,0 +1,32 @@
+{
+  "api": "tgg-melee/0",
+  "id": "tgg.ucf",
+  "name": "UCF",
+  "version": "0.8.0",
+  "description": "The Universal Controller Fix: dashback, shield drop and tumble, as Slippi 3.9 to 3.16 ran it.",
+  "icon": "icon.png",
+  "tags": [
+    "competitive",
+    "netplay"
+  ],
+  "slippi": [
+    {
+      "code": "0x800908F4",
+      "name": "UCF 0.8: tumble",
+      "versions": ">=3.9",
+      "unless": ["0x8006B460"]
+    },
+    {
+      "code": "0x800C9A44",
+      "name": "UCF 0.8: dashback",
+      "versions": ">=3.9",
+      "unless": ["0x8006B460"]
+    },
+    {
+      "code": "0x800998A4",
+      "name": "UCF 0.8: shield drop",
+      "versions": ">=3.9",
+      "unless": ["0x8006B460"]
+    }
+  ]
+}
