@@ -8,6 +8,7 @@
  * player's folders never reaches a match. */
 #include "browser.h"
 
+#include "tgg/events.h"
 #include "tgg/files.h"
 #include "tgg/input.h"
 #include "tgg/screen.h"
@@ -108,6 +109,19 @@ static void go_up(void)
     }
 }
 
+static void play(const char* path)
+{
+    const char* why = NULL;
+    if (replay_play(path, &why) == 0) {
+        tgg_menu_sound(TGG_SOUND_ACCEPT);
+    } else {
+        tgg_menu_sound(TGG_SOUND_ERROR);
+        char text[160];
+        snprintf(text, sizeof text, "Can't play it: %s.", why != NULL ? why : "unknown");
+        say(text);
+    }
+}
+
 static void choose(void)
 {
     if (br.n == 0) {
@@ -128,14 +142,57 @@ static void choose(void)
         }
         return;
     }
-    const char* why = NULL;
-    if (replay_play(path, &why) == 0) {
+    /* tgg checks what it was played with: the game as it is, or a restart
+     * with those mods. Without tgg, it plays here as it is. */
+    snprintf(br.pending, sizeof br.pending, "%s", path);
+    if (tgg_restart_with("tgg.replay-browser", path, br.folder) == 0) {
         tgg_menu_sound(TGG_SOUND_ACCEPT);
+        br.restarting = 1;
     } else {
+        play(path);
+    }
+}
+
+/* While tgg gets what a replay needs: B stops it; asked about publishers, A
+ * says yes (and remembers it) and B no */
+static void restart_frame(uint32_t in)
+{
+    tgg_restart_poll(&br.restart);
+    switch (br.restart.state) {
+    case TGG_RESTART_WORKING:
+        if (in & TGG_MENU_BACK) {
+            tgg_restart_cancel();
+            tgg_menu_sound(TGG_SOUND_BACK);
+            br.restarting = 0;
+        }
+        break;
+    case TGG_RESTART_NEEDS_TRUST:
+        if (in & (TGG_MENU_ACCEPT | TGG_MENU_START)) {
+            tgg_menu_sound(TGG_SOUND_ACCEPT);
+            tgg_restart_trust(1, 1);
+        } else if (in & TGG_MENU_BACK) {
+            tgg_menu_sound(TGG_SOUND_BACK);
+            tgg_restart_trust(0, 0);
+            br.restarting = 0;
+        }
+        break;
+    case TGG_RESTART_NOT_NEEDED:
+        br.restarting = 0;
+        tgg_restart_cancel();
+        play(br.pending);
+        break;
+    case TGG_RESTART_FAILED: {
+        br.restarting = 0;
         tgg_menu_sound(TGG_SOUND_ERROR);
-        char text[160];
-        snprintf(text, sizeof text, "Can't play it: %s.", why != NULL ? why : "unknown");
+        char text[300];
+        snprintf(text, sizeof text, "Can't get what it needs: %s.", br.restart.message);
         say(text);
+        tgg_restart_cancel();
+        break;
+    }
+    default:
+        br.restarting = 0;
+        break;
     }
 }
 
@@ -145,6 +202,10 @@ static void frame(void)
         br.message_frames--;
     }
     const uint32_t in = tgg_menu_input();
+    if (br.restarting) {
+        restart_frame(in);
+        return;
+    }
     if (in & TGG_MENU_BACK) {
         tgg_menu_sound(TGG_SOUND_BACK);
         tgg_screen_close();
@@ -189,3 +250,26 @@ static const tgg_screen browser = {
     .draw = browser_draw,
 };
 TGG_SCREEN("browser", browser);
+
+/* Back in the player's own game after a replay played in a restarted one:
+ * the browser again, in the folder it was in, once the menu can show it */
+static void on_frame(void)
+{
+    static int done;
+    if (done) {
+        return;
+    }
+    const char* folder = tgg_restarted("tgg.replay-browser");
+    if (folder == NULL) {
+        done = 1;
+        return;
+    }
+    if (tgg_screen_open(&browser) == 0) {
+        done = 1;
+        if (folder[0] != '\0') {
+            snprintf(br.folder, sizeof br.folder, "%s", folder);
+        }
+        tgg_log("back from the replay: open again in %s", folder);
+    }
+}
+TGG_ON(frame, on_frame);

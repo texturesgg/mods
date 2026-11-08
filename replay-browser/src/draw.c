@@ -235,6 +235,38 @@ static void draw_preview(void)
     tgg_draw_text(x + w - 12, y + 25, 15, DIM, TGG_ALIGN_RIGHT, line);
 }
 
+/* Over the preview while tgg gets what a replay needs */
+static void draw_restart(void)
+{
+    const tgg_restart_status* r = &br.restart;
+    const float x = PREVIEW_X, w = PREVIEW_W, y = TOP + 60, h = 170;
+    tgg_draw_rect(x, y, w, h, TGG_RGBA(10, 12, 40, 240));
+    tgg_draw_rect(x, y, w, 2, BLUE);
+    char text[300];
+    if (r->state == TGG_RESTART_NEEDS_TRUST) {
+        tgg_draw_text(x + 14, y + 14, 19, WHITE, TGG_ALIGN_LEFT, "It was played with mods by");
+        tgg_text_fit(text, sizeof text, 19, w - 28, r->trust);
+        tgg_draw_text(x + 14, y + 40, 19, GOLD, TGG_ALIGN_LEFT, text);
+        tgg_draw_text(x + 14, y + 72, 16, DIM, TGG_ALIGN_LEFT, "Get them to play it back?");
+        tgg_draw_text(x + 14, y + h - 30, 16, DIM, TGG_ALIGN_LEFT, "A: Yes, always    B: No");
+        return;
+    }
+    tgg_draw_text(x + 14, y + 14, 19, WHITE, TGG_ALIGN_LEFT, "Getting what it was played with");
+    tgg_text_fit(text, sizeof text, 16, w - 28, r->label);
+    tgg_draw_text(x + 14, y + 48, 16, DIM, TGG_ALIGN_LEFT, text);
+    /* This step's bytes, when tgg knows the size */
+    tgg_draw_rect(x + 14, y + 80, w - 28, 10, TGG_RGBA(255, 255, 255, 40));
+    if (r->total > 0) {
+        const float done = (float) (r->bytes / r->total);
+        tgg_draw_rect(x + 14, y + 80, (w - 28) * (done > 1 ? 1 : done), 10, BLUE);
+    }
+    if (r->steps > 0) {
+        snprintf(text, sizeof text, "%d of %d", r->step + 1, r->steps);
+        tgg_draw_text(x + w - 14, y + 98, 15, DIM, TGG_ALIGN_RIGHT, text);
+    }
+    tgg_draw_text(x + 14, y + h - 30, 16, DIM, TGG_ALIGN_LEFT, "The game restarts to play it.  B: Stop");
+}
+
 void browser_draw(void)
 {
     /* The title, and the folder shown */
@@ -247,10 +279,14 @@ void browser_draw(void)
 
     draw_list();
     draw_preview();
+    if (br.restarting) {
+        draw_restart();
+    }
 
     tgg_draw_rect(b.x, 440, b.w, 40, BAND);
     if (br.message_frames > 0) {
-        tgg_draw_text(320, 450, 20, GOLD, TGG_ALIGN_CENTER, br.message);
+        tgg_text_fit(text, sizeof text, 20, 600, br.message);
+        tgg_draw_text(320, 450, 20, GOLD, TGG_ALIGN_CENTER, text);
     } else {
         const int dir = br.n > 0 && br.entries[br.sel].is_dir;
         tgg_draw_text(320, 450, 19, DIM, TGG_ALIGN_CENTER,

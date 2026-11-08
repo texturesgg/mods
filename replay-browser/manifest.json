@@ -2,7 +2,7 @@
   "api": "tgg-melee/0",
   "id": "tgg.replay-browser",
   "name": "Replays",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "depends": {
     "tgg.replay-player": "^0.2"
   },

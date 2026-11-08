@@ -5,6 +5,7 @@
 #define REPLAY_BROWSER_H
 
 #include "tgg/mod.h"
+#include "tgg/restart.h"
 
 #include "replay_player.h"
 
@@ -28,8 +29,12 @@ typedef struct Browser {
     int n;
     int sel;
     int top;
-    char message[160]; /* shown in the footer for a while */
+    char message[320]; /* shown in the footer for a while */
     int message_frames;
+    /* A replay that needs other mods: tgg is getting them (tgg/restart.h) */
+    int restarting;
+    char pending[PATH_MAX_LEN + 256];
+    tgg_restart_status restart;
 } Browser;
 
 extern Browser br;

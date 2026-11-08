@@ -40,6 +40,11 @@ A replay plays out as recorded only with the rules its console ran. Slippi adds 
 mods reproduce them (`tgg.neutral-spawns` and the rest). When a replay needs one that isn't
 installed, its preview says "Needs" and names them.
 
+Press A anyway: `tgg` (beside the game) gets the mods it was played with, asking first about any
+that aren't official, and the game restarts with them to play it. When the replay is over the
+game restarts again with your own mods, back on this screen. A replay your mods already play
+as it was played starts right away.
+
 Netplay: this is a code mod, so it counts toward the mod-set. Both players need it, or
 neither. Its settings are your own and don't count.
 
