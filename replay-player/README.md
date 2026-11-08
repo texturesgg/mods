@@ -23,7 +23,9 @@ TGG_REPLAY_PLAYER_FILE=~/Slippi/Game_20250101T120000.slp tgg mod dev
 
 The controls are the viewer's own keyboard and controllers, whatever the replay plays on
 the game's ports. The corner shows when the replay is paused or sped up. Started from the
-environment, the match pauses when the replay ends.
+environment, the match pauses when the replay ends. In a game restarted to play it (see the
+port's [restart docs](https://textures.gg/docs/mods/latest/restart)), the player's own game
+comes back when the match is over or they leave.
 
 No settings. Netplay: this is a code mod, so it counts toward the mod-set. Both players
 need it, or neither.

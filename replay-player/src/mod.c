@@ -18,8 +18,9 @@
  *
  * The viewer's keys and controllers (keys.c) pause, step a frame, change the
  * speed and, for a replay a screen started, leave it. Booted from the
- * environment, the match pauses when the replay ends; started from a screen,
- * the screen comes back.
+ * environment, the match pauses when the replay ends, unless the game was
+ * restarted to play it (tgg/restart.h): then the player's own game comes back,
+ * as it does when they leave. Started from a screen, the screen comes back.
  */
 #include "player.h"
 #include "replay_player.h"
@@ -27,6 +28,7 @@
 #include "tgg/control.h"
 #include "tgg/draw.h"
 #include "tgg/events.h"
+#include "tgg/restart.h"
 #include "tgg/screen.h"
 
 #include <melee/gm/gmscene.h>
@@ -259,6 +261,12 @@ static void on_frame(void)
     if (!in_match) {
         if (view.was_in_match) {
             reset_controls();
+            /* The match of a replay the game restarted to play is over (it
+             * can end before the replay's last frame): back to the player's
+             * own game, when this one is a restart */
+            if (loaded && !from_screen) {
+                tgg_restart_back();
+            }
         }
         view.was_in_match = 0;
         return;
@@ -277,10 +285,17 @@ static void on_frame(void)
                 reset_controls();
                 tgg_end_match();
             }
-        } else if (view.ended_frames == 1) {
-            tgg_pause(1);
-            view.changed = 1;
-            tgg_log("the replay ended at frame %d", st.frame - 1);
+        } else {
+            if (view.ended_frames == 1) {
+                tgg_pause(1);
+                view.changed = 1;
+                tgg_log("the replay ended at frame %d", st.frame - 1);
+            }
+            /* A game restarted to play this replay goes back to the player's
+             * own; any other stays paused on the last frame */
+            if (view.ended_frames == END_WAIT) {
+                tgg_restart_back();
+            }
         }
     }
     const Keys k = keys_pressed();
@@ -288,6 +303,9 @@ static void on_frame(void)
         reset_controls();
         tgg_end_match();
         return;
+    }
+    if (k.leave) {
+        tgg_restart_back();
     }
     if (k.pause) {
         tgg_pause(!tgg_paused());
