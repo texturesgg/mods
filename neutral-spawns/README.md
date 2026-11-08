@@ -1,37 +1,36 @@
 # Neutral spawns
 
-A starting point for a tgg-melee mod. It logs a line when the game starts and one each
-time a fighter appears.
+Players start each match at the stage's neutral spawn points, the way Slippi online places
+them.
 
-```text
-manifest.json    the mod's id, name and version
-src/mod.c        the code
-CMakeLists.txt   builds src/ against the SDK, if you'd rather use CMake than tgg
-.clangd          points clangd at the build's compile_commands.json
-```
+## For players
 
-## Make it yours
+- On the six legal stages (Final Destination, Battlefield, Yoshi's Story, Dream Land,
+  Fountain of Dreams, Pokémon Stadium), singles players start at the neutral spawns and
+  2v2 teams start side by side.
+- On other stages, players take the stage's own spawn points in player order.
+- Everyone faces the middle of the stage.
+- Training Mode, Target Test and 1P modes keep the game's spawns. So do team matches that
+  aren't 2v2.
+- No settings.
+- Matches Slippi's neutral spawns (slippi-ssbm-asm `External/NeutralSpawn`).
+- Netplay: this is a code mod, so it counts toward the mod-set. Both players need it.
 
-Give the mod an id of its own in `manifest.json`: 1 to 64 characters of `a-z`, `0-9`,
-`.`, `-` and `_`, like `yourname.my-mod`. The id names the installed folder and is how the
-log and other mods refer to it.
+## For mod makers
 
-## Build and run
+The game stores each player's starting position with `Player_80032768` while it sets up
+the match's players (`fn_8016E2BC`). `src/mod.c`:
+
+- `TGG_BEFORE` / `TGG_AFTER` on `fn_8016E2BC` mark the setup, so the mod only touches
+  spawns stored there.
+- `TGG_BEFORE` on `Player_80032768` rewrites the position argument before the game stores
+  it, then sets the facing direction with `Player_SetFacingDirection`.
+- The spawn table holds one set of points for singles and one for teams per stage
+  (`StKind` numbers). Other stages read the stage's own points with `Stage_80224E64`.
+
+## Build
 
 ```sh
-tgg mod dev            # build, put it in the game's mods folder, run the game
-tgg mod dev --watch    # same, and rebuild and restart each time you save
-tgg mod build          # a release build, packed into build/
+tgg mod build    # packs build/tgg.neutral-spawns-<version>.zip
+tgg mod dev      # build, install and run the game
 ```
-
-The log shows `tgg.neutral-spawns: hello` at startup and `tgg.neutral-spawns: P1 spawned` when a match starts.
-Add `.c` files under `src/` as the mod grows: every `src/**/*.c` is built in.
-
-## Where to look next
-
-- The docs: https://textures.gg/docs/mods/latest/README. Start with [writing mods](https://textures.gg/docs/mods/latest/writing-mods); `tgg docs` opens them, and
-  the SDK has a copy in `$(tgg sdk path)/docs`.
-- The game's own source is in `$(tgg sdk path)/game`, to read and search for what to
-  change.
-- Editors that use clangd (VS Code with the clangd extension, Zed, Neovim) get completion
-  and go-to-definition across your mod and the game after the first build.

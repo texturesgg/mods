@@ -2,5 +2,6 @@
   "api": "tgg-melee/0",
   "id": "tgg.neutral-spawns",
   "name": "Neutral spawns",
-  "version": "0.1.0"
+  "version": "0.1.1",
+  "description": "Players start at the neutral spawn points on legal stages, as on Slippi online."
 }
