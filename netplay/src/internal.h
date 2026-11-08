@@ -14,8 +14,7 @@ typedef struct HSD_PadStatus HSD_PadStatus;
 typedef struct PADStatus PADStatus;
 typedef struct StartMeleeData StartMeleeData;
 
-/* ---- net.c: one UDP socket and one peer. The only file with socket calls,
- * so another platform's sockets replace it alone. */
+/* ---- net.c: one UDP socket and one peer, over the port's tgg/net.h */
 
 /* Binds `port` (0: any) on every address. With `peer` ("host:port") it sends
  * there and takes datagrams only from there; with NULL, the peer is whoever
@@ -33,9 +32,11 @@ void net_adopt(void);
 int net_has_peer(void);
 /* The peer's address, "1.2.3.4:51000", or "" */
 const char* net_peer_name(void);
-/* Milliseconds on a clock that only goes forward. */
+/* Milliseconds on a clock that only goes forward. Presentation code only. */
 double net_now_ms(void);
-void net_sleep_ms(int ms);
+/* Waits up to `ms` for a datagram to arrive: for loops that run while the
+ * game doesn't, as it exits */
+void net_wait_ms(int ms);
 
 /* ---- fakenet.c: a network with latency, jitter and loss, for tests:
  * TGG_NETPLAY_FAKE="latency=40,jitter=10,loss=5,seed=1" (one way, in ms and

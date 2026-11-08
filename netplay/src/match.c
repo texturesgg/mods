@@ -604,7 +604,7 @@ void match_linger_until_done(void)
         session_receive();
         send_inputs();
         session_send_lobby(1);
-        net_sleep_ms(5);
+        net_wait_ms(5);
     }
 }
 

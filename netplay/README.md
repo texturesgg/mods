@@ -1,6 +1,7 @@
 # Netplay
 
-Rollback netplay for tgg-melee: two games play matches against each other over UDP.
+Rollback netplay for tgg-melee: two games play matches against each other over UDP, on
+Linux, macOS and Windows, and a game on one plays a game on another.
 
 ## For players
 
@@ -20,7 +21,7 @@ Settings, on the Mods page. They're your own and don't have to match the other p
 
 Both games need the same game and the same mods. They check when they meet, and the session
 ends if they differ. On one platform that's the same build and mod-set id. Between platforms
-(a Linux game and a macOS game) it's the same game version and the same mod versions.
+(Linux, macOS and Windows) it's the same game version and the same mod versions.
 
 ## For mod makers
 
@@ -32,7 +33,7 @@ guessing, rollback, pacing and desync checks. List it in your manifest and inclu
 `include/netplay.h` (copy it, or add netplay's `include/` to the include path):
 
 ```json
-"depends": { "tgg.netplay": "^0.2" }
+"depends": { "tgg.netplay": "^0.3" }
 ```
 
 | Function | Does |
@@ -52,7 +53,7 @@ simulation code. `tgg.direct-connect` is a complete example of a mod built on th
 src/session.c     the session: hello, keeping in touch, messages, agreeing on a match; the API
 src/match.c       a match: inputs, rollback, confirming frames, checksums, pacing
 src/wire.c        the packets, byte by byte
-src/net.c         the UDP socket (POSIX)
+src/net.c         the UDP socket, over the port's tgg/net.h
 src/fakenet.c     a fake network for testing: latency, jitter, loss, reordering
 src/replaytest.c  the replay test
 src/slp.c         reading a Slippi replay
@@ -127,6 +128,11 @@ done; wait
 Only replays of online matches work: online matches never pause
 (slippi-ssbm-asm `Online/Core/InitPause.asm`), so every replay frame is a match frame. The
 replay's Slippi rule mods have to be installed.
+
+## Requirements
+
+tgg-melee 0.1.0-rc.9 or later: netplay talks to the network through the port's `tgg/net.h`,
+which older builds don't have.
 
 ## Build
 

@@ -156,7 +156,11 @@ static void send_bye(void)
     const double until = net_now_ms() + 100;
     while (net_now_ms() < until) {
         fakenet_flush();
-        net_sleep_ms(5);
+        net_wait_ms(5);
+        /* The session is over: what arrives now goes unread */
+        uint8_t buf[WIRE_MAX_BYTES];
+        while (net_recv(buf, sizeof buf) != 0) {
+        }
     }
 }
 
@@ -389,7 +393,9 @@ void session_match_over(void)
     ss.matches++;
     if (ss.state == NETPLAY_PLAYING) {
         ss.state = NETPLAY_CONNECTED;
-        ss.last_heard_ms = net_now_ms();
+        /* match_end is simulation code, which can't read the clock: the next
+         * frame starts the silence from then */
+        ss.last_heard_ms = -1;
     }
 }
 
@@ -404,6 +410,9 @@ static void on_frame(void)
         return;
     }
     const double now = net_now_ms();
+    if (ss.last_heard_ms < 0) {
+        ss.last_heard_ms = now;
+    }
     if (ss.state == NETPLAY_WAITING || ss.state == NETPLAY_CONNECTING || !ss.heard) {
         if (net_has_peer() && now - ss.last_hello_ms > 100) {
             ss.last_hello_ms = now;
