@@ -2,7 +2,7 @@
   "api": "tgg-melee/0",
   "id": "tgg.quick-start",
   "name": "Quick start",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Skip the opening and title screen; start at the main menu or a character select.",
   "icon": "icon.png",
   "tags": [

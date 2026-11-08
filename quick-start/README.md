@@ -18,7 +18,7 @@ challenger still shows up first. The menus are the game's own from there: B on t
 character select goes back to the main menu. A reset goes back to the same place.
 
 Works like the Slippi and UnclePunch setups. Netplay: this is a code mod, so it counts
-toward the mod-set.
+toward the mod-set. Where it starts is your own setting and doesn't count.
 
 ## For mod makers
 

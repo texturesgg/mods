@@ -18,7 +18,7 @@
 static const int modes[] = { GM_MENU, GM_VS, GM_TRAINING };
 
 static int start;
-TGG_SETTING_CHOICE(start, "start", "Start at", 0, "Main menu", "VS mode", "Training mode");
+TGG_SETTING_CHOICE_LOCAL(start, "start", "Start at", 0, "Main menu", "VS mode", "Training mode");
 
 static void init(void)
 {
