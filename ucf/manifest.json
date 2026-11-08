@@ -2,8 +2,8 @@
   "api": "tgg-melee/0",
   "id": "tgg.ucf",
   "name": "UCF",
-  "version": "0.8.0",
-  "description": "The Universal Controller Fix: dashback, shield drop and tumble, as Slippi 3.9 to 3.16 ran it.",
+  "version": "0.84.0",
+  "description": "The Universal Controller Fix: dashback, shield drop, 1.0 cardinals, SDI, tumble and crouch release, as Slippi 3.17 and later run it.",
   "icon": "icon.png",
   "tags": [
     "competitive",
@@ -11,22 +11,24 @@
   ],
   "slippi": [
     {
-      "code": "0x800908F4",
-      "name": "UCF 0.8: tumble",
-      "versions": ">=3.9",
-      "unless": ["0x8006B460"]
+      "code": "0x8006B460",
+      "name": "UCF 0.84: Pad Buffer + 1.0 Cardinals"
     },
     {
-      "code": "0x800C9A44",
-      "name": "UCF 0.8: dashback",
-      "versions": ">=3.9",
-      "unless": ["0x8006B460"]
+      "code": "0x8008E54C",
+      "name": "UCF 0.84: SDI"
     },
     {
-      "code": "0x800998A4",
-      "name": "UCF 0.8: shield drop",
-      "versions": ">=3.9",
-      "unless": ["0x8006B460"]
+      "code": "0x80093294",
+      "name": "UCF 0.84: Shield SDI"
+    },
+    {
+      "code": "0x8009A0B8",
+      "name": "UCF 0.84: Shield Drop Extended"
+    },
+    {
+      "code": "0x800D65EC",
+      "name": "UCF 0.84: DBOOC SquatRv Fix"
     }
   ]
 }
