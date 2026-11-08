@@ -2,6 +2,11 @@
   "api": "tgg-melee/0",
   "id": "tgg.stadium-preload",
   "name": "Preloaded Stadium transformations",
-  "version": "0.1.1",
-  "description": "Pokémon Stadium loads its next transformation early, like Slippi's preload option."
+  "version": "0.1.2",
+  "description": "Pokémon Stadium loads its next transformation early, like Slippi's preload option.",
+  "icon": "icon.png",
+  "tags": [
+    "competitive",
+    "stage"
+  ]
 }
