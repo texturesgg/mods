@@ -2,5 +2,6 @@
   "api": "tgg-melee/0",
   "id": "tgg.netplay",
   "name": "Netplay",
-  "version": "0.2.0"
+  "version": "0.2.1",
+  "description": "Rollback netplay between two games. Install a connect mod, like Direct connect, to play."
 }
