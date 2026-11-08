@@ -2,5 +2,22 @@
   "api": "tgg-melee/0",
   "id": "tgg.ucf-legacy",
   "name": "UCF (Slippi 3.16 and earlier)",
-  "version": "0.1.0"
+  "version": "0.1.1",
+  "slippi": [
+    {
+      "code": "0x800908F4",
+      "name": "UCF 0.8: tumble",
+      "versions": ">=3.9"
+    },
+    {
+      "code": "0x800C9A44",
+      "name": "UCF 0.8: dashback",
+      "versions": ">=3.9"
+    },
+    {
+      "code": "0x800998A4",
+      "name": "UCF 0.8: shield drop",
+      "versions": ">=3.9"
+    }
+  ]
 }
