@@ -2,6 +2,11 @@
   "api": "tgg-melee/0",
   "id": "tgg.legal-stages",
   "name": "Legal stages",
-  "version": "0.1.1",
-  "description": "Random stage picks only the six legal stages."
+  "version": "0.1.2",
+  "description": "Random stage picks only the six legal stages.",
+  "icon": "icon.png",
+  "tags": [
+    "competitive",
+    "stage"
+  ]
 }
