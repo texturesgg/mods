@@ -1,37 +1,35 @@
 # Offscreen damage
 
-A starting point for a tgg-melee mod. It logs a line when the game starts and one each
-time a fighter appears.
+Fighters take offscreen damage whenever they're outside the stage's camera bounds, the way
+Slippi online does it.
 
-```text
-manifest.json    the mod's id, name and version
-src/mod.c        the code
-CMakeLists.txt   builds src/ against the SDK, if you'd rather use CMake than tgg
-.clangd          points clangd at the build's compile_commands.json
-```
+## For players
 
-## Make it yours
+- In the stock game, a fighter takes offscreen damage while it shows in a magnifying
+  bubble. With this mod it's whenever the fighter is outside the camera bounds, like
+  Brawl.
+- The damage, the time between ticks and the percent where it stops are the game's own.
+- The bubbles on screen don't change.
+- The Home-Run Contest's Sandbag never takes offscreen damage, nor does a fighter that's
+  already KO'd.
+- No settings.
+- Matches Slippi's online code (slippi-ssbm-asm `Online/Core/BrawlOffscreenDamage.asm`).
+- Netplay: this is a code mod, so it counts toward the mod-set. Both players need it.
 
-Give the mod an id of its own in `manifest.json`: 1 to 64 characters of `a-z`, `0-9`,
-`.`, `-` and `_`, like `yourname.my-mod`. The id names the installed folder and is how the
-log and other mods refer to it.
+## For mod makers
 
-## Build and run
+Each frame `Fighter_procAnim` asks `ifMagnify_802FC998` whether the fighter is in a
+bubble. The mod answers that one question from the camera bounds and leaves the HUD's own
+calls alone (`src/mod.c`):
+
+- `TGG_BEFORE` / `TGG_AFTER` on `Fighter_procAnim` remember which fighter is being
+  animated.
+- `TGG_REPLACE` on `ifMagnify_802FC998` checks the fighter against
+  `Stage_GetCamBounds*Offset` during that call, and calls `TGG_ORIGINAL` otherwise.
+
+## Build
 
 ```sh
-tgg mod dev            # build, put it in the game's mods folder, run the game
-tgg mod dev --watch    # same, and rebuild and restart each time you save
-tgg mod build          # a release build, packed into build/
+tgg mod build    # packs build/tgg.offscreen-damage-<version>.zip
+tgg mod dev      # build, install and run the game
 ```
-
-The log shows `tgg.offscreen-damage: hello` at startup and `tgg.offscreen-damage: P1 spawned` when a match starts.
-Add `.c` files under `src/` as the mod grows: every `src/**/*.c` is built in.
-
-## Where to look next
-
-- The docs: https://textures.gg/docs/mods/latest/README. Start with [writing mods](https://textures.gg/docs/mods/latest/writing-mods); `tgg docs` opens them, and
-  the SDK has a copy in `$(tgg sdk path)/docs`.
-- The game's own source is in `$(tgg sdk path)/game`, to read and search for what to
-  change.
-- Editors that use clangd (VS Code with the clangd extension, Zed, Neovim) get completion
-  and go-to-definition across your mod and the game after the first build.
