@@ -41,7 +41,7 @@ mods reproduce them (`tgg.neutral-spawns` and the rest). When a replay needs one
 installed, its preview says "Needs" and names them.
 
 Netplay: this is a code mod, so it counts toward the mod-set. Both players need it, or
-neither.
+neither. Its settings are your own and don't count.
 
 ## For mod makers
 

@@ -18,9 +18,9 @@
 #include <string.h>
 
 char setting_folder[PATH_MAX_LEN];
-TGG_SETTING_TEXT(setting_folder, "folder", "Replay folder", "");
+TGG_SETTING_TEXT_LOCAL(setting_folder, "folder", "Replay folder", "");
 int setting_sort;
-TGG_SETTING_CHOICE(setting_sort, "sort", "Order", SORT_NEWEST, "Newest first", "Oldest first");
+TGG_SETTING_CHOICE_LOCAL(setting_sort, "sort", "Order", SORT_NEWEST, "Newest first", "Oldest first");
 
 static void say(const char* text)
 {
