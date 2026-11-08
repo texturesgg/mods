@@ -2,11 +2,48 @@
   "api": "tgg-melee/0",
   "id": "tgg.stadium-preload",
   "name": "Preloaded Stadium transformations",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Pokémon Stadium loads its next transformation early, like Slippi's preload option.",
   "icon": "icon.png",
   "tags": [
     "competitive",
     "stage"
+  ],
+  "slippi": [
+    {
+      "code": "0x801D14C8",
+      "name": "Preload Stadium Transformations: Init isLoaded Bool",
+      "versions": "*"
+    },
+    {
+      "code": "0x801D45EC",
+      "name": "Preload Stadium Transformations: Load Transformation",
+      "versions": "*"
+    },
+    {
+      "code": "0x801D460C",
+      "name": "Preload Stadium Transformations: GetPreloadedTransition",
+      "versions": "*"
+    },
+    {
+      "code": "0x801D4610",
+      "name": "Preload Stadium Transformations: SkipNormalDecision1",
+      "versions": "*"
+    },
+    {
+      "code": "0x801D4724",
+      "name": "Preload Stadium Transformations: SkipNormalDecision2",
+      "versions": "*"
+    },
+    {
+      "code": "0x801D4F14",
+      "name": "Preload Stadium Transformations: Reset isLoaded",
+      "versions": "*"
+    },
+    {
+      "code": "0x804DEC18",
+      "name": "Preload Stadium Transformations: toggle",
+      "versions": "*"
+    }
   ]
 }
