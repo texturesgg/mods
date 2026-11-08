@@ -2,5 +2,6 @@
   "api": "tgg-melee/0",
   "id": "tgg.skip-results",
   "name": "Skip results",
-  "version": "0.1.0"
+  "version": "0.1.1",
+  "description": "Skip the results screen after VS matches, like Slippi. Records still count."
 }
