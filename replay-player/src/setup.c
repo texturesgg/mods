@@ -30,8 +30,8 @@ void player_match(const Slp* slp, StartMeleeData* start)
     }
 }
 
-/* Slippi's gameplay codes, by the address each injects at, and the mod in
- * ~/dev/texturesgg/mods that reproduces it */
+/* Slippi's gameplay codes, by the address each injects at, and the mod that
+ * reproduces it */
 static const struct {
     uint32_t address;
     const char* mod;
