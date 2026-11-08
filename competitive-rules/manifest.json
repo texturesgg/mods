@@ -2,6 +2,11 @@
   "api": "tgg-melee/0",
   "id": "tgg.competitive-rules",
   "name": "Competitive rules",
-  "version": "0.1.1",
-  "description": "Tournament rules by default (4 stocks, 8 minutes, no items), and your rule changes stay saved."
+  "version": "0.1.2",
+  "description": "Tournament rules by default (4 stocks, 8 minutes, no items), and your rule changes stay saved.",
+  "icon": "icon.png",
+  "tags": [
+    "competitive",
+    "quality-of-life"
+  ]
 }
