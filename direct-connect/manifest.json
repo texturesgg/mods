@@ -2,7 +2,7 @@
   "api": "tgg-melee/0",
   "id": "tgg.direct-connect",
   "name": "Direct connect",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "depends": { "tgg.netplay": "^0.2" },
-  "description": "Play someone over the internet: host, or type their address."
+  "description": "Play someone over the internet: host, or join with the host's address."
 }

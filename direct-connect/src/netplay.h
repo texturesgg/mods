@@ -10,7 +10,7 @@
  * guessing, rolling back, keeping the two games in time, and checking they
  * agree.
  *
- *     netplay_open(1, "100.64.0.7:51000", 0, &why);   // join side 0's game
+ *     netplay_open(1, "192.168.1.20:51000", 0, &why);   // join side 0's game
  *     ...
  *     netplay_status(&info);
  *     if (info.state == NETPLAY_CONNECTED) {
@@ -52,7 +52,7 @@ enum {
 typedef struct netplay_info {
     int state;      /* NETPLAY_* */
     int side;       /* this game's side: 0 or 1 */
-    char peer[64];  /* the other game's address, "100.64.0.7:51000", once known */
+    char peer[64];  /* the other game's address, "192.168.1.20:51000", once known */
     float rtt_ms;   /* the round trip to it, 0 before it's known */
     int matches;    /* matches played in this session */
     char why[160];  /* NETPLAY_FAILED: what happened, for the player */
