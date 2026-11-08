@@ -31,13 +31,13 @@ need it, or neither.
 ### Slippi's rules
 
 A replay plays out as recorded only with the rules its console ran. Slippi adds some
-(neutral spawns, online off-screen damage, frozen Pokémon Stadium, an older UCF), and
+(neutral spawns, online off-screen damage, frozen Pokémon Stadium, UCF), and
 separate mods reproduce them. At startup the log says which ones this replay needs and
 which aren't loaded:
 
 ```text
 tgg.replay-player: Slippi 3.18.0, stage 31, 12034 frames, played online
-tgg.replay-player: its console ran Slippi rules these mods reproduce: tgg.neutral-spawns, tgg.offscreen-damage
+tgg.replay-player: its console ran Slippi rules these mods reproduce: tgg.neutral-spawns, tgg.offscreen-damage, tgg.ucf
 tgg.replay-player: not loaded: tgg.offscreen-damage; install and turn them on, or the match plays out differently
 ```
 
