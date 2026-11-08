@@ -222,6 +222,10 @@ int slp_finish(SlpFile* f, const RecEnd* end, const char* start_at)
         names = sep != NULL ? sep + 2 : NULL;
     }
     fputc(']', out);
+    /* The exact mods and settings, which a replay player resolves to play it
+     * back with (core's docs/mod-profiles.md) */
+    key(out, "profile");
+    string(out, tgg_mod_set_profile());
     fputc('}', out);
     fputc('}', out);
     fputc('}', out);

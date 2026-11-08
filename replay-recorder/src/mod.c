@@ -41,13 +41,13 @@
 #endif
 
 static int enabled;
-TGG_SETTING_BOOL(enabled, "record", "Record matches", 1);
+TGG_SETTING_BOOL_LOCAL(enabled, "record", "Record matches", 1);
 
 static char folder[512];
-TGG_SETTING_TEXT(folder, "folder", "Replay folder", "");
+TGG_SETTING_TEXT_LOCAL(folder, "folder", "Replay folder", "");
 
 static int playback;
-TGG_SETTING_BOOL(playback, "playback", "Record replays being watched", 0);
+TGG_SETTING_BOOL_LOCAL(playback, "playback", "Record replays being watched", 0);
 
 /* The match the simulation set up to record, and the file it goes to; only
  * presentation code uses these */

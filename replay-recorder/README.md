@@ -25,7 +25,7 @@ tgg.replay-recorder: saved /home/me/.local/share/tgg-melee/replays/Game_20261106
 For one run: `TGG_SET="tgg.replay-recorder:folder=/home/me/Slippi"`.
 
 Netplay: this is a code mod, so it counts toward the mod-set. Both players need it, or
-neither.
+neither. Its settings are your own and don't count.
 
 ### What's in a file
 
@@ -51,10 +51,12 @@ lays them out:
   placement. A match left any other way (the window closed) has none.
 - **metadata**: `startAt`, `lastFrame`, each port's characters by frame count, `playedOn`
   `"tgg-melee"`, and `tgg` (ignored by Slippi's tools): the game build, the mod-set id and
-  each mod that counts toward it, as `"id version"`.
+  each mod that counts toward it, as `"id version"`, and `profile`: the exact mods and their
+  settings, as JSON text.
 
-There's no gecko code list, since the port runs mods, not codes. `tgg.mods` in the metadata
-says which ran.
+There's no gecko code list, since the port runs mods, not codes. `tgg.profile` in the
+metadata says which ran, with their settings, so a replay player can get the same mods to
+play it back.
 
 ## For mod makers
 
