@@ -57,6 +57,8 @@ typedef struct netplay_info {
     float rtt_ms;   /* the round trip to it, 0 before it's known */
     int matches;    /* matches played in this session */
     char why[160];  /* NETPLAY_FAILED: what happened, for the player */
+    char desync[256]; /* the last match stopped matching: when, and the display mods
+                       * only one game has (the likely cause), for the player; else "" */
 } netplay_info;
 
 /* Opens a session as side 0 or 1, one of each. With `peer` NULL, side 0

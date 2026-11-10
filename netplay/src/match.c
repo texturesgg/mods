@@ -110,6 +110,7 @@ static void reset(uint32_t number, uint32_t seed)
     mt.peer_sum_newest = -1;
     mt.compared_upto = -1;
     mt.desync_frame = -1;
+    ss.desync[0] = '\0';
     mt.last_sync_hold = -100;
     for (int i = 0; i < HIST; i++) {
         mt.local[i].frame = mt.remote[i].frame = mt.used[i].frame = -1;
@@ -319,6 +320,10 @@ static void compare_sums(int upto)
                 session_display_difference(diff, sizeof diff);
                 if (diff[0] != '\0') {
                     tgg_log("desync: display mods only one game has, the likely cause: %s", diff);
+                    snprintf(ss.desync, sizeof ss.desync,
+                             "The games stopped matching. Mods only one of you has: %s.", diff);
+                } else {
+                    snprintf(ss.desync, sizeof ss.desync, "The games stopped matching.");
                 }
             }
         }

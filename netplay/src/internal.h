@@ -200,6 +200,7 @@ typedef struct Session {
     int matches;
     char peer_display[256]; /* the other game's display mods, from its hello */
     char why[160];
+    char desync[256]; /* netplay_info.desync */
 } Session;
 
 extern Session ss;

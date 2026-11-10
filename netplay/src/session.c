@@ -781,6 +781,7 @@ void netplay_status(netplay_info* out)
     out->rtt_ms = (float) ss.rtt_ms;
     out->matches = ss.matches;
     snprintf(out->why, sizeof out->why, "%s", ss.why);
+    snprintf(out->desync, sizeof out->desync, "%s", ss.desync);
 }
 
 const char* netplay_host_profile(void)
