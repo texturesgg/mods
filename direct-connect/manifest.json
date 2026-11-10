@@ -4,7 +4,8 @@
   "name": "Direct connect",
   "version": "0.4.0",
   "depends": {
-    "tgg.netplay": "^0.5"
+    "tgg.netplay": "^0.6",
+    "tgg.http": "^0.1"
   },
   "description": "Play up to three people over the internet: host, or join with the host's address.",
   "icon": "icon.png",
