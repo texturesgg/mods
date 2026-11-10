@@ -7,6 +7,7 @@
 
 #include "tgg/mod.h"
 #include "tgg/restart.h"
+#include "tgg/screen.h"
 
 #include "netplay.h"
 
@@ -43,20 +44,25 @@ int profile_diff(const char* host_json, const char* own_json, Diff* d);
 
 /* One player's pick in the lobby */
 typedef struct Pick {
-    int known;   /* the other side's arrived */
+    int known;   /* it's arrived (this game's own always is) */
     int ckind;   /* CharacterKind */
     int costume; /* 0 to 5 */
     int ready;   /* Start pressed: locked in */
 } Pick;
 
+/* The games the host can pick: a VS match, or a shared screen a mod
+ * declares (tgg/session.h) */
+#define GAMES_MAX 16
+#define GAME_ID_MAX 96
+
 typedef struct Lobby {
-    Pick me, them;
-    int cursor;  /* the grid cell */
-    int stage;   /* an index into the stage list */
-    int stocks, minutes; /* side 0's rules */
-    int started; /* netplay_play was called for this match */
-    int have_result;
-    char result[96]; /* the last match, for the player */
+    Pick pick[NETPLAY_MAX_PLAYERS]; /* by side */
+    int players;  /* games in the session, as last seen */
+    int cursor;   /* the grid cell */
+    int stage;    /* an index into the stage list */
+    int stocks, minutes; /* the host's rules */
+    char game[GAME_ID_MAX]; /* the host's pick: "" for a VS match, else a screen's id */
+    int started;  /* the match or the shared screen is starting */
 } Lobby;
 
 typedef struct Dc {
@@ -80,6 +86,9 @@ typedef struct Dc {
     /* This game was restarted with the host's mods to join it: leaving
      * netplay goes back to the player's own game */
     int for_netplay;
+    /* A shared screen is on with the session: the lobby comes back when it
+     * closes */
+    int handoff;
 } Dc;
 
 extern Dc dc;
@@ -100,6 +109,14 @@ void dc_full_address(const char* typed, char* out, int cap);
  * player asks to connect, -1 to go back, else 0. */
 int keyboard_frame(void);
 void keyboard_draw(void);
+
+/* This game's pick (connect.c) */
+Pick* my_pick(void);
+/* The shared screens the games can play together, in load order: their
+ * count; `ids` (may be NULL) gets their ids */
+int shared_games(const tgg_screen** screens, const char** ids, int max);
+/* The title of the game with id `id`: "VS match" for "" */
+const char* game_title(const char* id);
 
 /* draw.c */
 void dc_draw(void);
