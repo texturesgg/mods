@@ -1,0 +1,12 @@
+{
+  "api": "tgg-melee/0",
+  "id": "tgg.save-states",
+  "name": "Save states",
+  "version": "0.1.0",
+  "description": "Save the moment with D-pad left, go back to it with D-pad right. For practice; off in netplay.",
+  "icon": "icon.png",
+  "class": "offline",
+  "tags": [
+    "training"
+  ]
+}

@@ -18,6 +18,9 @@ stage".
 It uses the game's own intangibility timer, so the numbers are exact. Getting up, rolling,
 attacking or jumping from the ledge don't count. Each result also goes to the log.
 
+With `tgg.save-states`, save while hanging on the ledge (D-pad left) and load after each try
+(D-pad right).
+
 ## Settings
 
 On the Mods page (Y on the main menu):
