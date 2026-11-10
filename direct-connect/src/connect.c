@@ -213,7 +213,10 @@ static void different_frame(uint32_t in)
         leave_session();
         return;
     }
-    if (!(in & TGG_MENU_ACCEPT) || !dc.have_diff || dc.for_netplay) {
+    /* TGG_DIRECT_CONNECT_YES=1 takes the offer at once, for scripted runs */
+    const char* yes = getenv("TGG_DIRECT_CONNECT_YES");
+    const int take = (in & TGG_MENU_ACCEPT) || (yes != NULL && strcmp(yes, "1") == 0);
+    if (!take || !dc.have_diff || dc.for_netplay) {
         return;
     }
     /* Get them: tgg reads the host's profile from a file in the data folder,
@@ -569,6 +572,10 @@ static void enter(int from_match)
         fail_view(info.why);
         netplay_close();
         return;
+    }
+    if (info.desync[0] != '\0') {
+        say(info.desync);
+        dc.message_frames = 10 * 60; /* long enough to read */
     }
     enter_lobby();
 }

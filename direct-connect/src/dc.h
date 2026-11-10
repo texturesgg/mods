@@ -64,7 +64,7 @@ typedef struct Dc {
     int menu_sel;
     char address[ADDRESS_MAX]; /* being typed */
     int key;                   /* the keyboard's selected key */
-    char message[160];
+    char message[256];
     int message_frames;
     char why[160];             /* VIEW_FAILED */
     int failed_frames;         /* VIEW_FAILED: how long it's shown */
