@@ -395,10 +395,10 @@ int net_relay(const char* server, const char* user, const char* pass)
     }
     if (no_direct()) {
         tgg_net_addr loopback = {.family = TGG_NET_IPV4, .ip = {127, 0, 0, 1}};
-        turn_permit(&loopback); /* the test's TURN server is on this machine */
+        turn_permit(&loopback, 1); /* the test's TURN server is on this machine */
     }
     for (int i = 0; i < n_candidates; i++) {
-        turn_permit(&candidates[i]);
+        turn_permit(&candidates[i], 0);
     }
     punch_started_ms = net_now_ms(); /* another PUNCH_MS, through the relay */
     return 0;
@@ -416,7 +416,7 @@ void net_add_candidates(const char* const* addrs, const char* const* kinds, int 
         candidates[n_candidates] = a;
         snprintf(candidate_kinds[n_candidates], sizeof candidate_kinds[0], "%s",
                  kinds != NULL && kinds[i] != NULL ? kinds[i] : "");
-        turn_permit(&a);
+        turn_permit(&a, 0);
         tgg_log("  the other game also at %s (%s)", addrs[i], candidate_kinds[n_candidates]);
         n_candidates++;
     }

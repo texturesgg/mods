@@ -51,10 +51,13 @@ static struct {
     int have_key;
     uint8_t txn[12]; /* the request waiting for an answer */
     int waiting;     /* its type, 0 for none */
-    double sent_ms, started_ms, refreshed_ms, permitted_ms;
+    double sent_ms, started_ms, refreshed_ms;
     tgg_net_addr relayed;
     tgg_net_addr permits[MAX_PERMITS];
-    int n_permits, permits_sent;
+    int permit_state[MAX_PERMITS]; /* 0 to ask, 1 granted, -1 refused */
+    double permit_ms[MAX_PERMITS]; /* when it was granted */
+    int n_permits;
+    int asking;                    /* the permit asked for now */
     double bytes;
 } t;
 
@@ -311,9 +314,9 @@ static void request(int type)
         attr(&m, A_LIFETIME, t.state == R_OFF ? zero : life, 4);
     }
     if (type == T_PERMISSION) {
-        for (int i = 0; i < t.n_permits; i++) {
-            xor_addr(&m, A_PEER, &t.permits[i]);
-        }
+        /* One address a request: a server refuses the whole request for any one
+         * address it won't relay to */
+        xor_addr(&m, A_PEER, &t.permits[t.asking]);
     }
     sign(&m);
     send_msg(&m);
@@ -358,9 +361,22 @@ void turn_stop(void)
     t.sock = NULL;
 }
 
-void turn_permit(const tgg_net_addr* peer)
+/* Whether a TURN server relays to `a`: not private, shared (100.64/10), loopback,
+ * link-local or multicast (Cloudflare refuses those) */
+static int relayable(const tgg_net_addr* a)
 {
-    if (peer == NULL || peer->family == 0) {
+    const uint8_t* ip = a->ip;
+    if (a->family == TGG_NET_IPV4) {
+        return !(ip[0] == 0 || ip[0] == 10 || ip[0] == 127 || ip[0] >= 224 ||
+                 (ip[0] == 100 && (ip[1] & 0xC0) == 64) || (ip[0] == 169 && ip[1] == 254) ||
+                 (ip[0] == 172 && (ip[1] & 0xF0) == 16) || (ip[0] == 192 && ip[1] == 168));
+    }
+    return a->family == TGG_NET_IPV6 && (ip[0] & 0xE0) == 0x20;
+}
+
+void turn_permit(const tgg_net_addr* peer, int any)
+{
+    if (peer == NULL || peer->family == 0 || (!any && !relayable(peer))) {
         return;
     }
     for (int i = 0; i < t.n_permits; i++) {
@@ -371,8 +387,8 @@ void turn_permit(const tgg_net_addr* peer)
     if (t.n_permits < MAX_PERMITS) {
         t.permits[t.n_permits] = *peer;
         t.permits[t.n_permits].port = 0;
+        t.permit_state[t.n_permits] = 0;
         t.n_permits++;
-        t.permits_sent = 0;
     }
 }
 
@@ -396,12 +412,14 @@ void turn_pump(void)
     } else if (t.waiting == 0 && now - t.refreshed_ms > REFRESH_MS) {
         t.refreshed_ms = now;
         request(T_REFRESH);
-    } else if (t.waiting == 0 && t.n_permits > 0 &&
-               (!t.permits_sent || now - t.permitted_ms > REFRESH_MS))
-    {
-        t.permits_sent = 1;
-        t.permitted_ms = now;
-        request(T_PERMISSION);
+    } else if (t.waiting == 0) {
+        for (int i = 0; i < t.n_permits; i++) {
+            if (t.permit_state[i] == 0 || (t.permit_state[i] == 1 && now - t.permit_ms[i] > REFRESH_MS)) {
+                t.asking = i;
+                request(T_PERMISSION);
+                break;
+            }
+        }
     }
 }
 
@@ -450,10 +468,27 @@ static void answer(const uint8_t* p, size_t len, int type)
             request(method); /* again, signed */
             return;
         }
+        if (method == T_PERMISSION) {
+            char text[TGG_NET_ADDR_TEXT];
+            tgg_net_addr_format(&t.permits[t.asking], text, sizeof text);
+            tgg_log("relay: the server won't relay for %s (%d)", text, code);
+            t.permit_state[t.asking] = -1;
+            return;
+        }
         tgg_log("relay: the server refused (%d)", code);
         if (t.state == R_ALLOCATING) {
             t.state = R_FAILED;
         }
+        return;
+    }
+    if (method == T_PERMISSION) {
+        if (t.permit_state[t.asking] != 1) {
+            char text[TGG_NET_ADDR_TEXT];
+            tgg_net_addr_format(&t.permits[t.asking], text, sizeof text);
+            tgg_log("relay: %s may send through it", text);
+        }
+        t.permit_state[t.asking] = 1;
+        t.permit_ms[t.asking] = net_now_ms();
         return;
     }
     if (method == T_ALLOCATE && relayed.family != 0) {

@@ -77,8 +77,9 @@ int net_take_host(void);
 int turn_start(tgg_socket* sock, const char* server, const char* user, const char* pass);
 void turn_stop(void);
 void turn_pump(void);
-/* Lets the game at `peer`'s address send through the relay */
-void turn_permit(const tgg_net_addr* peer);
+/* Lets the game at `peer`'s address send through the relay: public addresses only,
+ * unless `any` (a test on one machine) */
+void turn_permit(const tgg_net_addr* peer, int any);
 /* Whether a datagram came from the relay server */
 int turn_is_server(const tgg_net_addr* from);
 /* A datagram from the relay server: >0 when it carried another game's datagram (moved
