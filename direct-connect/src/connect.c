@@ -166,13 +166,12 @@ static void join_room(const char* typed)
     if (n == 0 || meet_join(code) != 0) {
         tgg_menu_sound(TGG_SOUND_ERROR);
         meet_poll(&dc.meet);
-        say(dc.meet.why[0] != '\0' ? dc.meet.why : "Can't join a room here.");
+        note(dc.meet.why[0] != '\0' ? dc.meet.why : "Can't join a room here.");
         return;
     }
     tgg_menu_sound(TGG_SOUND_ACCEPT);
     dc.room = 1;
     dc.mode = MODE_JOIN_ROOM;
-    dc.view = VIEW_ROOM;
 }
 
 /* Each frame of joining a room: signing in, waiting in it, connecting */
@@ -460,9 +459,39 @@ static void make_room_entry(void)
     }
 }
 
+/* A room's code, typed on the game's own Name Entry keyboard: four letters,
+ * no I, L or O */
+static void code_typed(const char* text)
+{
+    if (text == NULL) {
+        return;
+    }
+    char code[8];
+    int n = 0;
+    for (const char* p = text; *p != '\0'; p++) {
+        const char c = (char) (*p >= 'a' && *p <= 'z' ? *p - 32 : *p);
+        if (n == 4 || c < 'A' || c > 'Z' || c == 'I' || c == 'L' || c == 'O') {
+            n = -1;
+            break;
+        }
+        code[n++] = c;
+    }
+    if (n != 4) {
+        tgg_menu_sound(TGG_SOUND_ERROR);
+        note("Room codes are 4 letters.");
+        return;
+    }
+    code[4] = '\0';
+    join_room(code);
+}
+
 static void join_room_entry(void)
 {
-    start_typing(1);
+    if (dc.mode != MODE_NONE || tgg_menu_keyboard(code_typed) != 0) {
+        tgg_menu_sound(TGG_SOUND_ERROR);
+        return;
+    }
+    dc.note[0] = '\0';
 }
 
 static void host_entry(void)
@@ -481,82 +510,109 @@ static void join_entry(void)
     start_typing(0);
 }
 
-/* "2 in", or nothing before anyone joins */
+/* Who's in, for the host: "waiting for a friend", "1 friend in, A to start" */
 static const char* in_count(void)
 {
-    static char line[32];
+    static char line[48];
     netplay_info info;
     netplay_status(&info);
-    if (info.players < 2) {
-        return "Waiting for friends.";
+    if (info.locked) {
+        return "playing";
     }
-    snprintf(line, sizeof line, "%d in. A to play.", info.players);
-    return info.locked ? "Playing." : line;
+    if (info.players < 2) {
+        return "waiting for a friend";
+    }
+    snprintf(line, sizeof line, "%d friend%s in, A to start", info.players - 1,
+             info.players == 2 ? "" : "s");
+    return line;
 }
 
-static const char* waiting_line(const char* how)
+/* A joiner's: connected, then waiting on the host */
+static const char* joined_count(void)
 {
-    static char line[160];
     netplay_info info;
     netplay_status(&info);
-    snprintf(line, sizeof line, "%s Waiting for the host to pick.", how);
-    return info.state == NETPLAY_CONNECTED ? line : NULL;
+    return info.state == NETPLAY_CONNECTED || info.state == NETPLAY_STARTING ||
+                   info.state == NETPLAY_PLAYING
+               ? "waiting for the host to pick"
+               : "connecting";
 }
 
-static const char* make_room_line(void)
+/* In a room, every Online entry's line leads with its code (the one the log
+ * prints), so it's there wherever the cursor is */
+static const char* room_line(void)
 {
     static char line[320];
-    if (dc.mode == MODE_JOIN_ROOM) {
-        snprintf(line, sizeof line, "In room %s.", dc.meet.code);
-        return waiting_line(line);
+    if (dc.mode != MODE_ROOM && dc.mode != MODE_JOIN_ROOM) {
+        return NULL;
     }
-    if (dc.mode != MODE_ROOM) {
-        return dc.note[0] != '\0' ? dc.note : "Get a code your friends can join with.";
-    }
-    switch (dc.meet.state) {
-    case MEET_SIGN_IN:
+    if (dc.meet.state == MEET_SIGN_IN) {
         snprintf(line, sizeof line, "Sign in at %s with the code %s.", dc.meet.signin_url,
                  dc.meet.signin_code);
         return line;
-    case MEET_IN_ROOM:
-    case MEET_PUNCHING:
-    case MEET_CONNECTED:
-        snprintf(line, sizeof line, "Room %s. %s", dc.meet.code, in_count());
-        return line;
-    default:
-        return "Getting a room on textures.gg.";
     }
+    if (dc.meet.code[0] == '\0') {
+        return dc.mode == MODE_ROOM ? "Getting a room on textures.gg." : "Joining the room.";
+    }
+    snprintf(line, sizeof line, "Room %s - %s", dc.meet.code,
+             dc.mode == MODE_ROOM ? in_count() : joined_count());
+    return line;
 }
 
-static const char* host_line(void)
+/* Hosting or joined by address, likewise */
+static const char* address_line(void)
 {
     static char line[160];
     if (dc.mode == MODE_JOIN) {
-        snprintf(line, sizeof line, "Joined %s.", dc.joined);
-        return waiting_line(line);
+        snprintf(line, sizeof line, "Joined %s - %s", dc.joined, joined_count());
+        return line;
     }
     if (dc.mode != MODE_HOST) {
-        return dc.note[0] != '\0' ? dc.note : "Others on your network join with your address.";
+        return NULL;
     }
     char addrs[1][48];
     if (local_addresses(addrs, 1) > 0) {
-        snprintf(line, sizeof line, "Your address: %s. %s", addrs[0], in_count());
+        snprintf(line, sizeof line, "Your address: %s - %s", addrs[0], in_count());
     } else {
-        snprintf(line, sizeof line, "Port %d. %s", setting_port, in_count());
+        snprintf(line, sizeof line, "Port %d - %s", setting_port, in_count());
     }
     return line;
 }
 
+/* The session's line if there is one, else the entry's own */
+static const char* session_line(const char* own)
+{
+    const char* line = room_line();
+    if (line == NULL) {
+        line = address_line();
+    }
+    if (line != NULL) {
+        return line;
+    }
+    return dc.note[0] != '\0' ? dc.note : own;
+}
+
+static const char* make_room_line(void)
+{
+    return session_line("Get a code your friends can join with.");
+}
+
+static const char* host_line(void)
+{
+    return session_line("Others on your network join with your address.");
+}
+
 static const char* join_room_line(void)
 {
-    return dc.mode == MODE_JOIN_ROOM ? make_room_line() : "Join a friend's room with its code.";
+    return session_line("Join a friend's room with its code.");
 }
 
 static const char* join_line(void)
 {
     static char line[160];
-    if (dc.mode == MODE_JOIN) {
-        return host_line();
+    const char* busy = session_line(NULL);
+    if (busy != NULL) {
+        return busy;
     }
     if (setting_peer[0] != '\0') {
         snprintf(line, sizeof line, "Join a game on your network. Last: %s.", setting_peer);
@@ -646,7 +702,9 @@ static void on_frame(void)
 {
     if (dc.room) {
         meet_poll(&dc.meet); /* a room lets more games in until the host starts */
-        if (dc.mode == MODE_ROOM && dc.meet.state == MEET_FAILED) {
+        if ((dc.mode == MODE_ROOM || (dc.mode == MODE_JOIN_ROOM && tgg_screen_shown() != &screen)) &&
+            dc.meet.state == MEET_FAILED)
+        {
             tgg_log("room: %s", dc.meet.why);
             note(dc.meet.why);
             meet_leave();
@@ -657,6 +715,14 @@ static void on_frame(void)
     }
     netplay_info info;
     netplay_status(&info);
+    if (info.state == NETPLAY_MISMATCH && tgg_screen_shown() != &screen && !tgg_in_match()) {
+        /* The host has other mods: the screen shows what differs, and gets them */
+        dc.have_diff = 0;
+        dc.bad_profile = 0;
+        dc.view = VIEW_DIFFERENT;
+        tgg_screen_open(&screen);
+        return;
+    }
     if (autostart_games >= 2 && (dc.mode == MODE_HOST || dc.mode == MODE_ROOM) && !info.locked &&
         info.players >= autostart_games && netplay_lock() == 0)
     {
@@ -690,6 +756,7 @@ static void on_frame(void)
         join(what + 5);
     } else if (strncmp(what, "room:", 5) == 0) {
         join_room(what + 5);
+        dc.view = VIEW_ROOM;
     }
 }
 TGG_ON(frame, on_frame);
