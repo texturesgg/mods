@@ -7,6 +7,11 @@ everything. "Saved" and "Loaded" show near the top for a second.
 There's one state, and it lasts until the match ends. Save again to replace it. Any controller
 works.
 
+With the Practice set (`tgg.practice-menu` and `tgg.practice-stage`), it's also Practice > Free
+practice in 1-P Mode: Training Mode with nobody else on the stage and a clean screen, and save
+states on. In another drill's match (Ledge dash, say) it stays out of the way: that drill has
+its own resets on the D-pad.
+
 It's off in netplay: the game switches it off for the whole session, so having it installed
 never stops you playing someone without it. It's also off while a replay plays, since the
 replay player has its own controls on the D-pad.
@@ -24,7 +29,9 @@ On the Mods page (Y on the main menu):
 `src/mod.c`, in one file. The `frame` event reads the controllers with `tgg_viewer_pad_read`
 (the person at this machine, never the simulation's input) and calls `tgg_snapshot_save` or
 `tgg_snapshot_load` (`tgg/snapshot.h`); the port does them between two logic frames. The
-`state_loaded` event shows "Loaded". The snapshot is freed when the match ends, since it only
+`state_loaded` event shows "Loaded". Its Practice entry (`TGG_MENU_ADD("practice/free", ...)`)
+starts Free practice through `tgg.practice-stage`, found with `tgg_mod_export`, so it doesn't
+depend on it. The snapshot is freed when the match ends, since it only
 loads into its own match.
 
 The manifest says `"class": "offline"`, which the game enforces: while a netplay session is

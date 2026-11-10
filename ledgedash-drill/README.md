@@ -2,8 +2,9 @@
 
 Practice > Ledge dash (1-P Mode, with `tgg.practice-menu`). Pick your fighter, and the stage
 select starts on Final Destination (pick another if you like). It's Training Mode with nobody
-else on the stage and a clean screen. Hang on a ledge once: that's your reset point. Every try (let go, jump, air dodge onto the stage) puts you back on
-the ledge a moment after it's over, so a rep is just the ledge dash.
+else on the stage and a clean screen. Hang on a ledge once: that's your reset point. Every try
+(let go, jump, air dodge onto the stage) puts you back on the ledge a moment after it's over,
+so a rep is just the ledge dash.
 
 | Button | Does |
 |---|---|

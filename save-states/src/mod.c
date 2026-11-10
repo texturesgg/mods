@@ -12,10 +12,14 @@
  * netplay session is on, so it never counts toward netplay, and the snapshot
  * API refuses online anyway. Off while a replay plays too: the replay player
  * has its own controls on the D-pad.
+ *
+ * With tgg.practice-stage installed it's also Practice > Free practice, and it
+ * stays off in another drill's match, which has its own resets on the D-pad.
  */
 #include "tgg/draw.h"
 #include "tgg/events.h"
 #include "tgg/input.h"
+#include "tgg/menu.h"
 #include "tgg/settings.h"
 #include "tgg/snapshot.h"
 
@@ -23,6 +27,7 @@
 #include <melee/gm/gm_1A3F.h>
 
 #include <stddef.h>
+#include <string.h>
 
 enum { WHERE_TRAINING, WHERE_EVERY_MATCH };
 static int where;
@@ -55,8 +60,45 @@ static int replay_playing(void)
     return playing != NULL && playing();
 }
 
+/* tgg.practice-stage, when it's installed: Free practice starts there, and
+ * another drill's match is that drill's (it has its own resets on the D-pad) */
+typedef struct practice_how {
+    const char* drill;
+    int keep_cpu, keep_screen, stage;
+} practice_how;
+static void (*practice_start)(const practice_how*);
+static const char* (*practice_drill)(void);
+
+static void init(void)
+{
+    practice_start = (void (*)(const practice_how*)) tgg_mod_export("tgg.practice-stage",
+                                                                     "practice_start@1");
+    practice_drill = (const char* (*)(void)) tgg_mod_export("tgg.practice-stage",
+                                                             "practice_drill@1");
+}
+TGG_INIT(init);
+
+static void start_free_practice(void)
+{
+    static const practice_how how = { .drill = "tgg.save-states" };
+    if (practice_start != NULL) {
+        practice_start(&how);
+    }
+}
+
+static const tgg_menu_entry free_practice = {
+    .label = "Free practice",
+    .description = "Just you on the stage. D-pad left saves, D-pad right loads.",
+    .action = start_free_practice,
+};
+TGG_MENU_ADD("practice/free", free_practice);
+
 static int usable(void)
 {
+    const char* drill = practice_drill != NULL ? practice_drill() : NULL;
+    if (drill != NULL) {
+        return tgg_in_match() && strcmp(drill, "tgg.save-states") == 0;
+    }
     return tgg_in_match() && !replay_playing() &&
            (where == WHERE_EVERY_MATCH || gm_GetCurrentGameMode() == GM_TRAINING);
 }
