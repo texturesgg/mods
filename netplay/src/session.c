@@ -1048,6 +1048,7 @@ static void punch(double now)
 /* Each displayed frame outside a match: the network */
 static void on_frame(void)
 {
+    unlocks_follow(tgg_session_players() > 1);
     if (ss.state == NETPLAY_OFF || ss.state == NETPLAY_FAILED || ss.state == NETPLAY_PLAYING) {
         return;
     }
