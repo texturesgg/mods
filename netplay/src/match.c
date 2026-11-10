@@ -216,6 +216,11 @@ uint32_t match_number(void)
     return mt.number;
 }
 
+uint32_t match_seed(void)
+{
+    return mt.seed;
+}
+
 void match_input_acks(int32_t out[SIDES])
 {
     for (int s = 0; s < SIDES; s++) {

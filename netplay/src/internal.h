@@ -343,6 +343,8 @@ void match_got_ack(int link, uint32_t number, const int32_t ack[SIDES]);
 /* The match's number, and the newest frame of each side's input this game
  * has in it, for the between-matches packet */
 uint32_t match_number(void);
+/* The match's seed */
+uint32_t match_seed(void);
 void match_input_acks(int32_t out[SIDES]);
 /* Between matches: sends the last match's inputs until every link has them */
 void match_linger(void);

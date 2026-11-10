@@ -480,6 +480,11 @@ static int provider_offer_match(const StartMeleeData* data)
     return 0;
 }
 
+static uint32_t provider_match_seed(void)
+{
+    return match_seed();
+}
+
 static const tgg_session_provider provider = {
     .players = provider_players,
     .me = provider_me,
@@ -489,6 +494,7 @@ static const tgg_session_provider provider = {
     .play_match = provider_play_match,
     .post = provider_post,
     .offer_match = provider_offer_match,
+    .match_seed = provider_match_seed,
 };
 
 /* The session's games are settled: provide it */
