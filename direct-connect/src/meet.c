@@ -248,6 +248,9 @@ static int send_candidates(void)
     }
     send_json(msg);
     tgg_log("meet: %d addresses for the other game", n);
+    for (int i = 0; i < n; i++) {
+        tgg_log("meet:   %s (%s)", list[i].addr, list[i].kind);
+    }
     return 1;
 }
 
@@ -377,10 +380,7 @@ static void got(const char* msg)
 static void could_not_connect(const char* netplay_why)
 {
     char why[320];
-    snprintf(why, sizeof why,
-             "Couldn't connect to %s. A router between you blocks games from reaching "
-             "each other. Turning on UPnP in the router, or forwarding UDP port %d to this "
-             "computer, usually fixes it. Playing over Tailscale works too.",
+    snprintf(why, sizeof why, "Couldn't reach %s. Forward UDP port %d to the host's computer.",
              m.peer_name[0] != '\0' ? m.peer_name : "the other player", UDP_PORT);
     tgg_log("meet: %s", netplay_why);
     char report[300], quoted[260];

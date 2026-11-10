@@ -47,27 +47,6 @@ static void status_text(char* out, int cap)
     }
 }
 
-static void draw_menu(void)
-{
-    band("Online", NULL);
-    const char* rows[6];
-    const int n = menu_rows(rows, 6);
-    for (int i = 0; i < n; i++) {
-        /* The rooms, then a gap, then playing by address */
-        const float y = 84 + i * 50 + (i >= 2 ? 20 : 0);
-        const int on = i == dc.menu_sel;
-        tgg_draw_rect(140, y, 360, 42, on ? GOLD : PANEL);
-        char fit[96];
-        tgg_text_fit(fit, sizeof fit, 22, 330, rows[i]);
-        tgg_draw_text(320, y + 10, 22, on ? INK : WHITE, TGG_ALIGN_CENTER, fit);
-    }
-    char hint[128];
-    tgg_text_fit(hint, sizeof hint, 16, 600,
-                 "Rooms work anywhere. Addresses need a shared network.");
-    tgg_draw_text(320, 368, 16, DIM, TGG_ALIGN_CENTER, hint);
-    footer("A  Choose     B  Back");
-}
-
 /* The room's code and who's in it, from `y` */
 static void draw_room_code(float y)
 {
@@ -113,66 +92,6 @@ static void draw_room(void)
     default:
         tgg_draw_text(320, 200, 22, WHITE, TGG_ALIGN_CENTER, "Getting a room on textures.gg");
         break;
-    }
-    footer("B  Leave");
-}
-
-static void draw_hosting(void)
-{
-    band("Hosting", NULL);
-    netplay_info info;
-    netplay_status(&info);
-    char count[64];
-    if (info.players < 2) {
-        snprintf(count, sizeof count, "Waiting for players");
-    } else {
-        snprintf(count, sizeof count, "%d players in", info.players);
-    }
-    tgg_draw_text(320, 96, 26, WHITE, TGG_ALIGN_CENTER, count);
-    if (dc.room) {
-        draw_room_code(140);
-    } else {
-    tgg_draw_text(320, 140, 18, DIM, TGG_ALIGN_CENTER, "Tell them one of these to join:");
-    char addrs[6][48];
-    const int n = local_addresses(addrs, 6);
-    float y = 172;
-    char line[128];
-    const char* name = local_name();
-    for (int i = 0; i < n && i < 4; i++) {
-        tgg_draw_rect(150, y, 340, 38, PANEL);
-        tgg_draw_text(320, y + 8, 24, i == 0 ? GOLD : WHITE, TGG_ALIGN_CENTER, addrs[i]);
-        y += 44;
-    }
-    if (name[0] != '\0') {
-        tgg_draw_rect(150, y, 340, 38, PANEL);
-        tgg_draw_text(320, y + 8, 24, WHITE, TGG_ALIGN_CENTER, name);
-        y += 44;
-    }
-    snprintf(line, sizeof line, "Port %d", setting_port);
-    tgg_draw_text(320, y + 8, 18, DIM, TGG_ALIGN_CENTER, line);
-    }
-    if (info.locked) {
-        footer("Start  Play    B  Leave");
-    } else if (info.players >= 2) {
-        footer("Start  Play    B  Stop hosting");
-    } else {
-        footer("B  Stop hosting");
-    }
-}
-
-static void draw_waiting(void)
-{
-    band("Online", NULL);
-    netplay_info info;
-    netplay_status(&info);
-    char line[128];
-    snprintf(line, sizeof line, "Connected to %s", info.peer);
-    tgg_draw_text(320, 180, 22, DIM, TGG_ALIGN_CENTER, line);
-    tgg_draw_text(320, 220, 28, WHITE, TGG_ALIGN_CENTER,
-                  info.locked ? "The host is choosing" : "Waiting for the host to start");
-    if (info.players >= 2) {
-        snprintf(line, sizeof line, "%d players in", info.players);
-        tgg_draw_text(320, 268, 18, DIM, TGG_ALIGN_CENTER, line);
     }
     footer("B  Leave");
 }
@@ -304,20 +223,11 @@ static void draw_restarting(void)
 void dc_draw(void)
 {
     switch (dc.view) {
-    case VIEW_MENU:
-        draw_menu();
-        break;
-    case VIEW_HOSTING:
-        draw_hosting();
-        break;
     case VIEW_ADDRESS:
         draw_address();
         break;
     case VIEW_CONNECTING:
         draw_connecting();
-        break;
-    case VIEW_WAITING:
-        draw_waiting();
         break;
     case VIEW_FAILED:
         draw_failed();

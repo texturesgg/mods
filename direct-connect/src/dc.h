@@ -13,13 +13,19 @@
 
 #include <stdint.h>
 
+/* What this game is doing online */
+enum {
+    MODE_NONE,
+    MODE_ROOM,      /* made a room */
+    MODE_HOST,      /* hosting by address */
+    MODE_JOIN_ROOM, /* joined a room */
+    MODE_JOIN,      /* joined by address */
+};
+
 /* Where the screen is */
 enum {
-    VIEW_MENU,       /* Host, Join */
-    VIEW_HOSTING,    /* waiting for players to join */
-    VIEW_ADDRESS,    /* typing the host's address */
+    VIEW_ADDRESS,    /* typing the host's address or a room's code */
     VIEW_CONNECTING, /* saying hello to it */
-    VIEW_WAITING,    /* joined: waiting for the host */
     VIEW_FAILED,     /* the session ended: why */
     VIEW_DIFFERENT,  /* the host has other mods: what differs, and get them? */
     VIEW_RESTARTING, /* tgg is getting the host's mods (tgg/restart.h) */
@@ -45,10 +51,11 @@ int profile_diff(const char* host_json, const char* own_json, Diff* d);
 
 typedef struct Dc {
     int view;
-    int menu_sel;
     char address[ADDRESS_MAX]; /* being typed */
     int typing_code;           /* VIEW_ADDRESS types a room code, not an address */
     int room;                  /* the session came through a room (meet.c) */
+    int mode;                  /* MODE_*: what this game is doing online */
+    char note[320];            /* the submenu's line: what went wrong */
     meet_status meet;          /* the room, as last polled */
     int key;                   /* the keyboard's selected key */
     char message[320];
@@ -84,8 +91,6 @@ void keyboard_draw(void);
 
 /* draw.c */
 void dc_draw(void);
-/* The menu's rows: Host, Join <last address>, Join another address */
-int menu_rows(const char** rows, int max);
 
 /* addr.c: this machine's addresses to tell the other player, the tailnet's
  * first; and its name */
