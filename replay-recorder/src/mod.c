@@ -9,6 +9,7 @@
  * from its last run, and never from a guess. The file is finished (the end,
  * the metadata, the raw element's length) once the match has ended and every
  * frame is final, when the match scene has left, or when the game quits.
+ * A snapshot load (state_loaded) ends the replay where the match jumped.
  *
  * Matches the replay player plays are skipped, unless the `playback`
  * setting asks for them: the player says so through its API, which this
@@ -270,3 +271,20 @@ static void on_quit(void)
     }
 }
 TGG_ON(quit, on_quit);
+
+/* A snapshot was loaded: the match jumped, so its replay ends here, with the
+ * frames before the jump (it couldn't play back past it) */
+static void on_state_loaded(void)
+{
+    if (!pending) {
+        return;
+    }
+    tgg_log("a state was loaded: this match's replay stops here");
+    if (file != NULL) {
+        finish();
+    } else {
+        pending = 0;
+        capture_stop();
+    }
+}
+TGG_ON(state_loaded, on_state_loaded);
