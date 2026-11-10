@@ -28,7 +28,9 @@
 #include <melee/gm/gmscene.h>
 #include <melee/gm/gmvs.h>
 #include <melee/gm/types.h>
+#include <melee/lb/lb_00B0.h>
 #include <melee/mn/mnmain.h>
+#include <melee/mn/mnstagesel.h>
 #include <melee/pl/player.h>
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/jobj.h>
@@ -103,6 +105,19 @@ static void on_tick_end(void)
     }
 }
 TGG_ON(tick_end, on_tick_end);
+
+/* Training's menu shows "No. of CPs" as an animation frame of one joint, the
+ * count plus one: with nobody else on, it shows 0 */
+static void after_training_hud(HSD_GObj* gobj)
+{
+    (void) gobj;
+    if (!in_training() || !want_alone() || gm_80473814.jobjs[32] == NULL) {
+        return;
+    }
+    HSD_JObjReqAnimAll(gm_80473814.jobjs[32], 0.0f);
+    HSD_JObjAnimAll(gm_80473814.jobjs[32]);
+}
+TGG_AFTER(fn_80188EE8, after_training_hud);
 
 /* ---- The API ----------------------------------------------------------------- */
 
@@ -202,3 +217,61 @@ static void on_hud(void)
     tgg_draw_text(320, 100, 22, TGG_RGBA(255, 255, 255, 255 * a), TGG_ALIGN_CENTER, message);
 }
 TGG_ON(hud_draw, on_hud);
+
+/* ---- The stage select starts on the drill's stage -------------------------- */
+
+/* The stage select's icons (mnstagesel.c), as the game lays them out */
+typedef struct StageListInfo {
+    HSD_JObj* icon;
+    int x4;
+    u8 shown;
+    u8 x9, xA;
+    u8 stkind;
+    f32 xC, x10, x14, x18;
+} StageListInfo;
+static StageListInfo* stage_icons;
+TGG_GAME_SYMBOL(stage_icons, "mnstagesel.c:mnStageSel_803F06D0");
+
+/* Cursor updates since the stage select opened; the icons slide in first,
+ * so the cursor moves once they've settled, if the player hasn't moved it */
+#define SETTLED 60
+static int sss_frames;
+static Vec3 sss_start;
+
+static void on_match_start_placed(const StartMeleeData* data)
+{
+    (void) data;
+    sss_frames = 0; /* the next stage select starts on it again */
+}
+TGG_ON(match_start, on_match_start_placed);
+
+static void before_sss_cursor(HSD_GObj* gobj)
+{
+    if (!drill.on || drill.how.stage == 0 || stage_icons == NULL || sss_frames > SETTLED) {
+        return;
+    }
+    HSD_JObj* cursor = HSD_GObjGetHSDObj(gobj);
+    Vec3 now;
+    HSD_JObjGetTranslation(cursor, &now);
+    if (sss_frames++ == 0) {
+        sss_start = now;
+    }
+    if (now.x != sss_start.x || now.y != sss_start.y) {
+        sss_frames = SETTLED + 1; /* the player is choosing */
+        return;
+    }
+    if (sss_frames < SETTLED) {
+        return;
+    }
+    for (int i = 0; i < 30; i++) {
+        if (stage_icons[i].stkind == drill.how.stage && stage_icons[i].shown &&
+            stage_icons[i].icon != NULL)
+        {
+            Vec3 at;
+            lb_8000B1CC(stage_icons[i].icon, NULL, &at);
+            HSD_JObjSetTranslate(cursor, &at);
+            break;
+        }
+    }
+}
+TGG_BEFORE(fn_8025A310, before_sss_cursor);

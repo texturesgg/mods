@@ -2,7 +2,7 @@
   "api": "tgg-melee/0",
   "id": "tgg.practice-stage",
   "name": "Practice stage",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Training Mode with nobody else on the stage and a clean screen, for practice drills.",
   "icon": "icon.png",
   "class": "offline",

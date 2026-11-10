@@ -14,7 +14,7 @@ On its own, two settings on the Mods page (Y on the main menu) change plain Trai
 | Training: clean screen | hides Training's readouts (speed, enemy, damage, combo panels); they come back with its pause menu |
 
 Both are off by default. Training's own pause menu still works for speed, camera and the
-rest; its "No. of CPs" row still says 1 while nobody else is on.
+rest, and its "No. of CPs" row says 0 while nobody else is on.
 
 The practice drills turn both on for their own matches, whatever these settings say.
 
@@ -28,7 +28,8 @@ Off in netplay: an offline mod, switched off by the game for a netplay session.
 
 - `practice_start(&how)` from a menu entry's action: opens Training Mode's character select,
   and the match after it is your drill's (`how.drill` is your mod id; `keep_cpu` and
-  `keep_screen` keep what you want of Training).
+  `keep_screen` keep what you want of Training; `stage`, a `StKind`, is where the stage select
+  starts, still free to move).
 - `practice_drill()`: the drill this Training Mode was started for, or NULL.
 - `practice_reset_here()` keeps this moment as the reset point ("Ready" shows), and
   `practice_reset(say)` goes back to it ("Reset" shows when `say` is nonzero, for a reset the
@@ -43,10 +44,13 @@ Put your drill's entry in the Practice submenu with `TGG_MENU_ADD("practice/<nam
 
 - Nobody else: each frame of a Training match, the CPUs are taken out with the game's own
   removal (`fn_8016EF98`, what Training's "No. of CPs" row uses), so its menu can't bring one
-  back.
+  back, and an after hook on Training's HUD update (`fn_80188EE8`) shows its CPU count as 0.
 - Clean screen: Training's readouts and its pause menu are one model
   (`gm_80473814.gobj`); it's hidden while the game isn't paused.
-- Starting a drill does what the 1-P menu does for Training (`mn_80229860(GM_TRAINING)`).
+- Starting a drill does what the 1-P menu does for Training (`mn_80229860(GM_TRAINING)`). A
+  drill's stage: once the stage select's icons have settled (a second in), a before hook on its
+  cursor update (`fn_8025A310`) puts the cursor on that stage's icon, unless the player has
+  already moved it.
 - The reset point is a snapshot (`tgg/snapshot.h`).
 
 ## Build
