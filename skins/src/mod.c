@@ -4,10 +4,10 @@
  * tgg-studio and `tgg skin` write:
  *
  *   {"format": 1,
- *    "library": "/home/me/.local/share/textures.gg/library/skins",
- *    "slots": {"PlFxOr.dat": {"sha256": "9b88…", "name": "Dark Fox"}}}
+ *    "slots": {"PlFxOr.dat": {"path": "/home/me/…/9b88….dat",
+ *                             "sha256": "9b88…", "name": "Dark Fox"}}}
  *
- * Each skin is <library>/<sha256>.dat. A costume is added to the disc with
+ * Each slot names its skin's file. A costume is added to the disc with
  * tgg_files_add and handed to the game on costume_file; a menu or trophy file
  * replaces the disc's with tgg_files_replace. In a netplay match the game
  * itself only takes a costume that changes nothing but looks, and loads the
@@ -26,12 +26,12 @@
 typedef struct slot {
     char file[32];      /* the disc file it replaces: "PlFxOr.dat" */
     char sha256[65];
+    char path[1024];    /* the skin's file */
     char added[64];     /* where tgg_files_add put it, or "" */
 } slot;
 
 static slot slots[MAX_SLOTS];
 static int slot_count;
-static char library[1024];
 
 /* ---- A small JSON reader for skins.json ------------------------------------ */
 
@@ -192,6 +192,9 @@ static int slot_field(json* j, const char* key, void* user)
     if (strcmp(key, "sha256") == 0) {
         return read_string(j, s->sha256, sizeof s->sha256);
     }
+    if (strcmp(key, "path") == 0) {
+        return read_string(j, s->path, sizeof s->path);
+    }
     return skip_value(j);
 }
 
@@ -207,7 +210,7 @@ static int slots_field(json* j, const char* key, void* user)
     if (!each_key(j, slot_field, s)) {
         return 0;
     }
-    if (strlen(s->sha256) == 64) {
+    if (s->path[0] != '\0') {
         slot_count++;
     }
     return 1;
@@ -216,9 +219,6 @@ static int slots_field(json* j, const char* key, void* user)
 static int top_field(json* j, const char* key, void* user)
 {
     (void) user;
-    if (strcmp(key, "library") == 0) {
-        return read_string(j, library, sizeof library);
-    }
     if (strcmp(key, "slots") == 0) {
         return each_key(j, slots_field, NULL);
     }
@@ -252,7 +252,7 @@ static void start(void)
     const size_t size = fread(text, 1, sizeof text, f);
     fclose(f);
     json j = { text, text + size };
-    if (!each_key(&j, top_field, NULL) || library[0] == '\0') {
+    if (!each_key(&j, top_field, NULL)) {
         tgg_log("%s isn't a skins file this version reads; no skins loaded", path);
         slot_count = 0;
         return;
@@ -260,12 +260,10 @@ static void start(void)
     int loaded = 0;
     for (int i = 0; i < slot_count; i++) {
         slot* s = &slots[i];
-        char file[1200];
-        snprintf(file, sizeof file, "%s/%s.dat", library, s->sha256);
         if (is_menu_file(s->file)) {
-            loaded += tgg_files_replace(s->file, file) == 0;
+            loaded += tgg_files_replace(s->file, s->path) == 0;
         } else if (is_costume_file(s->file)) {
-            if (tgg_files_add(file, s->file, s->added, sizeof s->added) == 0) {
+            if (tgg_files_add(s->path, s->file, s->added, sizeof s->added) == 0) {
                 loaded++;
             } else {
                 s->added[0] = '\0';

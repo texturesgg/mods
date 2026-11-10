@@ -20,14 +20,13 @@ tgg-studio and `tgg skin` write:
 ```json
 {
   "format": 1,
-  "library": "/home/me/.local/share/textures.gg/library/skins",
   "slots": {
-    "PlFxOr.dat": { "sha256": "9b88…", "name": "Dark Fox" }
+    "PlFxOr.dat": { "path": "/home/me/skins/9b88….dat", "sha256": "9b88…", "name": "Dark Fox" }
   }
 }
 ```
 
-Each skin is `<library>/<sha256>.dat`. `src/mod.c`:
+Each slot names its skin's file. `src/mod.c`:
 
 - In `TGG_INIT` it reads the file and adds each costume with `tgg_files_add(file,
   "PlFxOr.dat", …)`, which converts it and checks whether it only changes looks. A menu or
