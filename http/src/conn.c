@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* A connection to a URL's host over the port's tgg/net.h: plain TCP for the
  * local network, TLS (Mbed TLS, src/mbedtls/) for everything else, checked
  * against the system's root certificates (tgg_net_trust_roots). */

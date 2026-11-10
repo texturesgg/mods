@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Skip results: after a VS match the game goes straight back to the
  * character select, without the results screen, as Slippi does.
  *

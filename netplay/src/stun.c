@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* STUN (RFC 8489): one binding request from netplay's own socket to
  * Cloudflare's STUN server, whose answer is the address and port the router
  * gives that socket on the internet. The other game punches through to it.

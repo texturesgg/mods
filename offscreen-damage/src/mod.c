@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Offscreen damage: a fighter takes offscreen damage whenever it's outside the
  * stage's camera bounds, the way Brawl does it, instead of while the game shows
  * it in a magnifying bubble. The damage, the delay between ticks and the

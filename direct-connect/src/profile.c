@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Two mod profiles side by side: the host's (netplay_host_profile) and this
  * game's (tgg_mod_set_profile), as the lines the screen shows. A profile is
  * the port's JSON:

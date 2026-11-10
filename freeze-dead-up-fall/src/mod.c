@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Freeze screen KO fall: a fighter KO'd off the top that hits the screen
  * (DeadUpFall and its variants) stays where it was KO'd in the simulation; only
  * its model follows the camera. Matches Slippi's online code

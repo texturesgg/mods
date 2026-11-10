@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* tgg.http's API for other mods: HTTPS requests and WebSocket connections,
  * with TLS checked against the system's root certificates.
  *

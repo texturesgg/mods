@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* A match with the other games, with rollback.
  *
  *   - Start: every game loads the same match (session.c agreed on it), and

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* A relay (TURN, RFC 8656) for when two games can't punch through to each
  * other: the host asks a TURN server (Cloudflare's, credentials from the
  * meeting point) for an address of its own on the server, and the other

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Reading a Slippi replay: the raw stream of events in a UBJSON wrapper. Each
  * event is a command byte and a payload whose size the first event (0x35)
  * lists, so events this reader doesn't use are skipped by size, and fields a

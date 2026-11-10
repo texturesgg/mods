@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The replay player's parts: the match setup and rules report (setup.c), the
  * controls (keys.c), the summary other mods read (summary.c), and the
  * playback itself (mod.c). */

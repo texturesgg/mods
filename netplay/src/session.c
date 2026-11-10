@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The session: two to four games find each other, check they can play
  * together, keep in touch between matches, pass messages, and agree on each
  * match. The API other mods call (include/netplay.h) is here.

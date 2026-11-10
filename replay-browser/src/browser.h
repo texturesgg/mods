@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The replay browser's parts: the folder and its replays (list.c), the
  * screen's input (browser.c), its drawing (draw.c), and the game's names
  * for fighters and stages (names.c). */

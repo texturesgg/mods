@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The replay player's API for other mods (tgg.replay-player): read what a
  * Slippi replay holds without playing it, and play one.
  *

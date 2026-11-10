@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The screen: the list on the left, the selected replay on the right, in
  * the game's font, colors and pictures, over the menus' background. */
 #include "browser.h"

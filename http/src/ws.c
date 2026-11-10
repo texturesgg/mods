@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* WebSocket client (RFC 6455): the upgrade request, then frames. Messages
  * the server sends are queued whole; pings are answered; a ping goes out
  * every 30 seconds so idle connections stay open. */

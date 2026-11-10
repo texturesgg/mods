@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Replays: a screen that lists a folder's Slippi replays, newest first, with
  * a preview of the selected one, and plays it through the replay player.
  *

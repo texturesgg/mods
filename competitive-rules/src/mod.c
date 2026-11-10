@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Competitive rules: VS mode starts with the competitive standard (4 stocks,
  * 8:00, items off, team attack on) instead of the game's 2-minute time match
  * with items. The game's own rules screens are where they change.

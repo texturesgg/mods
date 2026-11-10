@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The screen, in the menus' look: the title in a dark band, rows on dark
  * blue panels, the selected one gold, the buttons' help at the bottom. */
 #include "dc.h"

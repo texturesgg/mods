@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The simulation's side of the recorder: each logic frame of a match being
  * recorded, the events Slippi's recording code sends, captured at the same
  * points in the game and encoded as the console would send them.

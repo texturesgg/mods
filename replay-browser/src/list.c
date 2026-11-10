@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The folder being browsed: its subfolders and its replays, sorted, each
  * replay's summary read from the replay player the first time it's shown. */
 #include "browser.h"

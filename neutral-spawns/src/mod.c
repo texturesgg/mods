@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Neutral spawns: on the legal stages, singles players start at the stage's
  * neutral spawn points instead of the game's, and 2v2 teams start side by
  * side. Other stages use the stage's own points in player order. Matches

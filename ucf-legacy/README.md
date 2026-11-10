@@ -19,3 +19,8 @@ CMakeLists.txt   builds src/ against the SDK, if you'd rather use CMake than tgg
 ```sh
 tgg mod build          # a release build, packed into build/
 ```
+
+## Credits
+
+The Universal Controller Fix is the work of Dan Salvato, tauKhan and the UCF team. This mod
+follows the version Slippi ships, from slippi-ssbm-asm (GPL-3.0); see `CREDITS.md`.

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Preloaded Stadium transformations: Pokémon Stadium picks its next
  * transformation, and loads its file, as soon as it's back to the neutral
  * stage, instead of when the neutral stage's timer runs out. When the timer

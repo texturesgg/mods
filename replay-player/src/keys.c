@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The playback controls, from the viewer's keyboard and controllers
  * (tgg/input.h): what the person watching presses, whatever the replay
  * plays on the game's ports. */

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The replay recorder's parts: what the simulation captures each frame
  * (capture.c), the file it becomes (slp.c), and the mod that ties them
  * together (mod.c). */

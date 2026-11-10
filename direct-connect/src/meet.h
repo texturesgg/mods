@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The meeting point (meet.c): playing a friend on another network through a
  * room code on textures.gg. One game makes a room and shows its code, the
  * other joins with it; the meeting point hands each game the other's

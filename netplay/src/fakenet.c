@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* A fake network for tests: each datagram sent waits its latency, plus or
  * minus the jitter, and some are lost. Jitter reorders them. The randomness
  * is its own generator, seeded from the spec, never the game's. */

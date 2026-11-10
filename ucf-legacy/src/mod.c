@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /*
  * UCF (Slippi 3.16 and earlier): the Universal Controller Fix as Slippi's
  * builds up to 3.16 ran it, the three codes of slippi-ssbm-asm's

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* A replay's summary (replay_read_summary): its setup from the Game Start
  * event at the start of the file, how it ended from the Game End event at
  * the end of the raw stream, and its date and length from the metadata after

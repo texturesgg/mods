@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Legal stages: random stage select picks only the competitive legal stages
  * (Battlefield, Final Destination, Dream Land, Yoshi's Story, Fountain of
  * Dreams, Pokémon Stadium).

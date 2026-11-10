@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* HTTP/1.1 requests: one connection each, "Connection: close", the response
  * read whole (Content-Length, chunked, or until the server closes). */
 #include "internal.h"

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Whispy blow direction fix: ftLib_GetOpponentsDir, which picks the side
  * Whispy Woods blows toward (and the side other callers aim at), skips a
  * fighter in a Dead action (DeadDown through DeadUpFallHitCameraIce), so a

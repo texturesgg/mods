@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Replay player: plays a Slippi replay's match in the port.
  *
  * Two ways in. Another mod's screen calls replay_play (include/

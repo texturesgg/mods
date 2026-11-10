@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The replay test: TGG_NETPLAY_REPLAY=<file.slp>. Two games play a Slippi
  * replay's match against each other over the network, each playing one
  * side's recorded inputs, so both should end where the console did (the

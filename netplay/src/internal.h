@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The netplay mod's parts: the socket (net.c), the fake network for tests
  * (fakenet.c), the packets (wire.c), the session and its messages
  * (session.c), the matches and their rollback (match.c) and the replay test

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* What the replay test reads from a Slippi replay (.slp): the match's setup, the
  * gecko codes the console ran, and each frame's inputs and RNG seed. The
  * format is project-slippi's slippi-wiki SPEC.md. */

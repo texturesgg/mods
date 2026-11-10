@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Direct connect's parts: the screen (connect.c), the on-screen keyboard
  * (keyboard.c), the drawing (draw.c), this machine's addresses (addr.c) and
  * comparing the host's mods with this game's (profile.c). */

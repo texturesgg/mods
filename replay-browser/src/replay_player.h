@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* What the browser reads from a replay (summary.c), the types of
  * tgg.replay-player's include/replay_player.h without its rules report, and
  * the player's replay_play, which the browser finds when the player is

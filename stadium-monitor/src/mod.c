@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Camera-free Stadium monitor: Pokémon Stadium's big screen leaves its close-up
  * of a fighter when the fighter's position leaves fixed bounds (x -120 to 120,
  * y -20 to 80), instead of when the close-up would leave the camera's view.

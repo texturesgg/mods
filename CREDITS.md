@@ -4,7 +4,7 @@ These mods stand on other people's work.
 
 ## Slippi
 
-The rule mods reproduce code from [project-slippi/slippi-ssbm-asm](https://github.com/project-slippi/slippi-ssbm-asm)
+These mods are GPL-3.0-or-later (`LICENSE`). The rule mods reproduce code from [project-slippi/slippi-ssbm-asm](https://github.com/project-slippi/slippi-ssbm-asm)
 (GPL-3.0): its PowerPC logic and constants, ported to C at the same points in the game. Each
 mod names the code it follows.
 
@@ -30,4 +30,4 @@ mods follow the versions Slippi ships, through slippi-ssbm-asm.
 ## Mbed TLS
 
 `http` includes [Mbed TLS](https://github.com/Mbed-TLS/mbedtls) in `http/src/mbedtls` and
-`http/include`, under Apache-2.0 or GPL-2.0-or-later (`http/src/mbedtls/LICENSE`).
+`http/include`, under Apache-2.0 (or GPL-2.0-or-later) (`http/src/mbedtls/LICENSE`).

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Replay recorder: saves each VS match played on the port as a Slippi replay
  * (.slp) that Slippi's tools open.
  *

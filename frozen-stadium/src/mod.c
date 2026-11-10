@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Frozen Stadium: Pokémon Stadium never transforms, and stays the neutral stage
  * for the whole match. Matches Slippi's frozen Stadium toggle
  * (slippi-ssbm-asm Online/Core/Hacks/Stadium/IngameCheckIfFrozen.asm).

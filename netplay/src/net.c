@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The UDP socket and the peers, over the port's tgg/net.h: the same on
  * Linux, macOS and Windows. A joiner has one peer, the host; the host has one
  * per joiner.

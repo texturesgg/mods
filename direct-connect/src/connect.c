@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Direct connect: Online on the main menu, a submenu of the game's own look
  * that connects the games (tgg.netplay):
  *

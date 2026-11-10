@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* tgg.netplay's API for other mods: a session of two to four games over the
  * network, messages between them, and the matches they play together with
  * rollback.

@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* This machine's IPv4 addresses, for the host to tell the other player: the
  * tailnet's first, then the local network's. From the port's tgg/net.h. */
 #include "dc.h"

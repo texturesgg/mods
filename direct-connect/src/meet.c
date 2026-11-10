@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The meeting point on textures.gg (meet.h): a ticket from the tgg beside the
  * game (tgg/account.h), a WebSocket to the meeting point (tgg.http), this
  * game's addresses from netplay (netplay_prepare, netplay_candidates), a room,

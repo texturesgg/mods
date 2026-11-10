@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Fighters by CharacterKind and stages by StKind, as the game's menus name
  * them. */
 #include "browser.h"

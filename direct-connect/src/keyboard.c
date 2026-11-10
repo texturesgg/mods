@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Typing the host's address: an on-screen keyboard for a controller, and the
  * real keyboard too. */
 #include "dc.h"

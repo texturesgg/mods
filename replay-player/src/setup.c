@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The match a replay recorded, as the game sets one up (StartMeleeData), and
  * the Slippi rules its console ran. */
 #include "player.h"

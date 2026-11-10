@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Quick start: the game skips the opening movie and the title screen and
  * starts at the main menu, or at VS mode's or Training mode's character
  * select, as the Slippi and UnclePunch setups do.

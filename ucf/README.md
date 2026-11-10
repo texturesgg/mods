@@ -27,3 +27,8 @@ Not here: UCF's character select screen indicator text.
 tgg mod build    # packs build/tgg.ucf-<version>.zip
 tgg mod dev      # build, install and run the game
 ```
+
+## Credits
+
+The Universal Controller Fix is the work of Dan Salvato, tauKhan and the UCF team. This mod
+follows the version Slippi ships, from slippi-ssbm-asm (GPL-3.0); see `CREDITS.md`.

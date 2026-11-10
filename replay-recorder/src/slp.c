@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Writing a Slippi replay (.slp), as project-slippi's SPEC.md lays it out:
  * a UBJSON object of two elements. `raw` is an array of bytes, the events
  * the console sends, its length written last (0 while the match runs, as

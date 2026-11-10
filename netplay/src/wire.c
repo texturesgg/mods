@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* What goes over the network: a port's input as the game made it, and the
  * packets, written field by field in little-endian order so both ends read
  * them alike whatever their compiler lays a struct out as. */

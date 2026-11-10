@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* tgg.http's parts: a connection, plain or TLS, to a URL's host (conn.c),
  * requests on one (request.c), and WebSockets on one (ws.c). */
 #ifndef HTTP_INTERNAL_H
