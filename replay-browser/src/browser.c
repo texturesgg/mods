@@ -11,6 +11,7 @@
 #include "tgg/events.h"
 #include "tgg/files.h"
 #include "tgg/input.h"
+#include "tgg/menu.h"
 #include "tgg/screen.h"
 #include "tgg/settings.h"
 
@@ -246,12 +247,20 @@ static void frame(void)
 }
 
 static const tgg_screen browser = {
-    .title = "Replays",
     .enter = enter,
     .frame = frame,
     .draw = browser_draw,
 };
 TGG_SCREEN("browser", browser);
+
+/* Replays, under Data beside the game's records */
+static const tgg_menu_entry replays = {
+    .label = "Replays",
+    .description = "Watch your Slippi replays.",
+    .after = "data/records",
+    .screen = &browser,
+};
+TGG_MENU_ADD("data/replays", replays);
 
 /* Back in the player's own game after a replay played in a restarted one:
  * the browser again, in the folder it was in, once the menu can show it */
