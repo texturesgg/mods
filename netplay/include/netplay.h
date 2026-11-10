@@ -164,4 +164,27 @@ TGG_API(NETPLAY, int, netplay_open_meet,
  * none has yet. For the meeting point's report. */
 TGG_API(NETPLAY, const char*, netplay_route, (double* ms));
 
+/* ---- A relay, when two games can't punch through (a TURN server the meeting
+ * point gives credentials for). The host takes one; the other games send to its
+ * relay address like any other candidate. */
+
+/* The host, waiting for games through netplay_open_meet: asks the TURN server at
+ * `server` ("host:port") for an address, with the meeting point's `user` and
+ * `pass`, and gives the games another ten seconds. 0, or -1 with `why`. */
+TGG_API(NETPLAY, int, netplay_relay,
+        (const char* server, const char* user, const char* pass, const char** why));
+
+/* The host's relay address, "203.0.113.9:49152", into `out`: 1 once the server
+ * gave it, 0 while asking, -1 without a relay or when it failed. */
+TGG_API(NETPLAY, int, netplay_relay_address, (char* out, int cap));
+
+/* A joiner: more of the host's addresses (its relay address, kind "relay"),
+ * said hello to for another ten seconds. */
+TGG_API(NETPLAY, void, netplay_add_candidates,
+        (const char* const* addrs, const char* const* kinds, int n));
+
+/* The host: bytes that went through its relay, both ways, for the meeting
+ * point's report. */
+TGG_API(NETPLAY, double, netplay_relay_bytes, (void));
+
 #endif

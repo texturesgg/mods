@@ -61,6 +61,7 @@ List it in your manifest and include `include/netplay.h` (copy it, or add netpla
 | `netplay_candidates(out, max)` | the addresses another game might reach this one at (local, Tailscale, STUN's, public IPv6), for the meeting point; -1 while STUN hasn't answered |
 | `netplay_open_meet(side, addrs, kinds, n, token, &why)` | opens the session the meeting point set up, on the other games' addresses, with its session token |
 | `netplay_route(&ms)` | which kind of address got through first, and how long it took |
+| `netplay_relay(server, user, pass, &why)`, `netplay_relay_address`, `netplay_add_candidates`, `netplay_relay_bytes` | the host takes a relay on a TURN server; the others add its relay address |
 
 Call these from presentation code (a screen's functions or a PRESENT event), never from
 simulation code. `tgg.direct-connect` is a complete example of a mod built on them.
@@ -73,6 +74,7 @@ src/match.c       a match: inputs, rollback, confirming frames, checksums, pacin
 src/wire.c        the packets, byte by byte
 src/net.c         the UDP socket and its peers, over the port's tgg/net.h; punching
 src/stun.c        asking a STUN server for this game's internet address
+src/turn.c        a relay on a TURN server, for games that can't punch through
 src/fakenet.c     a fake network for testing: latency, jitter, loss, reordering
 src/replaytest.c  the replay test
 src/slp.c         reading a Slippi replay
@@ -87,6 +89,11 @@ src/slp.c         reading a Slippi replay
   every one of the other's addresses every 100 ms, which opens each router for the other's
   packets (hole punching). The first that answers is the one used. Hellos without the token
   are ignored. After ten seconds without an answer, the session fails.
+- **A relay, when punching fails.** When the host hasn't heard from a game 3 seconds into
+  the punching, its connect mod asks the meeting point for a relay: credentials for a TURN
+  server (`src/turn.c`, RFC 8656). The host takes an address there; the other games say
+  hello to it like any other candidate, and the server passes the packets on. The host's
+  relay carries everything from then on.
 - **Hello.** A joiner says hello every 100 ms until the host has its hello: the game build,
   the platform, the mod-set ids. The host takes each game whose hello arrives with the same
   build and mods, gives it its side, and tells every game how many are in. After the lock it
@@ -140,6 +147,7 @@ TGG_NETPLAY_PEER=192.168.1.10:51000 TGG_NETPLAY_SIDE=1 TGG_BOOT_MATCH=fox,marth,
 | `TGG_NETPLAY_DELAY` | frames of input delay, over the setting |
 | `TGG_NETPLAY_ROLLBACK` | the most frames to roll back, default 8 (up to 30) |
 | `TGG_NETPLAY_NO_TAILSCALE` | through a meeting point: leave Tailscale addresses out, to try the path over the internet on machines that have it |
+| `TGG_NETPLAY_NO_DIRECT` | through a meeting point: drop every packet from another game that didn't come through the relay, to test it on one network |
 | `TGG_NETPLAY_FAKE` | a fake network: `latency=40,jitter=10,loss=5` (one way, ms and percent) |
 | `TGG_NETPLAY_REPLAY` | the replay test, below |
 

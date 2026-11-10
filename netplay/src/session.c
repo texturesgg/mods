@@ -1477,3 +1477,39 @@ const char* netplay_route(double* ms)
     const char* kind = net_punched(ms);
     return kind != NULL ? kind : "";
 }
+
+int netplay_relay(const char* server, const char* user, const char* pass, const char** why)
+{
+    if (!hosting() || (ss.state != NETPLAY_WAITING && ss.state != NETPLAY_CONNECTED) ||
+        server == NULL || user == NULL || pass == NULL)
+    {
+        if (why != NULL) {
+            *why = "Only a host waiting for games takes a relay.";
+        }
+        return -1;
+    }
+    if (net_relay(server, user, pass) != 0) {
+        if (why != NULL) {
+            *why = "Couldn't reach the relay.";
+        }
+        return -1;
+    }
+    return 0;
+}
+
+int netplay_relay_address(char* out, int cap)
+{
+    return out != NULL && cap > 0 ? turn_relayed(out, (size_t) cap) : -1;
+}
+
+void netplay_add_candidates(const char* const* addrs, const char* const* kinds, int n)
+{
+    if (ss.token != 0 && addrs != NULL && n > 0) {
+        net_add_candidates(addrs, kinds, n);
+    }
+}
+
+double netplay_relay_bytes(void)
+{
+    return turn_bytes();
+}

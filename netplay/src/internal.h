@@ -14,6 +14,7 @@ typedef struct HSD_PadStatus HSD_PadStatus;
 typedef struct PADStatus PADStatus;
 typedef struct StartMeleeData StartMeleeData;
 typedef struct tgg_socket tgg_socket;
+typedef struct tgg_net_addr tgg_net_addr;
 
 /* ---- net.c: one UDP socket and its peers, over the port's tgg/net.h: a
  * joiner has one, the host; the host one per joiner */
@@ -70,6 +71,31 @@ void net_punch_report(void);
 /* A joiner still punching: the last datagram's sender is the host (its hello
  * carried the session's token). 0, or -1 when not punching */
 int net_take_host(void);
+
+/* ---- turn.c: a relay on a TURN server, the host's, for games that can't punch */
+
+int turn_start(tgg_socket* sock, const char* server, const char* user, const char* pass);
+void turn_stop(void);
+void turn_pump(void);
+/* Lets the game at `peer`'s address send through the relay */
+void turn_permit(const tgg_net_addr* peer);
+/* Whether a datagram came from the relay server */
+int turn_is_server(const tgg_net_addr* from);
+/* A datagram from the relay server: >0 when it carried another game's datagram (moved
+ * to the front of `data`, its length returned, its sender in `peer`), else 0 */
+int turn_got(uint8_t* data, size_t len, tgg_net_addr* peer);
+void turn_send(const tgg_net_addr* peer, const void* data, size_t len);
+/* 1 with the relay's address for this game, 0 while asking, -1 off or failed */
+int turn_relayed(char* text, size_t cap);
+double turn_bytes(void);
+
+/* ---- net.c, through a relay */
+
+/* The host: asks the TURN server for an address and lets the candidates use it */
+int net_relay(const char* server, const char* user, const char* pass);
+/* More candidates of the other games (the host's relay address, say): said hello to
+ * for another PUNCH_MS */
+void net_add_candidates(const char* const* addrs, const char* const* kinds, int n);
 
 /* ---- stun.c: this socket's address as the internet sees it */
 
