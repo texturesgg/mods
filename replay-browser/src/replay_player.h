@@ -1,20 +1,12 @@
-/* A copy of tgg.replay-player's include/replay_player.h.
- *
- * The replay player's API for other mods (tgg.replay-player): read what a
- * Slippi replay holds without playing it, and play one.
- *
- * A mod that uses it lists the player in its manifest's "depends":
- *
- *     "depends": { "tgg.replay-player": "^0.2" }
- *
- * and includes this header (copy it, or add the player's include/ to the
- * include path). */
+/* What the browser reads from a replay (summary.c), the types of
+ * tgg.replay-player's include/replay_player.h without its rules report, and
+ * the player's replay_play, which the browser finds when the player is
+ * loaded (tgg_mod_export) rather than depending on it: the player only loads
+ * in a game restarted for a replay. */
 #ifndef REPLAY_PLAYER_H_API
 #define REPLAY_PLAYER_H_API
 
 #include "tgg/mod.h"
-
-#define REPLAY_PLAYER TGG_PROVIDER(tgg_replay_player, "tgg.replay-player", 1)
 
 /* One port of a replay. */
 typedef struct replay_player_slot {
@@ -42,9 +34,6 @@ typedef struct replay_summary {
     int quitter;       /* the port that quit with L+R+A+Start, or -1 */
     int winner;        /* the port that won (in a team match, one of the
                         * winning team's), or -1 when unknown or none */
-    char missing[160]; /* the Slippi rule mods it needs (tgg.neutral-spawns, ...)
-                        * that aren't loaded, ", "-separated, or "": without
-                        * them the match plays out differently */
     replay_player_slot players[4];
 } replay_summary;
 
@@ -58,12 +47,21 @@ enum {
 /* Reads `path`'s summary into `out`. Returns 0, or -1 when it isn't a
  * Slippi replay. Quick (it reads the start and the end of the file), and
  * safe from any presentation code. */
-TGG_API(REPLAY_PLAYER, int, replay_read_summary, (const char* path, replay_summary* out));
+int replay_read_summary(const char* path, replay_summary* out);
 
-/* From a screen (tgg/screen.h): plays `path`, and the screen comes back
- * when it ends, or when the viewer leaves it (B or Escape). Returns 0, or
- * -1 when it can't be read or no screen is shown; `why` (may be NULL) then
- * says why, for the player to see. */
-TGG_API(REPLAY_PLAYER, int, replay_play, (const char* path, const char** why));
+static inline uint16_t slp_be16(const uint8_t* p)
+{
+    return (uint16_t) (p[0] << 8 | p[1]);
+}
+
+static inline uint32_t slp_be32(const uint8_t* p)
+{
+    return (uint32_t) p[0] << 24 | (uint32_t) p[1] << 16 | (uint32_t) p[2] << 8 | p[3];
+}
+
+/* tgg.replay-player's replay_play, when the player is loaded: from a
+ * screen, plays `path`, and the screen comes back when it ends. Returns 0, or
+ * -1 with `why`. */
+typedef int replay_play_fn(const char* path, const char** why);
 
 #endif

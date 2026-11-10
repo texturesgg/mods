@@ -37,36 +37,32 @@ Both are on the Mods page too.
 
 A replay plays out as recorded only with the rules its console ran. Slippi adds some
 (neutral spawns, online off-screen damage, frozen Pokémon Stadium and others), and separate
-mods reproduce them (`tgg.neutral-spawns` and the rest). When a replay needs one that isn't
-installed, its preview says "Needs" and names them.
+mods reproduce them (`tgg.neutral-spawns` and the rest).
 
-Press A anyway: `tgg` (beside the game) gets the mods it was played with, asking first about any
-that aren't official, and the game restarts with them to play it. When the replay is over the
+Press A: `tgg` (beside the game) gets the mods it was played with and the replay player,
+asking first about any that aren't official, and the game restarts with them to play it. When the replay is over the
 game restarts again with your own mods, back on this screen. A replay your mods already play
 as it was played starts right away.
 
-Netplay: this is a code mod, so it counts toward the mod-set. Both players need it, or
-neither. Its settings are your own and don't count.
+Netplay: textures.gg's review marks it a display mod, so it doesn't count toward the mod-set;
+players with and without it play each other. Its settings are your own.
 
 ## For mod makers
 
-An example of a mod screen built on another mod's API. `tgg.replay-player` reads and plays
-the replays; this mod lists them, asks the player for each one's summary
-(`replay_read_summary`) and plays one (`replay_play`). `src/replay_player.h` is a copy of
-the player's `include/replay_player.h`.
+A mod screen that lists replays and reads each one's summary itself (`src/summary.c`, the
+same reader as `tgg.replay-player`'s). It doesn't depend on the player: the player only
+loads in a game restarted for a replay, where `tgg_mod_export("tgg.replay-player",
+"replay_play")` finds its `replay_play`.
 
 ```text
 src/browser.c   the screen (TGG_SCREEN), its input and its settings
 src/list.c      the folder: subfolders and replays, sorted, summaries read when shown
 src/draw.c      the list and the preview, with tgg/draw.h
 src/names.c     the game's names for fighters and stages
+src/summary.c   a replay's summary, from the start and end of the file
 ```
 
 Everything here is presentation code: what's in the player's folders never reaches a match.
-
-## Requirements
-
-`tgg.replay-player` 0.2 or later.
 
 ## Build
 

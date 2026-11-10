@@ -182,29 +182,6 @@ static void draw_preview(void)
         y += 40;
     }
 
-    /* The Slippi rules it was played with that no installed mod plays, a
-     * line per mod or two */
-    if (s->missing[0] != '\0') {
-        char line[200] = "Needs";
-        const char* p = s->missing;
-        float ly = y + 2;
-        while (*p != '\0' && ly < TOP + ROW_H * LIST_ROWS - 84) {
-            const char* comma = strstr(p, ", ");
-            const size_t n = comma != NULL ? (size_t) (comma - p) : strlen(p);
-            char next[200];
-            snprintf(next, sizeof next, "%s %.*s%s", line, (int) n, p, comma != NULL ? "," : "");
-            if (strcmp(line, "Needs") != 0 && tgg_text_width(15, next) > w - 24) {
-                tgg_draw_text(x + 12, ly, 15, TGG_RGBA(255, 140, 60, 255), TGG_ALIGN_LEFT, line);
-                ly += 18;
-                snprintf(line, sizeof line, "  %.*s%s", (int) n, p, comma != NULL ? "," : "");
-            } else {
-                snprintf(line, sizeof line, "%s", next);
-            }
-            p = comma != NULL ? comma + 2 : p + n;
-        }
-        tgg_draw_text(x + 12, ly, 15, TGG_RGBA(255, 140, 60, 255), TGG_ALIGN_LEFT, line);
-    }
-
     /* How it went */
     y = TOP + ROW_H * LIST_ROWS - 66;
     tgg_draw_rect(x + 12, y - 6, w - 24, 2, BLUE);

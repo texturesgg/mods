@@ -111,8 +111,10 @@ static void go_up(void)
 
 static void play(const char* path)
 {
-    const char* why = NULL;
-    if (replay_play(path, &why) == 0) {
+    const char* why = "the replay player isn't loaded";
+    replay_play_fn* replay_play =
+        (replay_play_fn*) tgg_mod_export("tgg.replay-player", "replay_play@1");
+    if (replay_play != NULL && replay_play(path, &why) == 0) {
         tgg_menu_sound(TGG_SOUND_ACCEPT);
     } else {
         tgg_menu_sound(TGG_SOUND_ERROR);
