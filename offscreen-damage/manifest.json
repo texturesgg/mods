@@ -1,0 +1,19 @@
+{
+  "api": "tgg-melee/0",
+  "id": "tgg.offscreen-damage",
+  "name": "Offscreen damage",
+  "version": "0.1.3",
+  "description": "Offscreen damage whenever a fighter is outside the camera bounds, as on Slippi online.",
+  "icon": "icon.png",
+  "tags": [
+    "competitive",
+    "netplay"
+  ],
+  "slippi": [
+    {
+      "code": "0x8006A880",
+      "name": "Brawl Offscreen Damage",
+      "versions": "*"
+    }
+  ]
+}
