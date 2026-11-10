@@ -420,6 +420,51 @@ static int provider_play_match(const StartMeleeData* data)
     return netplay_play(hosting() ? data : NULL);
 }
 
+static int provider_post(const void* data, int len)
+{
+    return queue_all(MSG_POST, ss.side, data, len, -1);
+}
+
+/* A seed for a match, from the system */
+static uint32_t fresh_seed(void)
+{
+    uint32_t seed;
+    FILE* f = fopen("/dev/urandom", "rb");
+    if (f == NULL || fread(&seed, sizeof seed, 1, f) != 1) {
+        seed = (uint32_t) net_now_ms() * 2654435761u;
+    }
+    if (f != NULL) {
+        fclose(f);
+    }
+    return seed;
+}
+
+/* The host: its game's menus set up a match, which every game plays */
+static int provider_offer_match(const StartMeleeData* data)
+{
+    int ports[SIDES];
+    const int humans = match_ports(data, ports);
+    if (!hosting() || ss.state != NETPLAY_CONNECTED || humans != ss.players) {
+        tgg_log("can't play the game's match: %s", !hosting() ? "not hosting"
+                : ss.state != NETPLAY_CONNECTED ? "not between matches"
+                : "it doesn't have one human player for each game");
+        tgg_log("(state %d, %d humans for %d games)", ss.state, humans, ss.players);
+        return -1;
+    }
+    uint8_t msg[8 + TGG_CONSOLE_MATCH_SIZE];
+    sn.number = sn.last_number + 1;
+    sn.seed = fresh_seed();
+    put_be32(msg, sn.number);
+    put_be32(msg + 4, sn.seed);
+    tgg_match_to_console(data, msg + 8);
+    if (queue_all(MSG_OFFER, 0, msg, (int) sizeof msg, -1) != 0) {
+        return -1;
+    }
+    sn.last_number = sn.number;
+    match_expect(sn.number, sn.seed, data);
+    return 0;
+}
+
 static const tgg_session_provider provider = {
     .players = provider_players,
     .me = provider_me,
@@ -427,6 +472,8 @@ static const tgg_session_provider provider = {
     .send_input = provider_send_input,
     .inputs = provider_inputs,
     .play_match = provider_play_match,
+    .post = provider_post,
+    .offer_match = provider_offer_match,
 };
 
 /* The session's games are settled: provide it */
@@ -452,7 +499,7 @@ static void got_msg(int link, const WireMsg* m)
     if (from < 0 || from >= SIDES) {
         return;
     }
-    if (hosting() && (m->kind == MSG_USER || m->kind == MSG_INPUT)) {
+    if (hosting() && (m->kind == MSG_USER || m->kind == MSG_INPUT || m->kind == MSG_POST)) {
         if (queue_all(m->kind, from, m->data, m->len, link) != 0) {
             session_fail("Too much to send to the other games.");
             return;
@@ -478,6 +525,16 @@ static void got_msg(int link, const WireMsg* m)
         if (m->data[1] && !ss.locked) {
             start_session();
         }
+    } else if (m->kind == MSG_POST) {
+        tgg_session_posted(from, m->data, m->len);
+    } else if (m->kind == MSG_OFFER && !hosting() && m->len == 8 + TGG_CONSOLE_MATCH_SIZE &&
+               ss.state == NETPLAY_CONNECTED) {
+        static StartMeleeData data;
+        memset(&data, 0, sizeof data);
+        tgg_match_from_console(&data, m->data + 8);
+        sn.last_number = get_be32(m->data);
+        match_expect(sn.last_number, get_be32(m->data + 4), &data);
+        tgg_session_match_offered(&data);
     }
 }
 
@@ -1149,13 +1206,7 @@ int netplay_play(const StartMeleeData* data)
         }
         uint8_t msg[8 + TGG_CONSOLE_MATCH_SIZE];
         sn.number = sn.last_number + 1;
-        FILE* f = fopen("/dev/urandom", "rb");
-        if (f == NULL || fread(&sn.seed, sizeof sn.seed, 1, f) != 1) {
-            sn.seed = (uint32_t) net_now_ms() * 2654435761u;
-        }
-        if (f != NULL) {
-            fclose(f);
-        }
+        sn.seed = fresh_seed();
         tgg_match_to_console(data, sn.console);
         put_be32(msg, sn.number);
         put_be32(msg + 4, sn.seed);

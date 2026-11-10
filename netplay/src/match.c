@@ -178,6 +178,15 @@ void match_expect_boot(void)
     reset(1, 0);
 }
 
+void match_expect(uint32_t number, uint32_t seed, const StartMeleeData* data)
+{
+    reset(number, seed);
+    mt.players = match_ports(data, mt.ports);
+    ss.state = NETPLAY_PLAYING;
+    tgg_log("match %u: %d games, side %d plays port %d (from the game's menus)", number,
+            mt.players, ss.side, mt.ports[ss.side] + 1);
+}
+
 /* The boot's match: side s plays port s + 1, or as TGG_NETPLAY_PLAYERS
  * ("1,3,4") or the replay say */
 static void boot_ports(void)

@@ -210,6 +210,8 @@ enum {
     MSG_READY = 3,  /* a joiner called netplay_play */
     MSG_INPUT = 4,  /* a shared screen's menu input for a tick (tgg/session.h) */
     MSG_ROSTER = 5, /* the host: how many games are in, and whether that's all */
+    MSG_POST = 6,   /* the port's own (tgg/session.h post), passed on by the host */
+    MSG_OFFER = 7,  /* the host: the match its game's menus set up, as MSG_MATCH */
 };
 
 /* A link to one other game */
@@ -285,6 +287,9 @@ int match_begin(uint32_t number, uint32_t seed, const StartMeleeData* data);
 /* The env session's match, the one the boot sets up: number 1, the hello's
  * seed */
 void match_expect_boot(void);
+/* A match the game's own menus start (VS mode), `data` as every game has it:
+ * its number and seed */
+void match_expect(uint32_t number, uint32_t seed, const StartMeleeData* data);
 void match_got_inputs(int link, const WireInputs* in);
 /* Link `link`'s acks of each side's inputs in match `number` */
 void match_got_ack(int link, uint32_t number, const int32_t ack[SIDES]);
