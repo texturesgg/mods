@@ -1,0 +1,12 @@
+{
+  "api": "tgg-melee/0",
+  "id": "tgg.replay-browser",
+  "name": "Replays",
+  "version": "0.2.0",
+  "description": "Browse your Slippi replays, with a preview of each, and watch them.",
+  "icon": "icon.png",
+  "tags": [
+    "replays",
+    "quality-of-life"
+  ]
+}
