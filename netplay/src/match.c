@@ -30,6 +30,7 @@
 #include "internal.h"
 #include "netplay.h"
 
+#include "tgg/draw.h"
 #include "tgg/events.h"
 #include "tgg/rollback.h"
 #include "tgg/screen.h"
@@ -755,3 +756,17 @@ void match_abandon(void)
     report(0);
     tgg_end_match();
 }
+
+/* From the first frame the games disagree on, the match says so on screen: it
+ * plays on, but it isn't the same match on every game any more */
+static void on_hud(void)
+{
+    if (!mt.live || mt.desync_frame < 0) {
+        return;
+    }
+    const tgg_rect b = tgg_draw_bounds();
+    const char* text = "The games stopped matching. This match won't count.";
+    tgg_draw_rect(b.x, b.y + 8, b.w, 34, TGG_RGBA(0, 0, 0, 170));
+    tgg_draw_text(b.x + b.w / 2, b.y + 14, 22, TGG_RGBA(255, 210, 90, 255), TGG_ALIGN_CENTER, text);
+}
+TGG_ON(hud_draw, on_hud);
