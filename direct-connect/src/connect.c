@@ -24,6 +24,7 @@
 #include "tgg/input.h"
 #include "tgg/menu.h"
 #include "tgg/screen.h"
+#include "tgg/session.h"
 #include "tgg/settings.h"
 
 #include <melee/gm/forward.h>
@@ -701,6 +702,9 @@ TGG_INIT(init);
 
 static void on_frame(void)
 {
+    if (dc.meet.name[0] != '\0') {
+        tgg_session_set_name(dc.meet.name); /* the textures.gg name, when there's no Name Tag */
+    }
     if (dc.room) {
         meet_poll(&dc.meet); /* a room lets more games in until the host starts */
         if ((dc.mode == MODE_ROOM || (dc.mode == MODE_JOIN_ROOM && tgg_screen_shown() != &screen)) &&
@@ -764,9 +768,9 @@ TGG_ON(frame, on_frame);
 
 /* ---- The character select: each player's name and ping, and the room ------ */
 
-/* A player's panel: their name where the room says it (the host first, then
- * in the order they joined, as the sides go), and their ping where this game
- * has a link to them. Online, side s plays port s. */
+/* A player's panel: their name (their Name Tag, else their textures.gg name,
+ * else "P2") and their ping where this game has a link to them. Online, side
+ * s plays port s. */
 static void on_panel(int port, float x, float y, float w, float h)
 {
     netplay_info info;
@@ -785,12 +789,20 @@ static void on_panel(int port, float x, float y, float w, float h)
         snprintf(ping, sizeof ping, "%d ms", (int) (rtt + 0.5f));
         tgg_draw_text(x + w - 2, top, size, TGG_RGBA(200, 200, 200, 230), TGG_ALIGN_RIGHT, ping);
     }
-    if (dc.room && port < dc.meet.n_members && dc.meet.members[port][0] != '\0') {
-        char name[64];
-        const float room = w - 4 - (ping[0] != '\0' ? tgg_text_width(size, ping) + 6 : 0);
-        tgg_text_fit(name, sizeof name, size, room, dc.meet.members[port]);
-        tgg_draw_text(x + 2, top, size, white, TGG_ALIGN_LEFT, name);
+    /* Their Name Tag, else their textures.gg name, else "P2" */
+    const char* who = tgg_session_name(port);
+    char fallback[8];
+    if (who == NULL && dc.room && port < dc.meet.n_members && dc.meet.members[port][0] != '\0') {
+        who = dc.meet.members[port];
     }
+    if (who == NULL) {
+        snprintf(fallback, sizeof fallback, "P%d", port + 1);
+        who = fallback;
+    }
+    char name[64];
+    const float room = w - 4 - (ping[0] != '\0' ? tgg_text_width(size, ping) + 6 : 0);
+    tgg_text_fit(name, sizeof name, size, room, who);
+    tgg_draw_text(x + 2, top, size, white, TGG_ALIGN_LEFT, name);
     if (port == 0 && dc.room && dc.meet.code[0] != '\0') {
         /* The room, below the panels, so more friends can join */
         char line[32];
