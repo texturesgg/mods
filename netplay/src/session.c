@@ -302,6 +302,10 @@ void session_fail(const char* why)
     snprintf(ss.why, sizeof ss.why, "%s", why);
 }
 
+/* Set while queuing from simulation code, which can't use the network: the
+ * message goes with the link's next lobby packet, due at once */
+static int queue_later;
+
 /* Queues a message on `link`, as from side `from`; sends it at once */
 static int queue_to(int link, uint8_t kind, int from, const void* data, int len)
 {
@@ -316,7 +320,11 @@ static int queue_to(int link, uint8_t kind, int from, const void* data, int len)
     m->from = (uint8_t) from;
     m->len = (uint16_t) len;
     memcpy(m->data, data, (size_t) len);
-    send_lobby(link);
+    if (queue_later) {
+        ss.link[link].last_lobby_ms = -1e9;
+    } else {
+        send_lobby(link);
+    }
     return 0;
 }
 
@@ -459,7 +467,11 @@ static int provider_offer_match(const StartMeleeData* data)
     put_be32(msg, sn.number);
     put_be32(msg + 4, sn.seed);
     tgg_match_to_console(data, msg + 8);
-    if (queue_all(MSG_OFFER, 0, msg, (int) sizeof msg, -1) != 0) {
+    /* From the game's VS mode, in simulation code */
+    queue_later = 1;
+    const int queued = queue_all(MSG_OFFER, 0, msg, (int) sizeof msg, -1);
+    queue_later = 0;
+    if (queued != 0) {
         return -1;
     }
     sn.last_number = sn.number;
