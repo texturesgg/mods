@@ -243,15 +243,34 @@ size_t wire_encode(const WirePacket* p, uint8_t* buf)
             put(&c, m->len, 2);
             put_bytes(&c, m->data, m->len);
         }
+    } else if (p->type == WIRE_PROFILE_ASK) {
+        put(&c, p->u.profile_ask, 4);
+    } else if (p->type == WIRE_PROFILE) {
+        const WireProfile* pr = &p->u.profile;
+        const uint16_t n = pr->len <= WIRE_PROFILE_CHUNK ? pr->len : WIRE_PROFILE_CHUNK;
+        put(&c, pr->total, 4);
+        put(&c, pr->offset, 4);
+        put(&c, n, 2);
+        put_bytes(&c, pr->data, n);
     }
     return (size_t) (c.w - buf);
 }
 
-int wire_decode(const uint8_t* buf, size_t len, WirePacket* p)
+int wire_decode(const uint8_t* buf, size_t len, WirePacket* p, int* version)
 {
     Cursor c = { .r = buf, .end = buf + len };
-    if (get(&c, 4) != WIRE_MAGIC || get(&c, 1) != WIRE_VERSION) {
+    if (get(&c, 4) != WIRE_MAGIC || c.bad) {
         return 0;
+    }
+    const int v = (int) get(&c, 1);
+    if (c.bad) {
+        return 0;
+    }
+    if (v != WIRE_VERSION) {
+        if (version != NULL) {
+            *version = v;
+        }
+        return -1;
     }
     memset(p, 0, sizeof *p);
     p->type = (uint8_t) get(&c, 1);
@@ -316,6 +335,17 @@ int wire_decode(const uint8_t* buf, size_t len, WirePacket* p)
             }
             get_bytes(&c, m->data, m->len);
         }
+    } else if (p->type == WIRE_PROFILE_ASK) {
+        p->u.profile_ask = (uint32_t) get(&c, 4);
+    } else if (p->type == WIRE_PROFILE) {
+        WireProfile* pr = &p->u.profile;
+        pr->total = (uint32_t) get(&c, 4);
+        pr->offset = (uint32_t) get(&c, 4);
+        pr->len = (uint16_t) get(&c, 2);
+        if (pr->len > WIRE_PROFILE_CHUNK) {
+            return 0;
+        }
+        get_bytes(&c, pr->data, pr->len);
     } else if (p->type != WIRE_BYE) {
         return 0;
     }

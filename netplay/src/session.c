@@ -4,7 +4,10 @@
  *
  *   - Hello: each side says hello every 100 ms until the other has its hello
  *     (the build, the mod-set id, the side). Side 0 with no peer address
- *     plays the first game whose hello arrives.
+ *     plays the first game whose hello arrives with the same build and mods.
+ *   - A joiner whose game differs from the host's asks for the host's
+ *     profile (NETPLAY_MISMATCH) and gets it in pieces; the host answers and
+ *     keeps waiting.
  *   - Between matches, a lobby packet goes out every 100 ms: the round trip,
  *     every message the other side hasn't acknowledged, and which of the
  *     last match's inputs this side has.
@@ -63,10 +66,20 @@ static struct {
     uint32_t last_number; /* the last match started */
 } sn;
 
+/* NETPLAY_MISMATCH: the host's profile as it arrives */
+static struct {
+    char data[WIRE_PROFILE_MAX + 1];
+    uint32_t total;
+    uint32_t have;
+    int whole;
+    double last_ask_ms, last_got_ms;
+} pf;
+
 static void reset(void)
 {
     memset(&ss, 0, sizeof ss);
     memset(&sn, 0, sizeof sn);
+    memset(&pf, 0, sizeof pf);
     sn.next_seq = 1;
     sn.in_next = 1;
 }
@@ -108,23 +121,29 @@ void session_send_packet(const WirePacket* p)
     net_send(buf, len);
 }
 
+/* A hello that says who this game is */
+static void hello_packet(WirePacket* p)
+{
+    memset(p, 0, sizeof *p);
+    p->type = WIRE_HELLO;
+    snprintf(p->u.hello.build, sizeof p->u.hello.build, "%s", tgg_game_build());
+    snprintf(p->u.hello.mod_set, sizeof p->u.hello.mod_set, "%s", tgg_mod_set_id());
+    snprintf(p->u.hello.versions, sizeof p->u.hello.versions, "%s", tgg_mod_set_versions());
+    snprintf(p->u.hello.target, sizeof p->u.hello.target, "%s", TGG_GAME_TARGET);
+    p->u.hello.side = (uint8_t) ss.side;
+    snprintf(p->u.hello.all, sizeof p->u.hello.all, "%s", tgg_mod_set_all());
+    snprintf(p->u.hello.display, sizeof p->u.hello.display, "%s", tgg_mod_set_display());
+    p->u.hello.strict = (uint8_t) (ss.side == 0 && setting_strict == 1);
+}
+
 static void send_hello(void)
 {
     WirePacket p;
-    memset(&p, 0, sizeof p);
-    p.type = WIRE_HELLO;
-    snprintf(p.u.hello.build, sizeof p.u.hello.build, "%s", tgg_game_build());
-    snprintf(p.u.hello.mod_set, sizeof p.u.hello.mod_set, "%s", tgg_mod_set_id());
-    snprintf(p.u.hello.versions, sizeof p.u.hello.versions, "%s", tgg_mod_set_versions());
-    snprintf(p.u.hello.target, sizeof p.u.hello.target, "%s", TGG_GAME_TARGET);
-    p.u.hello.side = (uint8_t) ss.side;
+    hello_packet(&p);
     p.u.hello.delay = (uint8_t) ss.delay;
     p.u.hello.heard = (uint8_t) ss.greeted;
     p.u.hello.seed = ss.seed;
     p.u.hello.replay = ss.replay ? replaytest_hash() : 0;
-    snprintf(p.u.hello.all, sizeof p.u.hello.all, "%s", tgg_mod_set_all());
-    snprintf(p.u.hello.display, sizeof p.u.hello.display, "%s", tgg_mod_set_display());
-    p.u.hello.strict = (uint8_t) (ss.side == 0 && setting_strict == 1);
     session_send_packet(&p);
 }
 
@@ -288,14 +307,10 @@ void session_display_difference(char* out, size_t cap)
     only_in(ss.peer_display, tgg_mod_set_display(), "theirs", out, cap);
 }
 
-static int got_hello(const WireHello* h)
+/* Whether the game that sent `h` can't play this one: another game version or
+ * other mods. `why` says how, for the log. */
+static int differs(const WireHello* h, char* why, size_t cap)
 {
-    char why[320];
-    if (h->side == ss.side) {
-        snprintf(why, sizeof why, "Both games are side %d: one hosts, the other joins.", ss.side);
-        session_fail(why);
-        return 0;
-    }
     /* On one platform the builds and the mods' libraries must be the same. Across
      * platforms they can't be: the game's version and the mods' versions must
      * be, and the checksums show if they play differently anyway */
@@ -304,22 +319,157 @@ static int got_hello(const WireHello* h)
     game_version(tgg_game_build(), ours, sizeof ours);
     game_version(h->build, theirs, sizeof theirs);
     if (same_target ? strcmp(h->build, tgg_game_build()) != 0 : strcmp(ours, theirs) != 0) {
-        snprintf(why, sizeof why, "The other game is another version: %s here, %s there.",
+        snprintf(why, cap, "The other game is another version: %s here, %s there.",
                  same_target ? tgg_game_build() : ours, same_target ? h->build : theirs);
-        session_fail(why);
-        return 0;
+        return 1;
     }
     const char* mine = same_target ? tgg_mod_set_id() : tgg_mod_set_versions();
     const char* other = same_target ? h->mod_set : h->versions;
     if (strcmp(other, mine) != 0) {
-        tgg_log("this game's mods: %s", tgg_mod_set_names());
-        snprintf(why, sizeof why,
-                 "The other game has other mods (mod set %s here, %s there). The log lists "
-                 "this game's.", mine[0] != '\0' ? mine : "none", other[0] != '\0' ? other : "none");
+        snprintf(why, cap, "The other game has other mods (mod set %s here, %s there).",
+                 mine[0] != '\0' ? mine : "none", other[0] != '\0' ? other : "none");
+        return 1;
+    }
+    return 0;
+}
+
+/* ---- The host's profile, for a joiner whose game differs
+ *
+ * A host waiting for anyone answers a hello from a game that differs with its
+ * own hello and keeps waiting. That joiner asks for the host's profile a
+ * piece at a time (WIRE_PROFILE_ASK with the offset it has), and the host
+ * sends each piece (WIRE_PROFILE). The joiner's connect mod shows the
+ * difference and can restart into the profile, then join again. */
+
+static void send_profile_ask(void)
+{
+    WirePacket p;
+    memset(&p, 0, sizeof p);
+    p.type = WIRE_PROFILE_ASK;
+    p.u.profile_ask = pf.have;
+    session_send_packet(&p);
+    pf.last_ask_ms = net_now_ms();
+}
+
+/* The joiner: the host's game differs */
+static void start_mismatch(const WireHello* h, const char* why)
+{
+    tgg_log("%s", why);
+    tgg_log("this game's mods: %s", tgg_mod_set_names()[0] != '\0' ? tgg_mod_set_names() : "none");
+    tgg_log("the host runs %s; asking for its profile", h->build);
+    ss.state = NETPLAY_MISMATCH;
+    char ours[96], theirs[96];
+    game_version(tgg_game_build(), ours, sizeof ours);
+    game_version(h->build, theirs, sizeof theirs);
+    snprintf(ss.why, sizeof ss.why, "%s",
+             strcmp(ours, theirs) != 0 ? "The host runs another game version."
+                                       : "The host has other mods.");
+    memset(&pf, 0, sizeof pf);
+    pf.last_got_ms = net_now_ms();
+    send_profile_ask();
+}
+
+/* The host: a game that differs said hello */
+static void other_game_said_hello(const char* why)
+{
+    static char logged[64];
+    static double logged_ms;
+    const char* from = net_last_name();
+    const double now = net_now_ms();
+    if (strcmp(from, logged) != 0 || now - logged_ms > 10000) {
+        snprintf(logged, sizeof logged, "%s", from);
+        logged_ms = now;
+        tgg_log("%s said hello: %s Sending it this game's profile if it asks; still waiting",
+                from, why);
+    }
+    /* Our hello, so it knows */
+    WirePacket p;
+    hello_packet(&p);
+    uint8_t buf[WIRE_MAX_BYTES];
+    net_reply(buf, wire_encode(&p, buf));
+}
+
+/* The host: a piece of its profile for the game that asked */
+static void got_profile_ask(uint32_t offset)
+{
+    static char mine[WIRE_PROFILE_MAX + 1];
+    static uint32_t mine_len;
+    static int ready;
+    if (offset == 0 || !ready) {
+        ready = 1;
+        const char* profile = tgg_mod_set_profile();
+        const size_t n = profile != NULL ? strlen(profile) : 0;
+        mine_len = (uint32_t) (n <= WIRE_PROFILE_MAX ? n : WIRE_PROFILE_MAX + 1);
+        if (n <= WIRE_PROFILE_MAX) {
+            memcpy(mine, profile != NULL ? profile : "", n);
+        }
+        tgg_log("%s asked for this game's profile (%u bytes)", net_last_name(),
+                (unsigned) n);
+    }
+    WirePacket p;
+    memset(&p, 0, sizeof p);
+    p.type = WIRE_PROFILE;
+    p.u.profile.total = mine_len;
+    p.u.profile.offset = offset;
+    if (mine_len <= WIRE_PROFILE_MAX && offset < mine_len) {
+        const uint32_t left = mine_len - offset;
+        p.u.profile.len = (uint16_t) (left < WIRE_PROFILE_CHUNK ? left : WIRE_PROFILE_CHUNK);
+        memcpy(p.u.profile.data, mine + offset, p.u.profile.len);
+    }
+    uint8_t buf[WIRE_MAX_BYTES];
+    net_reply(buf, wire_encode(&p, buf));
+}
+
+/* The joiner: a piece of the host's profile */
+static void got_profile(const WireProfile* pr)
+{
+    if (pf.whole) {
+        return;
+    }
+    pf.last_got_ms = net_now_ms();
+    if (pr->total > WIRE_PROFILE_MAX) {
+        session_fail("The host's list of mods is too long to send.");
+        return;
+    }
+    if (pr->offset != pf.have || pr->offset + pr->len > pr->total) {
+        return; /* an old piece */
+    }
+    memcpy(pf.data + pf.have, pr->data, pr->len);
+    pf.have += pr->len;
+    pf.total = pr->total;
+    if (pf.have < pf.total) {
+        send_profile_ask();
+        return;
+    }
+    pf.data[pf.have] = '\0';
+    pf.whole = 1;
+    tgg_log("the host's profile: %s", pf.data);
+}
+
+static int got_hello(const WireHello* h)
+{
+    char why[320];
+    if (ss.state == NETPLAY_MISMATCH) {
+        return 0;
+    }
+    if (h->side == ss.side) {
+        snprintf(why, sizeof why, "Both games are side %d: one hosts, the other joins.", ss.side);
         session_fail(why);
         return 0;
     }
     snprintf(ss.peer_display, sizeof ss.peer_display, "%s", h->display);
+    if (differs(h, why, sizeof why)) {
+        if (ss.side == 0 && !net_has_peer()) {
+            /* Hosting for anyone: that game may come back with these mods */
+            other_game_said_hello(why);
+        } else if (ss.side == 1 && !ss.greeted && !ss.env) {
+            start_mismatch(h, why);
+        } else {
+            tgg_log("this game's mods: %s", tgg_mod_set_names());
+            session_fail(why);
+        }
+        return 0;
+    }
     /* The host may want every mod to match, display mods too */
     const int strict = ss.side == 0 ? setting_strict == 1 : h->strict != 0;
     if (strict && strcmp(h->all, tgg_mod_set_all()) != 0) {
@@ -327,6 +477,10 @@ static int got_hello(const WireHello* h)
         session_display_difference(diff, sizeof diff);
         snprintf(why, sizeof why, "The host wants every mod to match, display mods too%s%s.",
                  diff[0] != '\0' ? ": " : "", diff);
+        if (ss.side == 0 && !net_has_peer()) {
+            other_game_said_hello(why); /* it hears our hello, and why, and we keep waiting */
+            return 0;
+        }
         if (ss.side == 0) {
             send_hello(); /* so the other game hears it too */
         }
@@ -347,7 +501,7 @@ static int got_hello(const WireHello* h)
         ss.greeted = 1;
         tgg_log("%s said hello: same build and mods (%s: %s)", net_peer_name(),
                 tgg_mod_set_id()[0] != '\0' ? tgg_mod_set_id() : "none", tgg_mod_set_names());
-        if (!same_target) {
+        if (strcmp(h->target, TGG_GAME_TARGET) != 0) {
             tgg_log("the other game runs on %s: its mods are compared by version, not by build",
                     h->target);
         }
@@ -357,6 +511,25 @@ static int got_hello(const WireHello* h)
         ss.heard = 1;
     }
     return 1;
+}
+
+/* A packet from a netplay with another wire version: the joiner can't go on;
+ * a host waiting for anyone keeps waiting */
+static void other_wire(int version)
+{
+    char why[160];
+    snprintf(why, sizeof why,
+             "The other game has another version of netplay (wire %d here, %d there).",
+             WIRE_VERSION, version);
+    if (ss.side == 0 && !net_has_peer()) {
+        static double logged_ms = -1e9;
+        if (net_now_ms() - logged_ms > 10000) {
+            logged_ms = net_now_ms();
+            tgg_log("%s said hello: %s Still waiting", net_last_name(), why);
+        }
+        return;
+    }
+    session_fail(why);
 }
 
 static void got_lobby(const WireLobby* l)
@@ -390,7 +563,25 @@ void session_receive(void)
     size_t len;
     while (ss.state != NETPLAY_FAILED && (len = net_recv(buf, sizeof buf)) != 0) {
         WirePacket p;
-        if (!wire_decode(buf, len, &p)) {
+        int version = 0;
+        const int decoded = wire_decode(buf, len, &p, &version);
+        if (decoded < 0) {
+            other_wire(version);
+            continue;
+        }
+        if (decoded == 0) {
+            continue;
+        }
+        if (p.type == WIRE_PROFILE_ASK) {
+            if (ss.side == 0 && !net_has_peer()) {
+                got_profile_ask(p.u.profile_ask);
+            }
+            continue;
+        }
+        if (p.type == WIRE_PROFILE) {
+            if (ss.state == NETPLAY_MISMATCH) {
+                got_profile(&p.u.profile);
+            }
             continue;
         }
         if (p.type == WIRE_HELLO) {
@@ -465,6 +656,14 @@ static void on_frame(void)
         return;
     }
     const double now = net_now_ms();
+    if (ss.state == NETPLAY_MISMATCH) {
+        if (!pf.whole && now - pf.last_got_ms > SILENCE_MS) {
+            session_fail("Lost the connection to the other game.");
+        } else if (!pf.whole && now - pf.last_ask_ms > 100) {
+            send_profile_ask();
+        }
+        return;
+    }
     if (ss.last_heard_ms < 0) {
         ss.last_heard_ms = now;
     }
@@ -582,6 +781,11 @@ void netplay_status(netplay_info* out)
     out->rtt_ms = (float) ss.rtt_ms;
     out->matches = ss.matches;
     snprintf(out->why, sizeof out->why, "%s", ss.why);
+}
+
+const char* netplay_host_profile(void)
+{
+    return ss.state == NETPLAY_MISMATCH && pf.whole ? pf.data : NULL;
 }
 
 int netplay_send(const void* data, int len)

@@ -9,7 +9,7 @@
 
 static tgg_socket* sock;
 static tgg_net_addr peer, last_from;
-static int have_peer;
+static int have_peer, have_last;
 static char peer_name[TGG_NET_ADDR_TEXT];
 
 const char* net_open(int port, const char* peer_spec)
@@ -45,6 +45,7 @@ void net_close(void)
     tgg_net_close(sock);
     sock = NULL;
     have_peer = 0;
+    have_last = 0;
     peer_name[0] = '\0';
 }
 
@@ -53,6 +54,23 @@ void net_send_now(const void* data, size_t len)
     if (sock != NULL && have_peer) {
         (void) tgg_net_send(sock, &peer, data, len);
     }
+}
+
+void net_reply(const void* data, size_t len)
+{
+    if (sock != NULL && !have_peer && have_last) {
+        (void) tgg_net_send(sock, &last_from, data, len);
+    }
+}
+
+const char* net_last_name(void)
+{
+    static char name[TGG_NET_ADDR_TEXT];
+    name[0] = '\0';
+    if (have_last) {
+        tgg_net_addr_format(&last_from, name, sizeof name);
+    }
+    return name;
 }
 
 size_t net_recv(void* buf, size_t cap)
@@ -68,6 +86,7 @@ size_t net_recv(void* buf, size_t cap)
         }
         if (!have_peer) {
             last_from = from;
+            have_last = 1;
             return (size_t) n;
         }
         if (tgg_net_addr_equal(&from, &peer)) {

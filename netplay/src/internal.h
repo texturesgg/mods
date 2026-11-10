@@ -29,6 +29,10 @@ void net_send_now(const void* data, size_t len);
  * yet: then net_adopt makes the last one's sender the peer. */
 size_t net_recv(void* buf, size_t cap);
 void net_adopt(void);
+/* With no peer: sends a datagram to the last one's sender, without making it
+ * the peer, and that sender's address ("" before any) */
+void net_reply(const void* data, size_t len);
+const char* net_last_name(void);
 int net_has_peer(void);
 /* The peer's address, "1.2.3.4:51000", or "" */
 const char* net_peer_name(void);
@@ -75,10 +79,21 @@ int wire_same(const WireInput* a, const WireInput* b);
 
 #define WIRE_MAGIC 0x4e474754u /* "TGGN" */
 #define WIRE_VERSION 4
-enum { WIRE_HELLO = 1, WIRE_INPUT = 2, WIRE_BYE = 3, WIRE_LOBBY = 4 };
+enum {
+    WIRE_HELLO = 1,
+    WIRE_INPUT = 2,
+    WIRE_BYE = 3,
+    WIRE_LOBBY = 4,
+    WIRE_PROFILE_ASK = 5, /* a joiner whose game differs asks for the host's profile */
+    WIRE_PROFILE = 6,     /* a piece of it */
+};
 #define WIRE_MAX_INPUTS 40
 #define WIRE_MSG_MAX 400
 #define WIRE_MAX_MSGS 4
+/* The host's profile goes in pieces of up to WIRE_PROFILE_CHUNK bytes, and is
+ * at most WIRE_PROFILE_MAX */
+#define WIRE_PROFILE_CHUNK 1024
+#define WIRE_PROFILE_MAX (16 * 1024)
 
 typedef struct WireHello {
     char build[96];
@@ -130,20 +145,33 @@ typedef struct WireLobby {
     WireMsg msgs[WIRE_MAX_MSGS];
 } WireLobby;
 
+/* The host's profile (tgg_mod_set_profile's JSON): `len` bytes of it from
+ * `offset`, of `total`. A total over WIRE_PROFILE_MAX says it's too long to
+ * send, and the piece is empty. */
+typedef struct WireProfile {
+    uint32_t total;
+    uint32_t offset;
+    uint16_t len;
+    uint8_t data[WIRE_PROFILE_CHUNK];
+} WireProfile;
+
 typedef struct WirePacket {
     uint8_t type;
     union {
         WireHello hello;
         WireInputs inputs;
         WireLobby lobby;
+        uint32_t profile_ask; /* WIRE_PROFILE_ASK: the offset wanted */
+        WireProfile profile;
     } u;
 } WirePacket;
 
 /* Writes a packet into buf (at least WIRE_MAX_BYTES); returns its length */
 #define WIRE_MAX_BYTES 2048
 size_t wire_encode(const WirePacket* p, uint8_t* buf);
-/* Reads one; 0 if it isn't a packet of this version */
-int wire_decode(const uint8_t* buf, size_t len, WirePacket* p);
+/* Reads one: 1, or 0 if it isn't netplay's packet, or -1 if it's netplay's
+ * of another wire version (the version in `*version`) */
+int wire_decode(const uint8_t* buf, size_t len, WirePacket* p, int* version);
 
 /* ---- session.c: the session (the handshake, keeping in touch, messages)
  * and the API */

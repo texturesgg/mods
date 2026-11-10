@@ -37,7 +37,7 @@ guessing, rollback, pacing and desync checks. List it in your manifest and inclu
 `include/netplay.h` (copy it, or add netplay's `include/` to the include path):
 
 ```json
-"depends": { "tgg.netplay": "^0.3" }
+"depends": { "tgg.netplay": "^0.4" }
 ```
 
 | Function | Does |
