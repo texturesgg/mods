@@ -1,0 +1,11 @@
+{
+  "api": "tgg-melee/0",
+  "id": "tgg.unlocks",
+  "name": "Unlock everything",
+  "version": "1.0.0",
+  "description": "Every character, stage, unlockable and trophy is unlocked, as on Slippi.",
+  "icon": "icon.png",
+  "tags": [
+    "quality-of-life"
+  ]
+}
