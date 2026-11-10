@@ -315,9 +315,12 @@ int net_adopt(void)
     relayed[n_peers] = last_via_relay;
     tgg_net_addr_format(&peers[n_peers], names[n_peers], sizeof names[n_peers]);
     last_peer = n_peers++;
-    punched(candidate_of(&last_from));
-    if (last_via_relay && punched_ms >= 0) {
+    if (last_via_relay && punched_ms < 0) {
+        punched_ms = net_now_ms() - punch_started_ms;
         snprintf(punched_kind, sizeof punched_kind, "relay");
+        tgg_log("reached %s through the relay after %.0f ms", names[last_peer], punched_ms);
+    } else {
+        punched(candidate_of(&last_from));
     }
     return last_peer;
 }
