@@ -1,0 +1,19 @@
+{
+  "api": "tgg-melee/0",
+  "id": "tgg.whispy-blow-dir-fix",
+  "name": "Whispy blow direction fix",
+  "version": "0.1.3",
+  "description": "KO'd fighters no longer decide which way Whispy blows, as on Slippi online.",
+  "icon": "icon.png",
+  "tags": [
+    "competitive",
+    "stage"
+  ],
+  "slippi": [
+    {
+      "code": "0x8008653C",
+      "name": "Whispy Blow Direction Fix",
+      "versions": "*"
+    }
+  ]
+}
