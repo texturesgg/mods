@@ -1,6 +1,4 @@
-/* A copy of tgg.netplay's include/netplay.h.
- *
- * tgg.netplay's API for other mods: a session of two to four games over the
+/* tgg.netplay's API for other mods: a session of two to four games over the
  * network, messages between them, and the matches they play together with
  * rollback.
  *
@@ -124,5 +122,46 @@ TGG_API(NETPLAY, int, netplay_receive, (void* buf, int cap, int* from));
  * tgg_play_match instead, which comes here. Returns 0, or -1 when the session
  * isn't connected or `data` doesn't have a human player for each game. */
 TGG_API(NETPLAY, int, netplay_play, (const StartMeleeData* data));
+
+/* ---- Through the meeting point (a connect mod that uses textures.gg's)
+ *
+ * The connect mod opens the socket when the player opens Online
+ * (netplay_prepare), sends netplay_candidates to the meeting point, and once
+ * the meeting point says go, opens the session with the other game's
+ * candidates and the session token it gave (netplay_open_meet). Both games
+ * then say hello to each other's addresses at once, which gets through most
+ * home routers. */
+
+/* One address another game might reach this one at: "203.0.113.7:51000",
+ * and what it is: "local" (this network), "tailscale", "stun" (the router's
+ * public address, from STUN), "stun6" (a public IPv6 address). */
+typedef struct netplay_candidate {
+    char addr[64];
+    char kind[12];
+} netplay_candidate;
+
+/* Opens the socket on UDP `port` (0: any free one) now, and asks a STUN
+ * server for the address the internet sees it at. A session opened after it
+ * (netplay_open_meet, or netplay_open) uses this socket. 0, or -1 with `why`
+ * for the player. netplay_close closes it. */
+TGG_API(NETPLAY, int, netplay_prepare, (int port, const char** why));
+
+/* This game's candidates, up to `max`: how many, or -1 while STUN hasn't
+ * answered yet (it gives up after two seconds) or nothing is prepared. */
+TGG_API(NETPLAY, int, netplay_candidates, (netplay_candidate* out, int max));
+
+/* Opens a session the meeting point set up: side 0 hosts, others join, as it
+ * said. `addrs` and `kinds` are the other games' candidates as it sent them
+ * (`n` of each; kinds may be NULL), and `token` its session token, 16 hex
+ * digits: hellos without it are ignored. Gives up after ten seconds without
+ * a hello (NETPLAY_FAILED). 0, or -1 with `why`. */
+TGG_API(NETPLAY, int, netplay_open_meet,
+        (int side, const char* const* addrs, const char* const* kinds, int n, const char* token,
+         const char** why));
+
+/* Once connected through netplay_open_meet: the kind of address that got
+ * through first ("local", "stun", ...) and in `*ms` how long it took; "" when
+ * none has yet. For the meeting point's report. */
+TGG_API(NETPLAY, const char*, netplay_route, (double* ms));
 
 #endif
