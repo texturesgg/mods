@@ -38,6 +38,8 @@ static struct {
     double met_ms;        /* when the meeting point said go */
     int relay_asked;      /* the host asked for a relay */
     int relay_told;       /* and told the others its address */
+    int relay_tried;      /* a relay was up: the host got one, or a joiner heard of the host's */
+    int relay_missing;    /* the meeting point had none to give */
     double bytes_told, bytes_ms; /* relay bytes reported so far, and when */
     char peer_name[64];
 } m;
@@ -381,6 +383,7 @@ static void got_relay(const char* msg)
     {
         return;
     }
+    m.relay_tried = 1;
     if (netplay_relay(server, user, pass, &why) != 0) {
         tgg_log("meet: no relay: %s", why != NULL ? why : "?");
     }
@@ -407,6 +410,7 @@ static void got(const char* msg)
             const char* addrs[1] = {addr};
             const char* kinds[1] = {"relay"};
             tgg_log("meet: the host is also at %s, through a relay", addr);
+            m.relay_tried = 1;
             netplay_add_candidates(addrs, kinds, 1);
         }
     } else if (strcmp(type, "closed") == 0) {
@@ -415,9 +419,12 @@ static void got(const char* msg)
             fail(text(msg, "why", why, sizeof why) ? why : "The room closed.");
         }
     } else if (strcmp(type, "error") == 0) {
-        char why[200];
+        char why[200] = "";
         if (text(msg, "message", why, sizeof why) && m.step < STEP_PUNCH) {
             fail(why);
+        } else if (m.relay_asked && !m.relay_tried) {
+            tgg_log("meet: no relay: %s", why);
+            m.relay_missing = 1;
         }
     }
 }
@@ -452,8 +459,17 @@ static void relay_step(void)
 static void could_not_connect(const char* netplay_why)
 {
     char why[320];
-    snprintf(why, sizeof why, "Couldn't reach %s. Forward UDP port %d to the host's computer.",
-             m.peer_name[0] != '\0' ? m.peer_name : "the other player", UDP_PORT);
+    const char* who = m.peer_name[0] != '\0' ? m.peer_name : "the other player";
+    if (m.relay_tried) {
+        snprintf(why, sizeof why, "Couldn't reach %s, even through the relay.", who);
+    } else if (m.relay_missing) {
+        snprintf(why, sizeof why,
+                 "Couldn't reach %s, and there's no relay. Forwarding UDP port %d to the host "
+                 "fixes it.",
+                 who, UDP_PORT);
+    } else {
+        snprintf(why, sizeof why, "Couldn't reach %s.", who);
+    }
     tgg_log("meet: %s", netplay_why);
     char report[300], quoted[260];
     quote(quoted, sizeof quoted, netplay_why);
