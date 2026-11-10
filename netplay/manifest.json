@@ -1,0 +1,12 @@
+{
+  "api": "tgg-melee/0",
+  "id": "tgg.netplay",
+  "name": "Netplay",
+  "version": "0.6.0",
+  "description": "Rollback netplay for two to four games. Install a connect mod, like Direct connect, to play.",
+  "icon": "icon.png",
+  "tags": [
+    "netplay",
+    "competitive"
+  ]
+}
