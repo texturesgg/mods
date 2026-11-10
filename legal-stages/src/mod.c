@@ -12,6 +12,7 @@
  * The list counts only once the Random Stage Switch is unlocked, which the
  * port's built-in tgg.unlocks does.
  */
+#include "tgg/events.h"
 #include "tgg/mod.h"
 
 #include <melee/gm/gmmain_lib.h>
@@ -53,3 +54,20 @@ static void after_save_load(s32 card_state)
     legal_if_untouched();
 }
 TGG_AFTER(gmMainLib_8015FA34, after_save_load);
+
+/* The stage select shows only the legal stages */
+static void on_stage_offered(tgg_stage_offered* stage)
+{
+    switch (stage->stkind) {
+    case 31: /* Battlefield */
+    case 32: /* Final Destination */
+    case 28: /* Dream Land */
+    case 8:  /* Yoshi's Story */
+    case 2:  /* Fountain of Dreams */
+    case 3:  /* Pokémon Stadium */
+        break;
+    default:
+        stage->offered = 0;
+    }
+}
+TGG_ON(stage_offered, on_stage_offered);

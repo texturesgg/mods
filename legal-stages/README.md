@@ -1,7 +1,7 @@
 # Legal stages
 
-Random stage picks only the legal stages: Battlefield, Final Destination, Dream Land,
-Yoshi's Story, Fountain of Dreams and Pokémon Stadium.
+The stage select shows only the legal stages, and random picks only pick them: Battlefield,
+Final Destination, Dream Land, Yoshi's Story, Fountain of Dreams and Pokémon Stadium.
 
 ## For players
 
@@ -16,6 +16,7 @@ Yoshi's Story, Fountain of Dreams and Pokémon Stadium.
 
 ## For mod makers
 
+- The `stage_offered` event hides every other stage on the stage select.
 The list lives in the save (`GamePrefs.stage_mask`), so the mod only writes it after the
 game sets it up (`src/mod.c`):
 
