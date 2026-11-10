@@ -67,7 +67,7 @@ static void on_stage_offered(tgg_stage_offered* stage)
     case 3:  /* Pokémon Stadium */
         break;
     default:
-        stage->offered = 0;
+        stage->state = TGG_STAGE_OFF;
     }
 }
 TGG_ON(stage_offered, on_stage_offered);
