@@ -9,6 +9,7 @@
 #include "tgg/screen.h"
 
 #include "netplay.h"
+#include "meet.h"
 
 #include <stdint.h>
 
@@ -22,6 +23,7 @@ enum {
     VIEW_FAILED,     /* the session ended: why */
     VIEW_DIFFERENT,  /* the host has other mods: what differs, and get them? */
     VIEW_RESTARTING, /* tgg is getting the host's mods (tgg/restart.h) */
+    VIEW_ROOM,       /* a room on textures.gg: signing in, its code, connecting */
 };
 
 /* What differs between the host's mods and this game's (profile.c) */
@@ -45,10 +47,13 @@ typedef struct Dc {
     int view;
     int menu_sel;
     char address[ADDRESS_MAX]; /* being typed */
+    int typing_code;           /* VIEW_ADDRESS types a room code, not an address */
+    int room;                  /* the session came through a room (meet.c) */
+    meet_status meet;          /* the room, as last polled */
     int key;                   /* the keyboard's selected key */
-    char message[256];
+    char message[320];
     int message_frames;
-    char why[160];             /* VIEW_FAILED */
+    char why[320];             /* VIEW_FAILED */
     int failed_frames;         /* VIEW_FAILED: how long it's shown */
 
     char joined[ADDRESS_MAX + 8]; /* the host's full address, as last joined */

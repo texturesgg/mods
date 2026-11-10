@@ -50,19 +50,71 @@ static void status_text(char* out, int cap)
 static void draw_menu(void)
 {
     band("Online", NULL);
-    const char* rows[4];
-    const int n = menu_rows(rows, 4);
+    const char* rows[6];
+    const int n = menu_rows(rows, 6);
     for (int i = 0; i < n; i++) {
-        const float y = 120 + i * 56;
+        /* The rooms, then a gap, then playing by address */
+        const float y = 84 + i * 50 + (i >= 2 ? 20 : 0);
         const int on = i == dc.menu_sel;
-        tgg_draw_rect(140, y, 360, 46, on ? GOLD : PANEL);
+        tgg_draw_rect(140, y, 360, 42, on ? GOLD : PANEL);
         char fit[96];
-        tgg_text_fit(fit, sizeof fit, 24, 330, rows[i]);
-        tgg_draw_text(320, y + 11, 24, on ? INK : WHITE, TGG_ALIGN_CENTER, fit);
+        tgg_text_fit(fit, sizeof fit, 22, 330, rows[i]);
+        tgg_draw_text(320, y + 10, 22, on ? INK : WHITE, TGG_ALIGN_CENTER, fit);
     }
-    tgg_draw_text(320, 320, 18, DIM, TGG_ALIGN_CENTER,
-                  "One player hosts. Up to three join with the host's address.");
+    char hint[128];
+    tgg_text_fit(hint, sizeof hint, 16, 600,
+                 "Rooms work anywhere. Addresses need a shared network.");
+    tgg_draw_text(320, 368, 16, DIM, TGG_ALIGN_CENTER, hint);
     footer("A  Choose     B  Back");
+}
+
+/* The room's code and who's in it, from `y` */
+static void draw_room_code(float y)
+{
+    const meet_status* m = &dc.meet;
+    tgg_draw_text(320, y, 18, DIM, TGG_ALIGN_CENTER, "Room code");
+    tgg_draw_rect(200, y + 26, 240, 56, PANEL);
+    tgg_draw_text(320, y + 36, 36, GOLD, TGG_ALIGN_CENTER, m->code);
+    y += 100;
+    for (int i = 0; i < m->n_members && i < MEET_MEMBERS; i++) {
+        char fit[64];
+        tgg_text_fit(fit, sizeof fit, 20, 330, m->members[i]);
+        tgg_draw_text(320, y, 20, i == 0 ? WHITE : DIM, TGG_ALIGN_CENTER, fit);
+        y += 28;
+    }
+}
+
+/* Making or joining a room */
+static void draw_room(void)
+{
+    const meet_status* m = &dc.meet;
+    band("Online", NULL);
+    char line[320];
+    switch (m->state) {
+    case MEET_SIGN_IN:
+        tgg_draw_text(320, 120, 24, WHITE, TGG_ALIGN_CENTER, "Sign in to textures.gg");
+        tgg_draw_text(320, 168, 18, DIM, TGG_ALIGN_CENTER, "On your phone or computer, go to");
+        tgg_text_fit(line, sizeof line, 20, 560, m->signin_url);
+        tgg_draw_text(320, 196, 20, WHITE, TGG_ALIGN_CENTER, line);
+        tgg_draw_text(320, 240, 18, DIM, TGG_ALIGN_CENTER, "and enter");
+        tgg_draw_rect(200, 266, 240, 56, PANEL);
+        tgg_draw_text(320, 276, 36, GOLD, TGG_ALIGN_CENTER, m->signin_code);
+        break;
+    case MEET_IN_ROOM:
+        draw_room_code(110);
+        tgg_draw_text(320, 330, 18, DIM, TGG_ALIGN_CENTER,
+                      m->n_members < 2 ? "Tell your friend this code."
+                                       : "Waiting for everyone to connect.");
+        break;
+    case MEET_PUNCHING:
+        draw_room_code(110);
+        tgg_draw_text(320, 330, 22, WHITE, TGG_ALIGN_CENTER, "Connecting");
+        break;
+    default:
+        tgg_draw_text(320, 200, 22, WHITE, TGG_ALIGN_CENTER, "Getting a room on textures.gg");
+        break;
+    }
+    footer("B  Leave");
 }
 
 static void draw_hosting(void)
@@ -77,6 +129,9 @@ static void draw_hosting(void)
         snprintf(count, sizeof count, "%d players in", info.players);
     }
     tgg_draw_text(320, 96, 26, WHITE, TGG_ALIGN_CENTER, count);
+    if (dc.room) {
+        draw_room_code(140);
+    } else {
     tgg_draw_text(320, 140, 18, DIM, TGG_ALIGN_CENTER, "Tell them one of these to join:");
     char addrs[6][48];
     const int n = local_addresses(addrs, 6);
@@ -95,6 +150,7 @@ static void draw_hosting(void)
     }
     snprintf(line, sizeof line, "Port %d", setting_port);
     tgg_draw_text(320, y + 8, 18, DIM, TGG_ALIGN_CENTER, line);
+    }
     if (info.locked) {
         footer("Start  Play    B  Leave");
     } else if (info.players >= 2) {
@@ -123,8 +179,9 @@ static void draw_waiting(void)
 
 static void draw_address(void)
 {
-    band("Join", NULL);
-    tgg_draw_text(320, 72, 18, DIM, TGG_ALIGN_CENTER, "The host's address");
+    band(dc.typing_code ? "Join a room" : "Join", NULL);
+    tgg_draw_text(320, 72, 18, DIM, TGG_ALIGN_CENTER,
+                  dc.typing_code ? "The room's code" : "The host's address");
     keyboard_draw();
     footer("A  Type    X  Delete    Start  Connect    B  Back");
 }
@@ -270,6 +327,9 @@ void dc_draw(void)
         break;
     case VIEW_RESTARTING:
         draw_restarting();
+        break;
+    case VIEW_ROOM:
+        draw_room();
         break;
     }
 }

@@ -52,13 +52,15 @@ int menu_rows(const char** rows, int max)
 {
     static char join_last[ADDRESS_MAX + 8];
     int n = 0;
-    rows[n++] = "Host";
+    rows[n++] = "Make a room";
+    rows[n++] = "Join a room";
+    rows[n++] = "Host by address";
     if (setting_peer[0] != '\0' && n < max) {
         snprintf(join_last, sizeof join_last, "Join %s", setting_peer);
         rows[n++] = join_last;
         rows[n++] = "Join another address";
     } else {
-        rows[n++] = "Join";
+        rows[n++] = "Join by address";
     }
     return n;
 }
@@ -113,11 +115,77 @@ static void join(const char* typed)
 
 static void leave_session(void)
 {
+    if (dc.room) {
+        meet_leave();
+        dc.room = 0;
+    }
     netplay_close();
     if (dc.for_netplay) {
         go_back();
     }
     dc.view = VIEW_MENU;
+}
+
+/* ---- Rooms on textures.gg (meet.c): a friend on another network */
+
+static void make_room(void)
+{
+    memset(&dc.meet, 0, sizeof dc.meet);
+    if (meet_make() != 0) {
+        tgg_menu_sound(TGG_SOUND_ERROR);
+        meet_poll(&dc.meet);
+        say(dc.meet.why[0] != '\0' ? dc.meet.why : "Can't make a room here.");
+        return;
+    }
+    tgg_menu_sound(TGG_SOUND_ACCEPT);
+    dc.room = 1;
+    dc.view = VIEW_ROOM;
+}
+
+static void join_room(const char* typed)
+{
+    char code[sizeof dc.meet.code];
+    size_t n = 0;
+    for (const char* p = typed; *p != '\0' && n + 1 < sizeof code; p++) {
+        if (*p != ' ' && *p != '-') {
+            code[n++] = (char) (*p >= 'a' && *p <= 'z' ? *p - 32 : *p);
+        }
+    }
+    code[n] = '\0';
+    memset(&dc.meet, 0, sizeof dc.meet);
+    if (n == 0 || meet_join(code) != 0) {
+        tgg_menu_sound(TGG_SOUND_ERROR);
+        meet_poll(&dc.meet);
+        say(dc.meet.why[0] != '\0' ? dc.meet.why : "Can't join a room here.");
+        return;
+    }
+    tgg_menu_sound(TGG_SOUND_ACCEPT);
+    dc.room = 1;
+    dc.view = VIEW_ROOM;
+}
+
+/* Each frame of a room: signing in, waiting in it, connecting, then the
+ * session as after a direct join */
+static void room_frame(uint32_t in)
+{
+    meet_poll(&dc.meet);
+    if (in & TGG_MENU_BACK) {
+        tgg_menu_sound(TGG_SOUND_BACK);
+        leave_session();
+        return;
+    }
+    if (dc.meet.state == MEET_FAILED) {
+        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_log("room: %s", dc.meet.why);
+        meet_leave();
+        dc.room = 0;
+        netplay_close();
+        fail_view(dc.meet.why);
+    } else if (dc.meet.state == MEET_CONNECTED) {
+        tgg_menu_sound(TGG_SOUND_ACCEPT);
+        tgg_log("room %s: connected as side %d", dc.meet.code, dc.meet.side);
+        dc.view = dc.meet.side == 0 ? VIEW_HOSTING : VIEW_WAITING;
+    }
 }
 
 /* ---- The host has other mods */
@@ -242,8 +310,8 @@ static void restarting_frame(uint32_t in)
 
 static void menu_frame(uint32_t in)
 {
-    const char* rows[4];
-    const int n = menu_rows(rows, 4);
+    const char* rows[6];
+    const int n = menu_rows(rows, 6);
     if (in & TGG_MENU_BACK) {
         tgg_menu_sound(TGG_SOUND_BACK);
         if (dc.for_netplay) {
@@ -265,11 +333,20 @@ static void menu_frame(uint32_t in)
     }
     if (in & (TGG_MENU_ACCEPT | TGG_MENU_START)) {
         if (dc.menu_sel == 0) {
+            make_room();
+        } else if (dc.menu_sel == 1) {
+            tgg_menu_sound(TGG_SOUND_ACCEPT);
+            dc.address[0] = '\0';
+            dc.typing_code = 1;
+            dc.key = 0;
+            dc.view = VIEW_ADDRESS;
+        } else if (dc.menu_sel == 2) {
             host();
-        } else if (dc.menu_sel == 1 && setting_peer[0] != '\0') {
+        } else if (dc.menu_sel == 3 && setting_peer[0] != '\0') {
             join(setting_peer);
         } else {
             tgg_menu_sound(TGG_SOUND_ACCEPT);
+            dc.typing_code = 0;
             snprintf(dc.address, sizeof dc.address, "%s", setting_peer);
             dc.key = 0;
             dc.view = VIEW_ADDRESS;
@@ -301,6 +378,8 @@ static void frame(void)
         if (r > 0) {
             if (dc.address[0] == '\0') {
                 tgg_menu_sound(TGG_SOUND_ERROR);
+            } else if (dc.typing_code) {
+                join_room(dc.address);
             } else {
                 join(dc.address);
             }
@@ -310,6 +389,9 @@ static void frame(void)
         break;
     }
     case VIEW_HOSTING:
+        if (dc.room) {
+            meet_poll(&dc.meet); /* the room lets more games in */
+        }
         if (in & TGG_MENU_BACK) {
             tgg_menu_sound(TGG_SOUND_BACK);
             leave_session();
@@ -341,6 +423,9 @@ static void frame(void)
         break;
     case VIEW_RESTARTING:
         restarting_frame(in);
+        break;
+    case VIEW_ROOM:
+        room_frame(in);
         break;
     case VIEW_FAILED:
         dc.failed_frames++;
