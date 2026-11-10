@@ -1,21 +1,10 @@
-/* Direct connect: a screen on the Mods page to play people over the network
- * with tgg.netplay. One player hosts and tells the others their address; up
- * to three join it. In the lobby each picks a character, and the host picks
- * what to play: a VS match on a stage, or a shared screen a mod declares (a
- * party mode, say). When everyone has pressed Start, the host locks the
- * session and the match begins on every game, or the shared screen opens on
- * every game. After a match, or when the shared screen closes, everyone is
- * back in the lobby.
- *
- * The screens talk in short text messages through netplay_send, which says
- * which side each came from:
- *   "pick <ckind> <costume> <ready>"           each side's character
- *   "stage <stage index> <stocks> <minutes>"   the host's stage and rules
- *   "game <id>"                                the host's pick: "vs", or a screen's id
- *   "go"                                       the host: its match is on its way
- *   "open <id>"                                the host: open the shared screen
- * Nothing here is part of a match: the match is the StartMeleeData the host
- * builds, which netplay hands to every game. */
+/* Direct connect: Online on the main menu, the step that connects the games
+ * (tgg.netplay). One player hosts and tells the others their address; up to
+ * three join it. When everyone's in, the host presses Start: the session is
+ * locked, and the host picks what to play from the game's own main menu,
+ * which the port cuts down to what can be played online. The others wait
+ * here until the host picks, and the port takes them there: the real
+ * character select for VS Mode. The game's own menus do the rest. */
 #include "dc.h"
 
 #include "tgg/control.h"
@@ -41,18 +30,6 @@ char setting_peer[ADDRESS_MAX];
 TGG_SETTING_TEXT_LOCAL(setting_peer, "peer", "Last address joined", "");
 int setting_port;
 TGG_SETTING_INT_LOCAL(setting_port, "port", "Port to host on", 51000, 1024, 65535);
-int setting_stocks;
-TGG_SETTING_INT_LOCAL(setting_stocks, "stocks", "Stocks (host)", 4, 1, 99);
-int setting_minutes;
-TGG_SETTING_INT_LOCAL(setting_minutes, "minutes", "Time limit, minutes (host)", 8, 0, 99);
-#define NAME(kind, name) name,
-int setting_stage;
-TGG_SETTING_CHOICE_LOCAL(setting_stage, "stage", "Stage (host)", 0, STAGES(NAME));
-int setting_character;
-TGG_SETTING_CHOICE_LOCAL(setting_character, "character", "Character", 2, FIGHTERS(NAME));
-#undef NAME
-int setting_costume;
-TGG_SETTING_INT_LOCAL(setting_costume, "costume", "Color", 0, 0, 5);
 
 static const tgg_screen screen;
 
@@ -105,125 +82,6 @@ static void go_back(void)
     }
 }
 
-static int my_side(void)
-{
-    netplay_info info;
-    netplay_status(&info);
-    return info.side;
-}
-
-Pick* my_pick(void)
-{
-    return &dc.lobby.pick[my_side()];
-}
-
-static void send_text(const char* msg)
-{
-    netplay_send(msg, (int) strlen(msg));
-}
-
-static void send_pick(void)
-{
-    const Pick* p = my_pick();
-    char msg[64];
-    snprintf(msg, sizeof msg, "pick %d %d %d", p->ckind, p->costume, p->ready);
-    send_text(msg);
-}
-
-static void send_stage(void)
-{
-    char msg[64];
-    snprintf(msg, sizeof msg, "stage %d %d %d", dc.lobby.stage, dc.lobby.stocks,
-             dc.lobby.minutes);
-    send_text(msg);
-}
-
-static void send_game(void)
-{
-    char msg[GAME_ID_MAX + 8];
-    snprintf(msg, sizeof msg, "game %s", dc.lobby.game[0] != '\0' ? dc.lobby.game : "vs");
-    send_text(msg);
-}
-
-int shared_games(const tgg_screen** screens, const char** ids, int max)
-{
-    int n = 0;
-    const char* id;
-    const tgg_screen* s;
-    for (int i = 0; (s = tgg_screen_at(i, &id)) != NULL && n < max; i++) {
-        if (s->shared && s->title != NULL && strlen(id) < GAME_ID_MAX) {
-            if (screens != NULL) {
-                screens[n] = s;
-            }
-            if (ids != NULL) {
-                ids[n] = id;
-            }
-            n++;
-        }
-    }
-    return n;
-}
-
-/* The shared screen with id `id`, or NULL */
-static const tgg_screen* find_game(const char* id)
-{
-    const tgg_screen* screens[GAMES_MAX];
-    const char* ids[GAMES_MAX];
-    const int n = shared_games(screens, ids, GAMES_MAX);
-    for (int i = 0; i < n; i++) {
-        if (strcmp(ids[i], id) == 0) {
-            return screens[i];
-        }
-    }
-    return NULL;
-}
-
-const char* game_title(const char* id)
-{
-    if (id[0] == '\0') {
-        return "VS match";
-    }
-    const tgg_screen* s = find_game(id);
-    return s != NULL ? s->title : id;
-}
-
-/* Everyone hears where this game is: when it comes in, and when another
- * game joins */
-static void announce(void)
-{
-    send_pick();
-    if (my_side() == 0) {
-        send_stage();
-        send_game();
-    }
-}
-
-static void enter_lobby(void)
-{
-    Lobby* l = &dc.lobby;
-    dc.view = VIEW_LOBBY;
-    Pick* me = my_pick();
-    if (!me->known) {
-        me->known = 1;
-        me->ckind = setting_character;
-        me->costume = setting_costume;
-    }
-    for (int s = 0; s < NETPLAY_MAX_PLAYERS; s++) {
-        l->pick[s].ready = 0;
-    }
-    l->started = 0;
-    l->cursor = grid_cell(me->ckind);
-    netplay_info info;
-    netplay_status(&info);
-    l->players = info.players;
-    if (info.side == 0 && l->stocks == 0) {
-        l->stage = setting_stage;
-        l->stocks = setting_stocks;
-        l->minutes = setting_minutes;
-    }
-    announce();
-}
-
 static void host(void)
 {
     const char* why = NULL;
@@ -233,7 +91,6 @@ static void host(void)
         return;
     }
     tgg_menu_sound(TGG_SOUND_ACCEPT);
-    memset(&dc.lobby, 0, sizeof dc.lobby);
     dc.view = VIEW_HOSTING;
 }
 
@@ -251,7 +108,6 @@ static void join(const char* typed)
     snprintf(setting_peer, sizeof setting_peer, "%s", typed);
     tgg_setting_store(setting_peer);
     snprintf(dc.joined, sizeof dc.joined, "%s", full);
-    memset(&dc.lobby, 0, sizeof dc.lobby);
     dc.view = VIEW_CONNECTING;
 }
 
@@ -382,112 +238,6 @@ static void restarting_frame(uint32_t in)
     }
 }
 
-/* Opens shared screen `id` with the session: the lobby comes back when it
- * closes */
-static void open_game(const char* id)
-{
-    const tgg_screen* s = find_game(id);
-    if (s == NULL) {
-        tgg_log("the host picked %s, which this game doesn't have", id);
-        say("The host picked a game this one doesn't have.");
-        return;
-    }
-    tgg_log("playing %s (%s) with the session", s->title, id);
-    dc.lobby.started = 1;
-    dc.handoff = 1;
-    tgg_screen_open(s);
-}
-
-/* Messages from the other screens */
-static void read_messages(void)
-{
-    Lobby* l = &dc.lobby;
-    char buf[160];
-    int n, from;
-    while ((n = netplay_receive(buf, (int) sizeof buf - 1, &from)) > 0) {
-        buf[n] = '\0';
-        int a, b, c;
-        char id[GAME_ID_MAX];
-        if (sscanf(buf, "pick %d %d %d", &a, &b, &c) == 3 && from >= 0 &&
-            from < NETPLAY_MAX_PLAYERS)
-        {
-            l->pick[from].known = 1;
-            l->pick[from].ckind = a;
-            l->pick[from].costume = b;
-            l->pick[from].ready = c;
-        } else if (from != 0) {
-            continue; /* the rest is the host's to say */
-        } else if (sscanf(buf, "stage %d %d %d", &a, &b, &c) == 3) {
-            l->stage = a;
-            l->stocks = b;
-            l->minutes = c;
-        } else if (sscanf(buf, "game %95s", id) == 1) {
-            snprintf(l->game, sizeof l->game, "%s", strcmp(id, "vs") == 0 ? "" : id);
-        } else if (strcmp(buf, "go") == 0 && !l->started) {
-            /* The host's match is on its way: take it */
-            if (netplay_play(NULL) == 0) {
-                l->started = 1;
-            }
-        } else if (sscanf(buf, "open %95s", id) == 1 && !l->started) {
-            open_game(id);
-        }
-    }
-}
-
-/* The host's match: everyone's picks in side order, its stage and rules */
-static void build_match(StartMeleeData* m, int players)
-{
-    const Lobby* l = &dc.lobby;
-    memset(m, 0, sizeof *m);
-    gm_SetupRulesDefaults(&m->rules);
-    gm_SetupAllPlayerDefaults(m->players);
-    m->rules.match_kind = MatchKind_Stock;
-    m->rules.timer_enabled = l->minutes != 0;
-    m->rules.time_limit = (u32) l->minutes * 60;
-    m->rules.item_freq = -1;
-    m->rules.sd_penalty = -1;
-    /* As on Slippi: nobody pauses a match over the network */
-    m->rules.disable_pausing = 1;
-    m->rules.stkind = (u16) stage_kind(l->stage);
-    for (int i = 0; i < players; i++) {
-        PlayerInitData* p = &m->players[i];
-        p->ckind = (s8) l->pick[i].ckind;
-        p->slot_type = Gm_PKind_Human;
-        p->color = (u8) l->pick[i].costume;
-        p->stocks = (s8) l->stocks;
-    }
-}
-
-/* The host: everyone's ready, so start what it picked */
-static void maybe_play(void)
-{
-    Lobby* l = &dc.lobby;
-    netplay_info info;
-    netplay_status(&info);
-    if (l->started || info.side != 0 || info.state != NETPLAY_CONNECTED || info.players < 2) {
-        return;
-    }
-    for (int s = 0; s < info.players; s++) {
-        if (!l->pick[s].known || !l->pick[s].ready) {
-            return;
-        }
-    }
-    if (l->game[0] != '\0') {
-        char msg[GAME_ID_MAX + 8];
-        snprintf(msg, sizeof msg, "open %s", l->game);
-        if (netplay_lock() == 0 && netplay_send(msg, (int) strlen(msg)) == 0) {
-            open_game(l->game);
-        }
-        return;
-    }
-    static StartMeleeData match;
-    build_match(&match, info.players);
-    if (netplay_play(&match) == 0) {
-        l->started = 1;
-        send_text("go");
-    }
-}
-
 /* ---- Each view */
 
 static void menu_frame(uint32_t in)
@@ -527,103 +277,6 @@ static void menu_frame(uint32_t in)
     }
 }
 
-static void lobby_frame(uint32_t in)
-{
-    Lobby* l = &dc.lobby;
-    netplay_info info;
-    netplay_status(&info);
-    Pick* me = my_pick();
-    if (info.players != l->players) {
-        /* A game joined: it hears where everyone is */
-        l->players = info.players;
-        announce();
-    }
-    if (in & TGG_MENU_BACK) {
-        tgg_menu_sound(TGG_SOUND_BACK);
-        leave_session();
-        return;
-    }
-    if (me->ready) {
-        return;
-    }
-    int moved = 0;
-    const int rows = (GRID_CELLS + GRID_COLS - 1) / GRID_COLS;
-    int row = l->cursor / GRID_COLS, col = l->cursor % GRID_COLS;
-    if (in & TGG_MENU_LEFT) {
-        col = (col + GRID_COLS - 1) % GRID_COLS;
-        moved = 1;
-    }
-    if (in & TGG_MENU_RIGHT) {
-        col = (col + 1) % GRID_COLS;
-        moved = 1;
-    }
-    if (in & TGG_MENU_UP) {
-        row = (row + rows - 1) % rows;
-        moved = 1;
-    }
-    if (in & TGG_MENU_DOWN) {
-        row = (row + 1) % rows;
-        moved = 1;
-    }
-    if (moved) {
-        int cell = row * GRID_COLS + col;
-        if (cell >= GRID_CELLS) {
-            cell = GRID_CELLS - 1;
-        }
-        l->cursor = cell;
-        tgg_menu_sound(TGG_SOUND_MOVE);
-    }
-    int changed = 0;
-    if (in & TGG_MENU_ACCEPT) {
-        if (me->ckind != grid_ckind(l->cursor)) {
-            me->ckind = grid_ckind(l->cursor);
-            me->costume = 0;
-        }
-        tgg_menu_sound(TGG_SOUND_ACCEPT);
-        changed = 1;
-    }
-    if (in & (TGG_MENU_X | TGG_MENU_Y)) {
-        me->costume = next_costume(me->ckind, me->costume, (in & TGG_MENU_Y) ? 1 : -1);
-        tgg_menu_sound(TGG_SOUND_MOVE);
-        changed = 1;
-    }
-    if (info.side == 0 && (in & (TGG_MENU_L | TGG_MENU_R))) {
-        const int n = stage_count();
-        l->stage = (l->stage + ((in & TGG_MENU_R) ? 1 : n - 1)) % n;
-        setting_stage = l->stage;
-        tgg_setting_store(&setting_stage);
-        tgg_menu_sound(TGG_SOUND_MOVE);
-        send_stage();
-    }
-    if (info.side == 0 && (in & TGG_MENU_Z)) {
-        /* What to play: a VS match, then each shared screen */
-        const char* ids[GAMES_MAX];
-        const int n = shared_games(NULL, ids, GAMES_MAX);
-        int at = 0; /* the VS match */
-        for (int i = 0; i < n; i++) {
-            if (strcmp(ids[i], l->game) == 0) {
-                at = i + 1;
-            }
-        }
-        at = (at + 1) % (n + 1);
-        snprintf(l->game, sizeof l->game, "%s", at == 0 ? "" : ids[at - 1]);
-        tgg_menu_sound(n > 0 ? TGG_SOUND_MOVE : TGG_SOUND_ERROR);
-        send_game();
-    }
-    if (in & TGG_MENU_START) {
-        me->ready = 1;
-        tgg_menu_sound(TGG_SOUND_ACCEPT);
-        changed = 1;
-    }
-    if (changed) {
-        setting_character = me->ckind;
-        setting_costume = me->costume;
-        tgg_setting_store(&setting_character);
-        tgg_setting_store(&setting_costume);
-        send_pick();
-    }
-}
-
 static void frame(void)
 {
     if (dc.message_frames > 0) {
@@ -657,14 +310,25 @@ static void frame(void)
         break;
     }
     case VIEW_HOSTING:
-    case VIEW_CONNECTING:
         if (in & TGG_MENU_BACK) {
             tgg_menu_sound(TGG_SOUND_BACK);
             leave_session();
-        } else if (info.state == NETPLAY_CONNECTED) {
+        } else if ((in & TGG_MENU_START) && info.players >= 2 && netplay_lock() == 0) {
+            /* Everyone's in: the host picks what to play on the main menu */
             tgg_menu_sound(TGG_SOUND_ACCEPT);
-            tgg_log("in the lobby with %s, mod set %s", info.peer, tgg_mod_set_id());
-            enter_lobby();
+            tgg_log("playing with %d games, mod set %s", info.players, tgg_mod_set_id());
+            tgg_screen_close();
+        }
+        break;
+    case VIEW_CONNECTING:
+    case VIEW_WAITING:
+        if (in & TGG_MENU_BACK) {
+            tgg_menu_sound(TGG_SOUND_BACK);
+            leave_session();
+        } else if (dc.view == VIEW_CONNECTING && info.state == NETPLAY_CONNECTED) {
+            tgg_menu_sound(TGG_SOUND_ACCEPT);
+            tgg_log("joined %s as side %d, mod set %s", info.peer, info.side, tgg_mod_set_id());
+            dc.view = VIEW_WAITING;
         } else if (info.state == NETPLAY_MISMATCH) {
             tgg_menu_sound(TGG_SOUND_ERROR);
             dc.have_diff = 0;
@@ -677,13 +341,6 @@ static void frame(void)
         break;
     case VIEW_RESTARTING:
         restarting_frame(in);
-        break;
-    case VIEW_LOBBY:
-        read_messages();
-        lobby_frame(in);
-        if (dc.view == VIEW_LOBBY) {
-            maybe_play();
-        }
         break;
     case VIEW_FAILED:
         dc.failed_frames++;
@@ -704,12 +361,7 @@ static void frame(void)
 
 static void enter(int from_match)
 {
-    if (!from_match && !dc.handoff) {
-        dc.view = VIEW_MENU;
-        return;
-    }
-    /* Back from a match or a shared screen: the lobby again, for the next one */
-    dc.handoff = 0;
+    (void) from_match;
     netplay_info info;
     netplay_status(&info);
     if (info.state == NETPLAY_FAILED) {
@@ -717,20 +369,25 @@ static void enter(int from_match)
         netplay_close();
         return;
     }
+    if (info.state == NETPLAY_OFF) {
+        dc.view = VIEW_MENU;
+        return;
+    }
+    /* Back during a session: hosting, or waiting for the host */
+    dc.view = info.side == 0 ? VIEW_HOSTING : VIEW_WAITING;
     if (info.desync[0] != '\0') {
         say(info.desync);
         dc.message_frames = 10 * 60; /* long enough to read */
     }
-    enter_lobby();
 }
 
 static void leave(void)
 {
-    /* Leaving for a match or a shared screen keeps the session; leaving the
-     * screen ends it */
+    /* Once the host has locked the session it goes on through the game's
+     * menus; before that, leaving the screen ends it */
     netplay_info info;
     netplay_status(&info);
-    if (info.state != NETPLAY_PLAYING && !dc.handoff) {
+    if (info.state != NETPLAY_PLAYING && !info.locked) {
         netplay_close();
         dc.view = VIEW_MENU;
     }
@@ -750,6 +407,7 @@ static const tgg_menu_entry online = {
     .description = "Play people over the internet.",
     .after = "main/vs",
     .screen = &screen,
+    .online = 1,
 };
 TGG_MENU_ADD("main/online", online);
 
@@ -791,18 +449,18 @@ TGG_INIT(init);
 
 static void on_frame(void)
 {
-    if (dc.handoff && tgg_screen_shown() == NULL && !tgg_in_match()) {
-        /* The shared screen closed: back to the lobby. This opens once the
-         * game is at the main menu */
+    if (tgg_screen_shown() == NULL && !tgg_in_match()) {
+        /* Back at the main menu during a session: a game that doesn't host
+         * waits for the host here, and a session that ended says why. This
+         * opens once the game is at the main menu. */
         netplay_info info;
         netplay_status(&info);
-        if (info.state == NETPLAY_OFF || info.state == NETPLAY_FAILED) {
-            dc.handoff = 0;
-            netplay_close();
-        } else {
+        if ((info.locked && info.side != 0 && info.state == NETPLAY_CONNECTED) ||
+            info.state == NETPLAY_FAILED)
+        {
             tgg_screen_open(&screen);
+            return;
         }
-        return;
     }
     if (autostart == NULL && !reopen) {
         return;

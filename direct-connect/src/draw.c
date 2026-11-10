@@ -68,7 +68,15 @@ static void draw_menu(void)
 static void draw_hosting(void)
 {
     band("Hosting", NULL);
-    tgg_draw_text(320, 96, 26, WHITE, TGG_ALIGN_CENTER, "Waiting for players");
+    netplay_info info;
+    netplay_status(&info);
+    char count[64];
+    if (info.players < 2) {
+        snprintf(count, sizeof count, "Waiting for players");
+    } else {
+        snprintf(count, sizeof count, "%d players in", info.players);
+    }
+    tgg_draw_text(320, 96, 26, WHITE, TGG_ALIGN_CENTER, count);
     tgg_draw_text(320, 140, 18, DIM, TGG_ALIGN_CENTER, "Tell them one of these to join:");
     char addrs[6][48];
     const int n = local_addresses(addrs, 6);
@@ -87,7 +95,30 @@ static void draw_hosting(void)
     }
     snprintf(line, sizeof line, "Port %d", setting_port);
     tgg_draw_text(320, y + 8, 18, DIM, TGG_ALIGN_CENTER, line);
-    footer("B  Stop hosting");
+    if (info.locked) {
+        footer("Start  Play    B  Leave");
+    } else if (info.players >= 2) {
+        footer("Start  Play    B  Stop hosting");
+    } else {
+        footer("B  Stop hosting");
+    }
+}
+
+static void draw_waiting(void)
+{
+    band("Online", NULL);
+    netplay_info info;
+    netplay_status(&info);
+    char line[128];
+    snprintf(line, sizeof line, "Connected to %s", info.peer);
+    tgg_draw_text(320, 180, 22, DIM, TGG_ALIGN_CENTER, line);
+    tgg_draw_text(320, 220, 28, WHITE, TGG_ALIGN_CENTER,
+                  info.locked ? "The host is choosing" : "Waiting for the host to start");
+    if (info.players >= 2) {
+        snprintf(line, sizeof line, "%d players in", info.players);
+        tgg_draw_text(320, 268, 18, DIM, TGG_ALIGN_CENTER, line);
+    }
+    footer("B  Leave");
 }
 
 static void draw_address(void)
@@ -213,156 +244,6 @@ static void draw_restarting(void)
     footer("B  Stop");
 }
 
-/* ---- The lobby */
-
-#define CELL 50.0f
-#define GRID_X (320 - GRID_COLS * CELL / 2)
-#define GRID_Y 70.0f
-
-/* ---- The lobby */
-
-#define CELL 50.0f
-#define GRID_X (320 - GRID_COLS * CELL / 2)
-#define GRID_Y 70.0f
-#define SLOT_W 150.0f
-#define SLOT_Y 244.0f
-#define SLOT_H 92.0f
-
-/* The ports' colors, as the character select has them */
-static tgg_color port_color(int side)
-{
-    static const tgg_color colors[NETPLAY_MAX_PLAYERS] = {
-        RED, BLUE, TGG_RGBA(240, 200, 40, 255), GREEN,
-    };
-    return colors[side % NETPLAY_MAX_PLAYERS];
-}
-
-/* Side `side`'s place: its pick, or an open seat */
-static void draw_slot(int side, const netplay_info* info)
-{
-    const Lobby* l = &dc.lobby;
-    const Pick* p = &l->pick[side];
-    const float x = 8 + side * (SLOT_W + 8), y = SLOT_Y;
-    const int in = side < info->players;
-    const tgg_color color = in ? port_color(side) : DIM;
-    tgg_draw_rect(x, y, SLOT_W, SLOT_H, PANEL);
-    tgg_draw_rect(x, y, SLOT_W, 5, color);
-    char label[32];
-    snprintf(label, sizeof label, "P%d%s", side + 1, side == info->side ? "  You" : "");
-    tgg_draw_text(x + 10, y + 12, 18, color, TGG_ALIGN_LEFT, label);
-    if (!in) {
-        if (!info->locked) {
-            char addrs[6][48];
-            tgg_draw_text(x + SLOT_W / 2, y + 40, 18, DIM, TGG_ALIGN_CENTER, "Open");
-            if (info->side == 0 && local_addresses(addrs, 6) > 0) {
-                char fit[48];
-                tgg_text_fit(fit, sizeof fit, 15, SLOT_W - 12, addrs[0]);
-                tgg_draw_text(x + SLOT_W / 2, y + 64, 15, DIM, TGG_ALIGN_CENTER, fit);
-            }
-        }
-        return;
-    }
-    if (p->ready) {
-        tgg_draw_rect(x + SLOT_W - 64, y + 11, 56, 22, GREEN);
-        tgg_draw_text(x + SLOT_W - 36, y + 13, 16, INK, TGG_ALIGN_CENTER, "Ready");
-    }
-    if (!p->known) {
-        tgg_draw_text(x + SLOT_W / 2, y + 50, 18, DIM, TGG_ALIGN_CENTER, "Picking...");
-        return;
-    }
-    tgg_draw_image(tgg_image_stock_icon(p->ckind, p->costume), x + 10, y + 40, 40, 40,
-                   TGG_RGBA(255, 255, 255, 255));
-    char name[64];
-    tgg_text_fit(name, sizeof name, 16, SLOT_W - 64, fighter_name(p->ckind));
-    tgg_draw_text(x + 56, y + 52, 16, WHITE, TGG_ALIGN_LEFT, name);
-}
-
-/* What the host picked to play, and its stage and rules */
-static void draw_game(const netplay_info* info)
-{
-    const Lobby* l = &dc.lobby;
-    const float y = 344;
-    tgg_draw_rect(8, y, 624, 46, PANEL);
-    if (l->game[0] == '\0') {
-        const tgg_image* icon = tgg_image_stage(stage_kind(l->stage));
-        if (icon != NULL) {
-            tgg_draw_image(icon, 16, y + 5, 40, 36, TGG_RGBA(255, 255, 255, 255));
-        }
-        char stage[64];
-        tgg_text_fit(stage, sizeof stage, 20, 300, stage_name(l->stage));
-        tgg_draw_text(66, y + 4, 20, WHITE, TGG_ALIGN_LEFT, stage);
-        char rules[64];
-        if (l->minutes != 0) {
-            snprintf(rules, sizeof rules, "VS match  %d stocks  %d:00", l->stocks, l->minutes);
-        } else {
-            snprintf(rules, sizeof rules, "VS match  %d stocks", l->stocks);
-        }
-        tgg_draw_text(66, y + 26, 15, DIM, TGG_ALIGN_LEFT, rules);
-    } else {
-        char title[96];
-        tgg_text_fit(title, sizeof title, 20, 360, game_title(l->game));
-        tgg_draw_text(16, y + 4, 20, GOLD, TGG_ALIGN_LEFT, title);
-        tgg_draw_text(16, y + 26, 15, DIM, TGG_ALIGN_LEFT, "Played together on every game");
-    }
-    const char* help = info->side != 0          ? "The host picks"
-                       : shared_games(NULL, NULL, GAMES_MAX) == 0 ? "L / R  Stage"
-                       : l->game[0] == '\0'     ? "Z  Game    L / R  Stage"
-                                                : "Z  Game";
-    tgg_draw_text(620, y + 14, 16, DIM, TGG_ALIGN_RIGHT, help);
-}
-
-static void draw_lobby(void)
-{
-    const Lobby* l = &dc.lobby;
-    netplay_info info;
-    netplay_status(&info);
-    const Pick* me = &l->pick[info.side];
-    char status[96];
-    char peer[80];
-    status_text(peer, sizeof peer);
-    if (info.side == 0) {
-        snprintf(status, sizeof status, "Hosting  %d of %d", info.players,
-                 info.locked ? info.players : NETPLAY_MAX_PLAYERS);
-    } else {
-        snprintf(status, sizeof status, "%s", peer);
-    }
-    band("Online", status);
-
-    /* The characters */
-    for (int i = 0; i < GRID_CELLS; i++) {
-        const int row = i / GRID_COLS, col = i % GRID_COLS;
-        const float x = GRID_X + col * CELL + (row == 2 ? CELL / 2 : 0);
-        const float y = GRID_Y + row * CELL;
-        const int ckind = grid_ckind(i);
-        const int on = i == l->cursor && !me->ready;
-        const int mine = ckind == me->ckind;
-        tgg_draw_rect(x + 2, y + 2, CELL - 4, CELL - 4,
-                      on ? GOLD : mine ? TGG_RGBA(60, 70, 140, 230) : PANEL);
-        tgg_draw_image(tgg_image_stock_icon(ckind, mine ? me->costume : 0), x + 9, y + 9,
-                       CELL - 18, CELL - 18, TGG_RGBA(255, 255, 255, 255));
-    }
-    if (!me->ready) {
-        char name[64];
-        snprintf(name, sizeof name, "%s", fighter_name(grid_ckind(l->cursor)));
-        tgg_draw_text(320, GRID_Y + 3 * CELL + 2, 18, GOLD, TGG_ALIGN_CENTER, name);
-    }
-
-    for (int s = 0; s < NETPLAY_MAX_PLAYERS; s++) {
-        draw_slot(s, &info);
-    }
-    draw_game(&info);
-
-    if (!me->ready) {
-        footer("A  Pick    X / Y  Color    Start  Ready    B  Leave");
-    } else if (info.players < 2) {
-        footer("Waiting for someone to join     B  Leave");
-    } else if (l->started) {
-        footer("Starting...");
-    } else {
-        footer("Waiting for everyone to be ready     B  Leave");
-    }
-}
-
 void dc_draw(void)
 {
     switch (dc.view) {
@@ -378,8 +259,8 @@ void dc_draw(void)
     case VIEW_CONNECTING:
         draw_connecting();
         break;
-    case VIEW_LOBBY:
-        draw_lobby();
+    case VIEW_WAITING:
+        draw_waiting();
         break;
     case VIEW_FAILED:
         draw_failed();
