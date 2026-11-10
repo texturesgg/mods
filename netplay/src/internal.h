@@ -13,6 +13,7 @@
 typedef struct HSD_PadStatus HSD_PadStatus;
 typedef struct PADStatus PADStatus;
 typedef struct StartMeleeData StartMeleeData;
+typedef struct tgg_socket tgg_socket;
 
 /* ---- net.c: one UDP socket and its peers, over the port's tgg/net.h: a
  * joiner has one, the host; the host one per joiner */
@@ -39,6 +40,45 @@ const char* net_last_name(void);
 int net_peers(void);
 /* Peer `peer`'s address, "1.2.3.4:51000", or "" */
 const char* net_peer_name(int peer);
+
+/* ---- The meeting point: the socket opened early, and punching */
+
+/* The most candidate addresses of the other games */
+#define NET_CANDIDATES 16
+/* How long to keep saying hello to candidates that haven't answered */
+#define PUNCH_MS 10000.0
+
+/* Opens the socket on `port` (0: any) now and starts STUN; NULL, or what went
+ * wrong. A session opened after it (net_open) uses the same socket. */
+const char* net_prepare(int port);
+/* The port the socket is on, or -1 */
+int net_local_port(void);
+/* The other games' candidates ("host:port", and each one's kind: local,
+ * stun, ...). A joiner (`joining`) treats whichever answers as the host; the
+ * host sends net_punch_send to each one that isn't a peer yet. How many were
+ * usable. */
+int net_punch(int joining, const char* const* addrs, const char* const* kinds, int n);
+/* The host: sends a datagram to every candidate that isn't a peer, for
+ * PUNCH_MS after net_punch */
+void net_punch_send(const void* data, size_t len);
+/* Milliseconds since net_punch, or -1 without candidates */
+double net_punch_age_ms(void);
+/* The kind of candidate that answered first and how long it took, or NULL */
+const char* net_punched(double* ms);
+/* A joiner still punching: the last datagram's sender is the host (its hello
+ * carried the session's token). 0, or -1 when not punching */
+int net_take_host(void);
+
+/* ---- stun.c: this socket's address as the internet sees it */
+
+void stun_start(tgg_socket* sock);
+void stun_stop(void);
+/* Resends while there's no answer */
+void stun_pump(void);
+/* Takes a datagram if it's a STUN answer: 1 when it was */
+int stun_got(const void* data, size_t len);
+/* 1 with the address, 0 while asking, -1 when no answer came */
+int stun_mapped(char* text, size_t cap);
 /* Milliseconds on a clock that only goes forward. Presentation code only. */
 double net_now_ms(void);
 /* Waits up to `ms` for a datagram to arrive: for loops that run while the
@@ -84,7 +124,7 @@ int wire_same(const WireInput* a, const WireInput* b);
 #define SIDES (NET_PEERS + 1)
 
 #define WIRE_MAGIC 0x4e474754u /* "TGGN" */
-#define WIRE_VERSION 5
+#define WIRE_VERSION 6
 enum {
     WIRE_HELLO = 1,
     WIRE_INPUT = 2,
@@ -121,6 +161,7 @@ typedef struct WireHello {
     char all[17];     /* tgg_mod_set_all: every mod that loaded, display mods too */
     char display[256]; /* tgg_mod_set_display: the display mods, "id version, ..." */
     uint8_t strict;   /* the host wants every mod to match, display mods too */
+    uint64_t token;   /* a session the meeting point set up: both games have it; 0 for none */
 } WireHello;
 
 /* A run of one side's inputs, from frame `first` */
@@ -237,6 +278,8 @@ typedef struct Session {
     int env;       /* opened from the environment, for a match the boot sets up */
     int replay;    /* the replay test */
     uint32_t seed; /* the host's: the boot's match starts from it */
+    uint64_t token; /* set by the meeting point: hellos without it are ignored; 0 for none */
+    double last_punch_ms; /* the host: when it last said hello to the candidates */
     double opened_ms;
     int matches;
     Link link[NET_PEERS];
