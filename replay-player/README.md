@@ -1,12 +1,13 @@
 # Replay player
 
-Plays a Slippi replay (`.slp`) in tgg-melee. You watch the match as it was played, and can
-pause it, step through it a frame at a time, and speed it up or slow it down.
+Plays a Slippi replay (`.slp`) in tgg-melee. You watch the match as it was played: pause it,
+step through it a frame at a time, speed it up or slow it down, or go back a couple of
+seconds. At any frame you can take over and play from there with your own controllers.
 
 ## For players
 
-Most players start replays from `tgg.replay-browser` (Replays, on the Mods page), which
-needs this mod. You can also start one straight from the environment:
+Most players start replays from `tgg.replay-browser` (Data, then Replays), which needs this
+mod. You can also start one straight from the environment:
 
 ```sh
 TGG_REPLAY_PLAYER_FILE=~/Slippi/Game_20250101T120000.slp tgg mod dev
@@ -16,16 +17,29 @@ TGG_REPLAY_PLAYER_FILE=~/Slippi/Game_20250101T120000.slp tgg mod dev
 |---|---|---|
 | space | Start | pause, play |
 | `.` or right arrow | D-pad right | one frame, while paused |
+| `,` or left arrow | D-pad left | back about 2 seconds (as far as the last 30 seconds) |
 | `=` or up arrow | D-pad up | twice as fast (up to 4x) |
 | `-` or down arrow | D-pad down | half as fast (down to 1/16x) |
 | `0` | Z | normal speed |
+| | X | take over |
 | Escape | B | back to the screen that started it |
 
 The controls are the viewer's own keyboard and controllers, whatever the replay plays on
-the game's ports. The corner shows when the replay is paused or sped up. Started from the
-environment, the match pauses when the replay ends. In a game restarted to play it (see the
-port's [restart docs](https://textures.gg/docs/mods/latest/restart)), the player's own game
-comes back when the match is over or they leave.
+the game's ports. The corner shows when the replay is paused or sped up.
+Started from the environment, the match pauses when the replay ends. In a game restarted to
+play it (see the port's [restart docs](https://textures.gg/docs/mods/latest/restart)), the
+player's own game comes back when the match is over or they leave.
+
+### Taking over
+
+X pauses the replay and asks who plays each player from here: the recording (they keep doing
+what they really did), nobody (they stand still), or one of your controllers. The controller
+that pressed X starts on the first player. Left and right change a player, A plays from here,
+B goes back to watching.
+
+From then on it's an ordinary match, and every button on your controller goes to the game.
+D-pad left (or the left arrow) puts everything back to the moment you took over, so you can
+try it again as often as you like. Leave with the game's own L+R+A+Start, or Escape.
 
 No settings. Netplay: this is a code mod, so it counts toward the mod-set. Both players
 need it, or neither.
@@ -47,7 +61,7 @@ tgg.replay-player: not loaded: tgg.offscreen-damage; install and turn them on, o
 
 ### The API
 
-`include/replay_player.h` is the player's API. List `"tgg.replay-player": "^0.2"` in your
+`include/replay_player.h` is the player's API. List `"tgg.replay-player": "^0.3"` in your
 manifest's `depends` and copy the header (or add this mod's `include/` to your include path).
 
 - `replay_read_summary(path, &summary)` reads what a replay holds without playing it, from
@@ -69,6 +83,7 @@ src/slp.c      reading the replay
 src/summary.c  the summary other mods read
 src/setup.c    the replay's match setup, and the rule mods it needs
 src/keys.c     the viewer's keys and buttons (tgg/input.h)
+src/takeover.c rewinding and taking over: snapshots and the panel
 ```
 
 - The match comes from the replay's Game Info block (the console's `StartMeleeData`) via
@@ -83,7 +98,14 @@ src/keys.c     the viewer's keys and buttons (tgg/input.h)
   the next recorded frame presses Start again.
 - `frame` reads the viewer's controls and calls `tgg_pause`, `tgg_step` and
   `tgg_set_speed`, which change when frames run, never what they do.
-- `hud_draw` draws the pause and speed indicator.
+- `advance` keeps a snapshot (`tgg/snapshot.h`) about once a second for the last 30
+  seconds; going back loads one.
+- Taking over: a snapshot marks the moment, and from then `pad_read` gives each taken port
+  that controller's own report (`tgg_pad_process`), a port standing still a released
+  controller, and the rest the recording, without setting the RNG seed any more. Who plays
+  which port is kept outside `TGG_STATE`: it changes only while the game is held, and going
+  back to the takeover point keeps it.
+- `hud_draw` draws the pause and speed indicator, the takeover panel and its help line.
 
 To check playback frame by frame against the console, see the port's replay check
 (`TGG_REPLAY`) in the debugging docs.

@@ -14,11 +14,16 @@ Keys keys_pressed(void)
         tgg_viewer_pad p;
         if (tgg_viewer_pad_read(port, &p)) {
             pad |= p.pressed;
+            if ((p.pressed & TGG_BUTTON_X) && k.take == 0) {
+                k.take = port + 1;
+            }
         }
     }
     k.pause = tgg_key_pressed(TGG_KEY_SPACE) || (pad & TGG_BUTTON_START);
     k.step = tgg_key_pressed(TGG_KEY_PERIOD) || tgg_key_pressed(TGG_KEY_RIGHT) ||
              (pad & TGG_BUTTON_RIGHT);
+    k.rewind = tgg_key_pressed(TGG_KEY_COMMA) || tgg_key_pressed(TGG_KEY_LEFT) ||
+               (pad & TGG_BUTTON_LEFT);
     k.faster = tgg_key_pressed(TGG_KEY_EQUALS) || tgg_key_pressed(TGG_KEY_UP) || (pad & TGG_BUTTON_UP);
     k.slower = tgg_key_pressed(TGG_KEY_MINUS) || tgg_key_pressed(TGG_KEY_DOWN) ||
                (pad & TGG_BUTTON_DOWN);

@@ -18,7 +18,9 @@
  *   pause can end, then the next recorded frame presses Start again.
  *
  * The viewer's keys and controllers (keys.c) pause, step a frame, change the
- * speed and, for a replay a screen started, leave it. Booted from the
+ * speed, go back, take over (takeover.c: from then on chosen
+ * ports play from the viewer's controllers) and, for a replay a screen
+ * started, leave it. Booted from the
  * environment, the match pauses when the replay ends, unless the game was
  * restarted to play it (tgg/restart.h): then the player's own game comes back,
  * as it does when they leave. Started from a screen, the screen comes back.
@@ -29,6 +31,7 @@
 #include "tgg/control.h"
 #include "tgg/draw.h"
 #include "tgg/events.h"
+#include "tgg/input.h"
 #include "tgg/restart.h"
 #include "tgg/screen.h"
 
@@ -103,6 +106,7 @@ static void init(void)
     }
     static StartMeleeData match;
     player_match(&slp, &match);
+    takeover_reset(&match);
     tgg_boot_match(&match);
 }
 TGG_INIT(init);
@@ -121,6 +125,7 @@ int replay_play(const char* path, const char** why)
     }
     static StartMeleeData match;
     player_match(&slp, &match);
+    takeover_reset(&match);
     if (tgg_screen_play_match(&match) != 0) {
         loaded = 0;
         *why = "a replay plays from a screen";
@@ -190,7 +195,8 @@ static void play_input(HSD_PadStatus* mp, PADStatus* raw, const SlpInput* in)
 
 static void on_pads(tgg_pads* pads)
 {
-    if (!loaded || !st.set_up || st.ended || !tgg_in_match()) {
+    const int taken = takeover_active();
+    if (!loaded || !st.set_up || (st.ended && !taken) || !tgg_in_match()) {
         return;
     }
     if (!st.started) {
@@ -200,19 +206,34 @@ static void on_pads(tgg_pads* pads)
     const int i = st.frame - SLP_FIRST_FRAME;
     if (i >= slp.frame_count) {
         st.ended = 1;
+    }
+    const SlpFrame* f = st.ended ? NULL : &slp.frames[i];
+    if (st.ended && !taken) {
         return;
     }
-    const SlpFrame* f = &slp.frames[i];
-    if (f->has_seed) {
+    /* Taken over, the match makes its own randomness from here */
+    if (f != NULL && f->has_seed && !taken) {
         *HSD_RandSeedPtr = f->seed;
     }
+    /* What the controllers reported this frame, before any port is set */
+    PADStatus controllers[4];
+    memcpy(controllers, pads->raw, sizeof controllers);
     /* Paused: every port lets go until the pause can end (the game takes no
      * unpause for PAUSE_TICKS frames), then this frame's inputs press Start
-     * again to unpause, or L, R, A and Start to end the match */
+     * again to unpause, or L, R, A and Start to end the match. Taken over,
+     * the ports the recording still plays let go while the game is paused. */
     static const SlpInput released = { .have = 1 };
-    const int hold = st.pause_ticks > 0 && st.pause_ticks <= PAUSE_TICKS;
+    const int hold = taken ? gm_GetDbPauseFlag(1) != 0
+                           : st.pause_ticks > 0 && st.pause_ticks <= PAUSE_TICKS;
     for (int port = 0; port < 4; port++) {
-        if (f->input[port].have) {
+        const int from = takeover_source(port);
+        if (from >= 0) {
+            pads->raw[port] = controllers[from];
+            tgg_pad_process(&pads->status[port], &pads->raw[port]);
+        } else if ((from == TAKE_STILL || (taken && f == NULL)) &&
+                   slp.frame_count > 0 && slp.frames[0].input[port].have) {
+            play_input(&pads->status[port], &pads->raw[port], &released);
+        } else if (f != NULL && f->input[port].have) {
             play_input(&pads->status[port], &pads->raw[port], hold ? &released : &f->input[port]);
         }
     }
@@ -264,6 +285,7 @@ static void on_frame(void)
     if (!in_match) {
         if (view.was_in_match) {
             reset_controls();
+            takeover_match_end();
             /* The match of a replay the game restarted to play is over (it
              * can end before the replay's last frame): back to the player's
              * own game, when this one is a restart */
@@ -279,6 +301,32 @@ static void on_frame(void)
         return;
     }
     view.shown_frames++;
+    /* Taken over, it's the players' match: every button on the controllers
+     * goes to the game, and only D-pad left (back to the takeover point) and
+     * Escape (leave) are the player's */
+    if (takeover_active()) {
+        uint32_t pad = 0;
+        for (int port = 0; port < 4; port++) {
+            tgg_viewer_pad p;
+            if (tgg_viewer_pad_read(port, &p)) {
+                pad |= p.pressed;
+            }
+        }
+        if ((pad & TGG_BUTTON_LEFT) || tgg_key_pressed(TGG_KEY_LEFT)) {
+            takeover_again();
+        }
+        if (tgg_key_pressed(TGG_KEY_ESCAPE)) {
+            if (from_screen) {
+                tgg_end_match();
+            } else {
+                tgg_restart_back();
+            }
+        }
+        return;
+    }
+    if (takeover_panel_frame()) {
+        return;
+    }
     if (st.ended) {
         view.ended_frames++;
         if (from_screen) {
@@ -319,6 +367,12 @@ static void on_frame(void)
     if (k.step) {
         tgg_step(1);
     }
+    if (k.rewind) {
+        takeover_rewind(st.frame);
+    }
+    if (k.take && !st.ended) {
+        takeover_open(k.take - 1);
+    }
     if (k.faster || k.slower || k.normal) {
         tgg_set_speed(k.normal ? 1.0f : tgg_speed() * (k.faster ? 2.0f : 0.5f));
         view.changed = 1;
@@ -331,6 +385,10 @@ TGG_ON(frame, on_frame);
 static void on_hud(void)
 {
     if (!loaded || !tgg_in_match()) {
+        return;
+    }
+    if (takeover_active() || takeover_panel_shown()) {
+        takeover_draw();
         return;
     }
     char text[48];
@@ -348,10 +406,20 @@ static void on_hud(void)
         tgg_draw_text(b.x + 26, 20, 22, TGG_RGBA(255, 255, 255, 255), TGG_ALIGN_LEFT, text);
     }
     if (from_screen && view.shown_frames < 240) {
-        const char* help = "Start: Pause    Up/Down: Speed    B: Back";
+        const char* help = "Start: Pause    Left: Back    X: Take over    B: Back";
         const float w = tgg_text_width(18, help) + 24;
         tgg_draw_rect(320 - w / 2, 4, w, 26, TGG_RGBA(0, 0, 0, 150));
         tgg_draw_text(320, 8, 18, TGG_RGBA(220, 225, 240, 255), TGG_ALIGN_CENTER, help);
     }
 }
 TGG_ON(hud_draw, on_hud);
+
+/* Before each logic frame: a rewind snapshot now and then */
+static void on_advance(tgg_advance* adv)
+{
+    (void) adv;
+    if (loaded && st.started && !st.ended && tgg_in_match()) {
+        takeover_advance(st.frame);
+    }
+}
+TGG_ON(advance, on_advance);

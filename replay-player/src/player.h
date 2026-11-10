@@ -24,10 +24,35 @@ void unlocks_follow(int playing);
 int player_rule_mods(const uint8_t* gecko, size_t len, int stage, int transformations,
                      int missing_only, char* out, size_t cap);
 
-/* The controls the player reads, each nonzero on the frame it's pressed. */
+/* The controls the player reads, each nonzero on the frame it's pressed.
+ * `take` is the controller that pressed X, plus one (0: none). */
 typedef struct Keys {
-    int pause, step, faster, slower, normal, leave;
+    int pause, step, faster, slower, normal, leave, rewind, take;
 } Keys;
+
+/* takeover.c: rewinding, and taking over from a replay */
+enum { TAKE_RECORDING = -1, TAKE_STILL = -2 }; /* else a controller, 0 to 3 */
+/* A new replay's match */
+void takeover_reset(const StartMeleeData* match);
+/* Its match ended: snapshots and takeover go */
+void takeover_match_end(void);
+/* Someone took over */
+int takeover_active(void);
+/* Who plays `port`: TAKE_* or a controller */
+int takeover_source(int port);
+/* From advance: keeps a rewind snapshot now and then */
+void takeover_advance(int replay_frame);
+/* Back a couple of seconds; 0 or -1 */
+int takeover_rewind(int replay_frame);
+/* Opens the takeover panel, `controller` (0 to 3) playing the first player */
+void takeover_open(int controller);
+int takeover_panel_shown(void);
+/* The panel's controls; nonzero while it's shown (it takes the frame's input) */
+int takeover_panel_frame(void);
+/* Back to the takeover point; 0 or -1 */
+int takeover_again(void);
+/* From hud_draw */
+void takeover_draw(void);
 /* The controls pressed this displayed frame. */
 Keys keys_pressed(void);
 
