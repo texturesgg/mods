@@ -13,6 +13,7 @@
 
 #include "tgg/control.h"
 #include "tgg/events.h"
+#include "tgg/files.h"
 #include "tgg/input.h"
 #include "tgg/screen.h"
 #include "tgg/settings.h"
@@ -82,7 +83,18 @@ int menu_rows(const char** rows, int max)
 static void fail_view(const char* why)
 {
     snprintf(dc.why, sizeof dc.why, "%s", why);
+    dc.failed_frames = 0;
     dc.view = VIEW_FAILED;
+}
+
+/* In a game restarted with the host's mods: the player's own game again */
+static void go_back(void)
+{
+    tgg_log("leaving netplay: back to this player's own game");
+    if (tgg_restart_back() != 0) {
+        dc.for_netplay = 0;
+        say("Can't go back to your own game.");
+    }
 }
 
 static void send_pick(void)
@@ -151,6 +163,7 @@ static void join(const char* typed)
     tgg_menu_sound(TGG_SOUND_ACCEPT);
     snprintf(setting_peer, sizeof setting_peer, "%s", typed);
     tgg_setting_store(setting_peer);
+    snprintf(dc.joined, sizeof dc.joined, "%s", full);
     memset(&dc.lobby, 0, sizeof dc.lobby);
     dc.view = VIEW_CONNECTING;
 }
@@ -158,7 +171,125 @@ static void join(const char* typed)
 static void leave_session(void)
 {
     netplay_close();
+    if (dc.for_netplay) {
+        go_back();
+    }
     dc.view = VIEW_MENU;
+}
+
+/* ---- The host has other mods */
+
+/* What to say when this game can't get them itself */
+static void say_compare(void)
+{
+    char why[160];
+    if (dc.have_diff && strcmp(dc.diff.game_there, dc.diff.game_here) != 0) {
+        snprintf(why, sizeof why, "The host runs tgg-melee %s and this game %s.",
+                 dc.diff.game_there, dc.diff.game_here);
+    } else {
+        snprintf(why, sizeof why,
+                 "The host has other mods. Compare the two mods folders; the log lists both.");
+    }
+    fail_view(why);
+}
+
+static void different_frame(uint32_t in)
+{
+    if (!dc.have_diff && !dc.bad_profile) {
+        const char* host_profile = netplay_host_profile();
+        if (host_profile != NULL) {
+            static char own[16 * 1024];
+            snprintf(own, sizeof own, "%s", tgg_mod_set_profile());
+            if (profile_diff(host_profile, own, &dc.diff) == 0) {
+                dc.have_diff = 1;
+            } else {
+                dc.bad_profile = 1;
+                tgg_log("can't read the host's profile");
+            }
+        }
+    }
+    if (in & TGG_MENU_BACK) {
+        tgg_menu_sound(TGG_SOUND_BACK);
+        leave_session();
+        return;
+    }
+    if (!(in & TGG_MENU_ACCEPT) || !dc.have_diff || dc.for_netplay) {
+        return;
+    }
+    /* Get them: tgg reads the host's profile from a file in the data folder,
+     * and the game restarts with those mods and joins the host again */
+    char path[1024];
+    snprintf(path, sizeof path, "%s/netplay-host-profile.json", tgg_data_dir());
+    FILE* f = fopen(path, "wb");
+    int saved = f != NULL && fputs(netplay_host_profile(), f) >= 0;
+    if (f != NULL && fclose(f) != 0) {
+        saved = 0;
+    }
+    netplay_close();
+    if (!saved) {
+        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_log("can't write %s", path);
+        fail_view("Can't save the host's list of mods.");
+        return;
+    }
+    if (tgg_restart_with("tgg.direct-connect", path, dc.joined) != 0) {
+        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_log("tgg can't get the host's mods: it isn't beside the game");
+        say_compare();
+        return;
+    }
+    tgg_menu_sound(TGG_SOUND_ACCEPT);
+    tgg_log("getting the host's mods (%s), then joining %s again", path, dc.joined);
+    memset(&dc.restart, 0, sizeof dc.restart);
+    dc.view = VIEW_RESTARTING;
+}
+
+/* While tgg gets the host's mods: B stops it; asked about publishers, A says
+ * yes (and remembers it) and B no */
+static void restarting_frame(uint32_t in)
+{
+    tgg_restart_poll(&dc.restart);
+    switch (dc.restart.state) {
+    case TGG_RESTART_WORKING:
+        if (in & TGG_MENU_BACK) {
+            tgg_restart_cancel();
+            tgg_menu_sound(TGG_SOUND_BACK);
+            dc.view = VIEW_MENU;
+        }
+        break;
+    case TGG_RESTART_NEEDS_TRUST:
+        if (in & (TGG_MENU_ACCEPT | TGG_MENU_START)) {
+            tgg_menu_sound(TGG_SOUND_ACCEPT);
+            tgg_log("getting mods by %s: yes, and from now on", dc.restart.trust);
+            tgg_restart_trust(1, 1);
+        } else if (in & TGG_MENU_BACK) {
+            tgg_menu_sound(TGG_SOUND_BACK);
+            tgg_log("getting mods by %s: no", dc.restart.trust);
+            tgg_restart_trust(0, 0);
+            dc.view = VIEW_MENU;
+        }
+        break;
+    case TGG_RESTART_NOT_NEEDED:
+        /* tgg says this game already has the host's mods, yet the two
+         * differ: nothing a restart fixes */
+        tgg_restart_cancel();
+        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_log("tgg says this game already has the host's mods, but the mod sets differ");
+        fail_view("This game has the host's mods, but they still differ. The log lists both.");
+        break;
+    case TGG_RESTART_FAILED: {
+        char why[160];
+        snprintf(why, sizeof why, "Can't get the host's mods: %.120s.", dc.restart.message);
+        tgg_log("%s", why);
+        tgg_restart_cancel();
+        tgg_menu_sound(TGG_SOUND_ERROR);
+        fail_view(why);
+        break;
+    }
+    default:
+        dc.view = VIEW_MENU;
+        break;
+    }
 }
 
 /* Messages from the other screen */
@@ -240,6 +371,9 @@ static void menu_frame(uint32_t in)
     const int n = menu_rows(rows, 4);
     if (in & TGG_MENU_BACK) {
         tgg_menu_sound(TGG_SOUND_BACK);
+        if (dc.for_netplay) {
+            go_back();
+        }
         tgg_screen_close();
         return;
     }
@@ -383,8 +517,20 @@ static void frame(void)
             leave_session();
         } else if (info.state == NETPLAY_CONNECTED) {
             tgg_menu_sound(TGG_SOUND_ACCEPT);
+            tgg_log("in the lobby with %s, mod set %s", info.peer, tgg_mod_set_id());
             enter_lobby();
+        } else if (info.state == NETPLAY_MISMATCH) {
+            tgg_menu_sound(TGG_SOUND_ERROR);
+            dc.have_diff = 0;
+            dc.bad_profile = 0;
+            dc.view = VIEW_DIFFERENT;
         }
+        break;
+    case VIEW_DIFFERENT:
+        different_frame(in);
+        break;
+    case VIEW_RESTARTING:
+        restarting_frame(in);
         break;
     case VIEW_LOBBY:
         read_messages();
@@ -394,8 +540,16 @@ static void frame(void)
         }
         break;
     case VIEW_FAILED:
+        dc.failed_frames++;
         if (in & (TGG_MENU_ACCEPT | TGG_MENU_BACK | TGG_MENU_START)) {
             tgg_menu_sound(TGG_SOUND_BACK);
+            if (dc.for_netplay) {
+                go_back();
+            }
+            dc.view = VIEW_MENU;
+        } else if (dc.for_netplay && dc.failed_frames > 5 * 60) {
+            /* The session ended in a game restarted for it: back on its own */
+            go_back();
             dc.view = VIEW_MENU;
         }
         break;
@@ -439,12 +593,33 @@ static const tgg_screen screen = {
 };
 TGG_SCREEN("connect", screen);
 
-/* TGG_DIRECT_CONNECT=host or join:<address>: start the game on this screen,
- * hosting or joining, for scripted runs and a quick start */
+/* What the game starts on: TGG_DIRECT_CONNECT=host or join:<address> starts
+ * it on this screen, hosting or joining, for scripted runs and a quick
+ * start. A game restarted with the host's mods (tgg_restart_with above;
+ * TGG_RETURN_BY names this mod, TGG_RETURN_THEN the host) joins the host at
+ * once. Back in the player's own game after that, the screen opens again. */
 static const char* autostart;
+static int reopen;
 
 static void init(void)
 {
+    static char rejoin[ADDRESS_MAX + 16];
+    const char* by = getenv("TGG_RETURN_BY");
+    const char* then = getenv("TGG_RETURN_THEN");
+    if (by != NULL && strcmp(by, "tgg.direct-connect") == 0 && then != NULL && then[0] != '\0') {
+        dc.for_netplay = 1;
+        snprintf(rejoin, sizeof rejoin, "join:%s", then);
+        autostart = rejoin;
+        tgg_log("restarted with the host's mods: joining %s", then);
+        tgg_boot_mode(GM_MENU);
+        return;
+    }
+    if (tgg_restarted("tgg.direct-connect") != NULL) {
+        reopen = 1;
+        tgg_log("back in this player's own game after netplay");
+        tgg_boot_mode(GM_MENU);
+        return;
+    }
     autostart = getenv("TGG_DIRECT_CONNECT");
     if (autostart != NULL && autostart[0] != '\0') {
         tgg_boot_mode(GM_MENU);
@@ -456,18 +631,23 @@ TGG_INIT(init);
 
 static void on_frame(void)
 {
-    if (autostart == NULL || tgg_screen_shown() == &screen) {
-        if (autostart != NULL && tgg_screen_shown() == &screen) {
-            const char* what = autostart;
-            autostart = NULL;
-            if (strcmp(what, "host") == 0) {
-                host();
-            } else if (strncmp(what, "join:", 5) == 0) {
-                join(what + 5);
-            }
-        }
+    if (autostart == NULL && !reopen) {
         return;
     }
-    tgg_screen_open(&screen);
+    if (tgg_screen_shown() != &screen) {
+        tgg_screen_open(&screen); /* opens once the game is at a menu */
+        return;
+    }
+    reopen = 0;
+    const char* what = autostart;
+    autostart = NULL;
+    if (what == NULL) {
+        return;
+    }
+    if (strcmp(what, "host") == 0) {
+        host();
+    } else if (strncmp(what, "join:", 5) == 0) {
+        join(what + 5);
+    }
 }
 TGG_ON(frame, on_frame);

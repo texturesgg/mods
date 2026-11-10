@@ -24,7 +24,7 @@
  *
  * A mod that uses it lists netplay in its manifest's "depends":
  *
- *     "depends": { "tgg.netplay": "^0.3" }
+ *     "depends": { "tgg.netplay": "^0.4" }
  *
  * and includes this header (copy it, or add netplay's include/ to the
  * include path). */
@@ -47,6 +47,9 @@ enum {
     NETPLAY_STARTING = 4,   /* netplay_play was called; waiting for the other side */
     NETPLAY_PLAYING = 5,    /* a match is on */
     NETPLAY_FAILED = 6,     /* it ended: `why` says how; netplay_close to start over */
+    NETPLAY_MISMATCH = 7,   /* side 1: the host runs another game version or other mods;
+                               `why` says which, and netplay_host_profile gives the
+                               host's profile once it has arrived */
 };
 
 typedef struct netplay_info {
@@ -60,11 +63,13 @@ typedef struct netplay_info {
 
 /* Opens a session as side 0 or 1, one of each. With `peer` NULL, side 0
  * waits for any game to say hello on UDP `port` and plays the first that
- * does (its build and mods must match). With `peer` ("host:port", a name or
- * an IPv4 address), the game says hello to it from `port`, or from a port of
- * the system's choosing when `port` is 0. Turns rollback on from the next
- * match. Returns 0, or -1 with `why` (may be NULL) saying why, for the
- * player to see. An open session is closed first. */
+ * does with the same build and mods; a game that differs is told so, may ask
+ * for this game's profile, and side 0 keeps waiting. With `peer`
+ * ("host:port", a name or an IPv4 address), the game says hello to it from
+ * `port`, or from a port of the system's choosing when `port` is 0; when the
+ * host differs, the session goes to NETPLAY_MISMATCH. Turns rollback on from
+ * the next match. Returns 0, or -1 with `why` (may be NULL) saying why, for
+ * the player to see. An open session is closed first. */
 TGG_API(NETPLAY, int, netplay_open, (int side, const char* peer, int port, const char** why));
 
 /* Ends the session: tells the other game, closes the socket, and turns
@@ -73,6 +78,13 @@ TGG_API(NETPLAY, void, netplay_close, (void));
 
 /* Where the session is. */
 TGG_API(NETPLAY, void, netplay_status, (netplay_info* out));
+
+/* NETPLAY_MISMATCH: the host's mod profile, the JSON its tgg_mod_set_profile
+ * gives (the game's version and layout, and each counted mod's version and
+ * settings), once it has arrived whole; else NULL. Write it to a file and
+ * pass it to tgg_restart_with to restart into the host's mods, then join
+ * again from there. Valid until the session closes. */
+TGG_API(NETPLAY, const char*, netplay_host_profile, (void));
 
 /* Sends a message of up to 400 bytes to the other game, once connected.
  * Messages arrive whole, once, and in the order sent. Returns 0, or -1 when

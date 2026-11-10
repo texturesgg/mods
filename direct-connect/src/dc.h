@@ -1,10 +1,12 @@
 /* Direct connect's parts: the screen and the lobby (connect.c), the
  * on-screen keyboard (keyboard.c), the drawing (draw.c), this machine's
- * addresses (addr.c) and the game's names (names.c). */
+ * addresses (addr.c), the game's names (names.c) and comparing the host's
+ * mods with this game's (profile.c). */
 #ifndef DIRECT_CONNECT_H
 #define DIRECT_CONNECT_H
 
 #include "tgg/mod.h"
+#include "tgg/restart.h"
 
 #include "netplay.h"
 
@@ -18,7 +20,24 @@ enum {
     VIEW_CONNECTING, /* saying hello to it */
     VIEW_LOBBY,      /* picking characters and the stage */
     VIEW_FAILED,     /* the session ended: why */
+    VIEW_DIFFERENT,  /* the host has other mods: what differs, and get them? */
+    VIEW_RESTARTING, /* tgg is getting the host's mods (tgg/restart.h) */
 };
+
+/* What differs between the host's mods and this game's (profile.c) */
+#define DIFF_LINES 8
+#define DIFF_TEXT 64
+typedef struct Diff {
+    char game_there[48], game_here[48]; /* the game versions */
+    char there[DIFF_LINES][DIFF_TEXT];  /* what the host has that this game doesn't */
+    int n_there;                        /* may be more than DIFF_LINES */
+    char here[DIFF_LINES][DIFF_TEXT];   /* and the reverse */
+    int n_here;
+} Diff;
+
+/* Compares two profiles (tgg_mod_set_profile's JSON). -1 if one can't be
+ * read. */
+int profile_diff(const char* host_json, const char* own_json, Diff* d);
 
 #define ADDRESS_MAX 64
 
@@ -48,7 +67,19 @@ typedef struct Dc {
     char message[160];
     int message_frames;
     char why[160];             /* VIEW_FAILED */
+    int failed_frames;         /* VIEW_FAILED: how long it's shown */
     Lobby lobby;
+
+    char joined[ADDRESS_MAX + 8]; /* the host's full address, as last joined */
+    /* VIEW_DIFFERENT */
+    int have_diff;
+    int bad_profile; /* the host's profile couldn't be read */
+    Diff diff;
+    /* VIEW_RESTARTING */
+    tgg_restart_status restart;
+    /* This game was restarted with the host's mods to join it: leaving
+     * netplay goes back to the player's own game */
+    int for_netplay;
 } Dc;
 
 extern Dc dc;
