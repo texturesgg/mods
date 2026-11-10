@@ -496,7 +496,8 @@ static const tgg_menu_entry online = {
 };
 TGG_MENU_ADD("main/online", online);
 
-/* What the game starts on: TGG_DIRECT_CONNECT=host or join:<address> starts
+/* What the game starts on: TGG_DIRECT_CONNECT=host, join:<address>, room
+ * (make a room) or room:<code> (join one) starts
  * it on this screen, hosting or joining, for scripted runs and a quick
  * start. A game restarted with the host's mods (tgg_restart_with above;
  * TGG_RETURN_BY names this mod, TGG_RETURN_THEN the host) joins the host at
@@ -564,6 +565,10 @@ static void on_frame(void)
         host();
     } else if (strncmp(what, "join:", 5) == 0) {
         join(what + 5);
+    } else if (strcmp(what, "room") == 0) {
+        make_room();
+    } else if (strncmp(what, "room:", 5) == 0) {
+        join_room(what + 5);
     }
 }
 TGG_ON(frame, on_frame);

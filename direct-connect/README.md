@@ -44,8 +44,9 @@ All of these are your own and don't need to match the other player's.
 | Stage (host) | Battlefield | the stage the lobby starts on, when you host |
 | Character, Color | Fox, 0 | your last pick |
 
-To skip the menus, start the game with `TGG_DIRECT_CONNECT=host` or
-`TGG_DIRECT_CONNECT=join:<address>`: it opens this screen and hosts or joins at once.
+To skip the menus, start the game with `TGG_DIRECT_CONNECT=host`,
+`TGG_DIRECT_CONNECT=join:<address>`, `TGG_DIRECT_CONNECT=room` (make a room) or
+`TGG_DIRECT_CONNECT=room:<code>` (join one): it opens this screen and does that at once.
 
 ## For mod makers
 
