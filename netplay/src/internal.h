@@ -65,6 +65,8 @@ void net_punch_send(const void* data, size_t len);
 double net_punch_age_ms(void);
 /* The kind of candidate that answered first and how long it took, or NULL */
 const char* net_punched(double* ms);
+/* Logs what punching tried and what came back, when it gives up */
+void net_punch_report(void);
 /* A joiner still punching: the last datagram's sender is the host (its hello
  * carried the session's token). 0, or -1 when not punching */
 int net_take_host(void);

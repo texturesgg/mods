@@ -1077,7 +1077,8 @@ static void on_frame(void)
     if (ss.token != 0 && (ss.state == NETPLAY_WAITING || ss.state == NETPLAY_CONNECTING)) {
         punch(now);
         if (net_punch_age_ms() > PUNCH_MS && !ss.link[0].greeted) {
-            session_fail("Couldn't reach the other game: the routers in between didn't let it through.");
+            net_punch_report();
+            session_fail("Couldn't reach the other game through the routers.");
             return;
         }
     }
@@ -1465,6 +1466,9 @@ int netplay_open_meet(int side, const char* const* addrs, const char* const* kin
     }
     tgg_log("meeting through the meeting point: %d of the other game's addresses, side %d", n,
             side);
+    for (int i = 0; i < n; i++) {
+        tgg_log("  the other game at %s (%s)", addrs[i], kinds != NULL && kinds[i] != NULL ? kinds[i] : "?");
+    }
     return 0;
 }
 
