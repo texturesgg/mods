@@ -57,6 +57,10 @@ List it in your manifest and include `include/netplay.h` (copy it, or add netpla
 | `netplay_send(data, len)`, `netplay_receive(buf, cap, &from)` | messages to every other game, up to 400 bytes, whole, once and in order, with the side that sent each |
 | `netplay_play(data)` | from a screen: the host passes the match (`StartMeleeData`, one human player per game, in side order), joiners pass NULL to take it. All leave for the match together and come back after |
 | `netplay_close()` | ends the session and tells the other games. When any game leaves, the session ends for all |
+| `netplay_prepare(port, &why)` | through a meeting point: opens the socket now and asks STUN for this game's internet address |
+| `netplay_candidates(out, max)` | the addresses another game might reach this one at (local, Tailscale, STUN's, public IPv6), for the meeting point; -1 while STUN hasn't answered |
+| `netplay_open_meet(side, addrs, kinds, n, token, &why)` | opens the session the meeting point set up, on the other games' addresses, with its session token |
+| `netplay_route(&ms)` | which kind of address got through first, and how long it took |
 
 Call these from presentation code (a screen's functions or a PRESENT event), never from
 simulation code. `tgg.direct-connect` is a complete example of a mod built on them.
@@ -67,7 +71,8 @@ simulation code. `tgg.direct-connect` is a complete example of a mod built on th
 src/session.c     the session: hello, keeping in touch, messages, agreeing on a match; the API
 src/match.c       a match: inputs, rollback, confirming frames, checksums, pacing
 src/wire.c        the packets, byte by byte
-src/net.c         the UDP socket and its peers, over the port's tgg/net.h
+src/net.c         the UDP socket and its peers, over the port's tgg/net.h; punching
+src/stun.c        asking a STUN server for this game's internet address
 src/fakenet.c     a fake network for testing: latency, jitter, loss, reordering
 src/replaytest.c  the replay test
 src/slp.c         reading a Slippi replay
@@ -76,6 +81,12 @@ src/slp.c         reading a Slippi replay
 - **A star.** Each joiner talks to the host only. The host passes on what one joiner sends
   the others: its messages, its menu input on shared screens, and its match inputs. Side 0
   hosts; joiners get sides 1 to 3 in the order the host took them.
+- **Through a meeting point.** The socket opens when the player opens Online, and STUN
+  (`src/stun.c`, Cloudflare's server) says what address the router gives it. The meeting
+  point hands each game the other's addresses and a session token; both then say hello to
+  every one of the other's addresses every 100 ms, which opens each router for the other's
+  packets (hole punching). The first that answers is the one used. Hellos without the token
+  are ignored. After ten seconds without an answer, the session fails.
 - **Hello.** A joiner says hello every 100 ms until the host has its hello: the game build,
   the platform, the mod-set ids. The host takes each game whose hello arrives with the same
   build and mods, gives it its side, and tells every game how many are in. After the lock it
@@ -155,8 +166,8 @@ replay's Slippi rule mods have to be installed.
 
 ## Requirements
 
-tgg-melee 0.1.0-rc.12 or later: netplay provides the port's session (`tgg/session.h`), which
-older builds don't have.
+tgg-melee with mod API 0.4 or later: netplay provides the port's session (`tgg/session.h`)
+and asks STUN with a random transaction id (`tgg_net_random`).
 
 ## Build
 

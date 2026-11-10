@@ -34,6 +34,7 @@
 
 #include "tgg/control.h"
 #include "tgg/events.h"
+#include "tgg/net.h"
 #include "tgg/rollback.h"
 #include "tgg/session.h"
 #include "tgg/settings.h"
@@ -196,6 +197,7 @@ static void hello_packet(WirePacket* p)
     snprintf(p->u.hello.all, sizeof p->u.hello.all, "%s", tgg_mod_set_all());
     snprintf(p->u.hello.display, sizeof p->u.hello.display, "%s", tgg_mod_set_display());
     p->u.hello.strict = (uint8_t) (hosting() && setting_strict == 1);
+    p->u.hello.token = ss.token;
 }
 
 static void send_hello(int link)
@@ -676,6 +678,9 @@ static void got_profile(const WireProfile* pr)
 static int host_got_hello(int link, const WireHello* h)
 {
     char why[320];
+    if (h->token != ss.token) {
+        return -1; /* not from a game the meeting point sent here */
+    }
     if (h->host) {
         session_fail("Both games host: one hosts, the others join.");
         return -1;
@@ -736,9 +741,13 @@ static int host_got_hello(int link, const WireHello* h)
 static int join_got_hello(int link, const WireHello* h)
 {
     char why[320];
-    if (link != 0) {
+    if (h->token != ss.token) {
+        return -1; /* not the session the meeting point set up */
+    }
+    if (link != 0 && (ss.token == 0 || net_take_host() != 0)) {
         return -1; /* not the game this one joins */
     }
+    link = 0;
     if (!h->host) {
         session_fail("The other game joins too: one game hosts, the others join it.");
         return -1;
@@ -937,6 +946,23 @@ void session_match_over(void)
     }
 }
 
+/* The host, through the meeting point: says hello to every candidate of the
+ * games on their way, every 100 ms, so its router lets their hellos in */
+static void punch(double now)
+{
+    const double age = net_punch_age_ms();
+    if (!hosting() || age < 0 || age > PUNCH_MS || now - ss.last_punch_ms < 100) {
+        return;
+    }
+    ss.last_punch_ms = now;
+    WirePacket p;
+    hello_packet(&p);
+    p.u.hello.assign = 0;
+    uint8_t buf[WIRE_MAX_BYTES];
+    const size_t n = wire_encode(&p, buf);
+    net_punch_send(buf, n);
+}
+
 /* Each displayed frame outside a match: the network */
 static void on_frame(void)
 {
@@ -964,6 +990,13 @@ static void on_frame(void)
         if (!k->heard && now - k->last_hello_ms > 100) {
             k->last_hello_ms = now;
             send_hello(l);
+        }
+    }
+    if (ss.token != 0 && (ss.state == NETPLAY_WAITING || ss.state == NETPLAY_CONNECTING)) {
+        punch(now);
+        if (net_punch_age_ms() > PUNCH_MS && !ss.link[0].greeted) {
+            session_fail("Couldn't reach the other game: the routers in between didn't let it through.");
+            return;
         }
     }
     if (ss.state == NETPLAY_WAITING || ss.state == NETPLAY_CONNECTING) {
@@ -1075,6 +1108,7 @@ int netplay_lock(void)
 void netplay_close(void)
 {
     if (ss.state == NETPLAY_OFF) {
+        net_close(); /* a socket netplay_prepare opened */
         return;
     }
     if (ss.state != NETPLAY_FAILED) {
@@ -1226,3 +1260,132 @@ static void on_quit(void)
     }
 }
 TGG_ON(quit, on_quit);
+
+/* ---- Through the meeting point */
+
+int netplay_prepare(int port, const char** why)
+{
+    static char reason[200];
+    if (ss.state != NETPLAY_OFF && ss.state != NETPLAY_FAILED) {
+        if (why != NULL) {
+            *why = "A session is already open.";
+        }
+        return -1;
+    }
+    const char* failed = net_prepare(port);
+    if (failed != NULL) {
+        snprintf(reason, sizeof reason, "%s", failed);
+        reason[0] = (char) (reason[0] >= 'a' && reason[0] <= 'z' ? reason[0] - 32 : reason[0]);
+        if (why != NULL) {
+            *why = reason;
+        }
+        return -1;
+    }
+    return 0;
+}
+
+/* Whether `a` is in 100.64.0.0/10, alone on its interface, or on one named
+ * for Tailscale: a tailnet address */
+static int tailscale(const tgg_net_interface* i)
+{
+    const uint8_t* ip = i->addr.ip;
+    const int cgnat = i->addr.family == TGG_NET_IPV4 && ip[0] == 100 && (ip[1] & 0xC0) == 64;
+    const int named = strstr(i->name, "tailscale") != NULL || strstr(i->name, "Tailscale") != NULL;
+    return cgnat && (named || i->prefix == 32);
+}
+
+static int add_candidate(netplay_candidate* out, int max, int n, const tgg_net_addr* a,
+                         const char* kind)
+{
+    for (int i = 0; i < n && i < max; i++) {
+        if (strcmp(out[i].kind, kind) == 0) {
+            char text[TGG_NET_ADDR_TEXT];
+            tgg_net_addr_format(a, text, sizeof text);
+            if (strcmp(out[i].addr, text) == 0) {
+                return n;
+            }
+        }
+    }
+    if (n < max) {
+        tgg_net_addr_format(a, out[n].addr, sizeof out[n].addr);
+        snprintf(out[n].kind, sizeof out[n].kind, "%s", kind);
+    }
+    return n + 1;
+}
+
+int netplay_candidates(netplay_candidate* out, int max)
+{
+    if (ss.state == NETPLAY_OFF) {
+        /* No session yet: the socket only hears STUN's answer (net_recv takes it) */
+        uint8_t buf[WIRE_MAX_BYTES];
+        while (net_recv(buf, sizeof buf) != 0) {
+        }
+    }
+    const int port = net_local_port();
+    if (port <= 0 || out == NULL || max <= 0) {
+        return -1;
+    }
+    char mapped[TGG_NET_ADDR_TEXT];
+    const int stun = stun_mapped(mapped, sizeof mapped);
+    if (stun == 0) {
+        return -1; /* still asking */
+    }
+    int n = 0;
+    tgg_net_interface list[32];
+    const int count = tgg_net_interfaces(list, 32);
+    for (int i = 0; i < count && i < 32; i++) {
+        tgg_net_addr a = list[i].addr;
+        const uint8_t* ip = a.ip;
+        if (list[i].flags & TGG_NET_IF_LOOPBACK) {
+            continue;
+        }
+        a.port = (uint16_t) port;
+        if (a.family == TGG_NET_IPV4) {
+            n = add_candidate(out, max, n, &a, tailscale(&list[i]) ? "tailscale" : "local");
+        } else if ((ip[0] & 0xE0) == 0x20) {
+            /* A global IPv6 address: the internet reaches it without a router's
+             * translation, once the firewall lets the other game's hello in */
+            n = add_candidate(out, max, n, &a, "stun6");
+        }
+    }
+    if (stun == 1) {
+        tgg_net_addr a;
+        if (tgg_net_resolve(mapped, 0, &a) == TGG_NET_OK) {
+            n = add_candidate(out, max, n, &a, a.family == TGG_NET_IPV6 ? "stun6" : "stun");
+        }
+    }
+    return n < max ? n : max;
+}
+
+int netplay_open_meet(int side, const char* const* addrs, const char* const* kinds, int n,
+                      const char* token, const char** why)
+{
+    char* end = NULL;
+    const uint64_t t = token != NULL ? strtoull(token, &end, 16) : 0;
+    if (t == 0 || end == NULL || *end != '\0' || addrs == NULL || n <= 0) {
+        if (why != NULL) {
+            *why = "The meeting point sent something this netplay can't use.";
+        }
+        return -1;
+    }
+    if (open_session(side, side != 0 ? addrs[0] : NULL, 0, why) != 0) {
+        return -1;
+    }
+    ss.token = t;
+    if (net_punch(side != 0, addrs, kinds, n) == 0) {
+        session_fail("The other game sent no address this one can reach.");
+        if (why != NULL) {
+            *why = ss.why;
+        }
+        return -1;
+    }
+    tgg_log("meeting through the meeting point: %d of the other game's addresses, side %d", n,
+            side);
+    return 0;
+}
+
+const char* netplay_route(double* ms)
+{
+    const char* kind = net_punched(ms);
+    return kind != NULL ? kind : "";
+}
