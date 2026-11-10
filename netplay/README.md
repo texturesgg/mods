@@ -139,6 +139,7 @@ TGG_NETPLAY_PEER=192.168.1.10:51000 TGG_NETPLAY_SIDE=1 TGG_BOOT_MATCH=fox,marth,
 | `TGG_NETPLAY_PLAYERS` | the ports each side plays, in side order, default `1,2,3,4` |
 | `TGG_NETPLAY_DELAY` | frames of input delay, over the setting |
 | `TGG_NETPLAY_ROLLBACK` | the most frames to roll back, default 8 (up to 30) |
+| `TGG_NETPLAY_NO_TAILSCALE` | through a meeting point: leave Tailscale addresses out, to try the path over the internet on machines that have it |
 | `TGG_NETPLAY_FAKE` | a fake network: `latency=40,jitter=10,loss=5` (one way, ms and percent) |
 | `TGG_NETPLAY_REPLAY` | the replay test, below |
 

@@ -1388,6 +1388,8 @@ static int add_candidate(netplay_candidate* out, int max, int n, const tgg_net_a
 
 int netplay_candidates(netplay_candidate* out, int max)
 {
+    const char* no_ts = getenv("TGG_NETPLAY_NO_TAILSCALE");
+    const int skip_tailscale = no_ts != NULL && no_ts[0] != '0' && no_ts[0] != '\0';
     if (ss.state == NETPLAY_OFF) {
         /* No session yet: the socket only hears STUN's answer (net_recv takes it) */
         uint8_t buf[WIRE_MAX_BYTES];
@@ -1413,6 +1415,9 @@ int netplay_candidates(netplay_candidate* out, int max)
             continue;
         }
         a.port = (uint16_t) port;
+        if (a.family == TGG_NET_IPV4 && tailscale(&list[i]) && skip_tailscale) {
+            continue; /* TGG_NETPLAY_NO_TAILSCALE: test the internet path */
+        }
         if (a.family == TGG_NET_IPV4) {
             n = add_candidate(out, max, n, &a, tailscale(&list[i]) ? "tailscale" : "local");
         } else if ((ip[0] & 0xE0) == 0x20) {
