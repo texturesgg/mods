@@ -11,6 +11,7 @@
 
 typedef struct Held {
     double due;
+    int peer;
     size_t len;
     uint8_t data[WIRE_MAX_BYTES];
 } Held;
@@ -67,10 +68,10 @@ void fakenet_init(const char* spec)
             fk.loss * 100.0);
 }
 
-void net_send(const void* data, size_t len)
+void net_send(int peer, const void* data, size_t len)
 {
     if (!fk.on) {
-        net_send_now(data, len);
+        net_send_now(peer, data, len);
         return;
     }
     fk.sent++;
@@ -88,6 +89,7 @@ void net_send(const void* data, size_t len)
     }
     Held* h = &fk.held[fk.count++];
     h->due = net_now_ms() + delay;
+    h->peer = peer;
     h->len = len;
     memcpy(h->data, data, len);
 }
@@ -101,7 +103,7 @@ void fakenet_flush(void)
     int kept = 0;
     for (int i = 0; i < fk.count; i++) {
         if (fk.held[i].due <= now) {
-            net_send_now(fk.held[i].data, fk.held[i].len);
+            net_send_now(fk.held[i].peer, fk.held[i].data, fk.held[i].len);
         } else {
             if (kept != i) {
                 fk.held[kept] = fk.held[i];

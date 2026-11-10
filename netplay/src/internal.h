@@ -14,28 +14,31 @@ typedef struct HSD_PadStatus HSD_PadStatus;
 typedef struct PADStatus PADStatus;
 typedef struct StartMeleeData StartMeleeData;
 
-/* ---- net.c: one UDP socket and one peer, over the port's tgg/net.h */
+/* ---- net.c: one UDP socket and its peers, over the port's tgg/net.h: a
+ * joiner has one, the host; the host one per joiner */
 
-/* Binds `port` (0: any) on every address. With `peer` ("host:port") it sends
- * there and takes datagrams only from there; with NULL, the peer is whoever
- * net_adopt names. Returns NULL, or what went wrong. */
+#define NET_PEERS 3
+
+/* Binds `port` (0: any) on every address. With `peer` ("host:port") that's
+ * peer 0. Returns NULL, or what went wrong. */
 const char* net_open(int port, const char* peer);
 void net_close(void);
-/* Sends a datagram to the peer now; drops it if there's no peer or the
- * socket can't take it. */
-void net_send_now(const void* data, size_t len);
-/* A datagram, without waiting: its length, or 0 when none is waiting.
- * Datagrams from anyone but the peer are dropped, unless there's no peer
- * yet: then net_adopt makes the last one's sender the peer. */
+/* Sends a datagram to peer `peer` now; drops it if there's no such peer or
+ * the socket can't take it. */
+void net_send_now(int peer, const void* data, size_t len);
+/* A datagram, without waiting: its length, or 0 when none is waiting. Its
+ * sender is net_last_peer(), or -1 for a game that isn't a peer (yet). */
 size_t net_recv(void* buf, size_t cap);
-void net_adopt(void);
-/* With no peer: sends a datagram to the last one's sender, without making it
- * the peer, and that sender's address ("" before any) */
+int net_last_peer(void);
+/* Makes the last datagram's sender a peer: its index, or -1 when full. */
+int net_adopt(void);
+/* Sends a datagram to the last one's sender, peer or not, and that sender's
+ * address ("" before any) */
 void net_reply(const void* data, size_t len);
 const char* net_last_name(void);
-int net_has_peer(void);
-/* The peer's address, "1.2.3.4:51000", or "" */
-const char* net_peer_name(void);
+int net_peers(void);
+/* Peer `peer`'s address, "1.2.3.4:51000", or "" */
+const char* net_peer_name(int peer);
 /* Milliseconds on a clock that only goes forward. Presentation code only. */
 double net_now_ms(void);
 /* Waits up to `ms` for a datagram to arrive: for loops that run while the
@@ -47,8 +50,8 @@ void net_wait_ms(int ms);
  * percent). Without it, sends go out at once. */
 
 void fakenet_init(const char* spec);
-/* Sends through the fake network, or at once without one. */
-void net_send(const void* data, size_t len);
+/* Sends to peer `peer` through the fake network, or at once without one. */
+void net_send(int peer, const void* data, size_t len);
 /* Sends what the fake network holds and is due. */
 void fakenet_flush(void);
 
@@ -77,8 +80,11 @@ void wire_to_pad(const WireInput* in, HSD_PadStatus* status, PADStatus* raw);
 WireInput wire_neutral(void);
 int wire_same(const WireInput* a, const WireInput* b);
 
+/* The most games in a session: the host and NET_PEERS joiners */
+#define SIDES (NET_PEERS + 1)
+
 #define WIRE_MAGIC 0x4e474754u /* "TGGN" */
-#define WIRE_VERSION 4
+#define WIRE_VERSION 5
 enum {
     WIRE_HELLO = 1,
     WIRE_INPUT = 2,
@@ -88,19 +94,26 @@ enum {
     WIRE_PROFILE = 6,     /* a piece of it */
 };
 #define WIRE_MAX_INPUTS 40
+#define WIRE_MAX_RUNS NET_PEERS
 #define WIRE_MSG_MAX 400
-#define WIRE_MAX_MSGS 4
+#define WIRE_MAX_MSGS 32
+/* The messages in one lobby packet stay under this many bytes */
+#define WIRE_MSGS_BYTES 1700
 /* The host's profile goes in pieces of up to WIRE_PROFILE_CHUNK bytes, and is
  * at most WIRE_PROFILE_MAX */
 #define WIRE_PROFILE_CHUNK 1024
 #define WIRE_PROFILE_MAX (16 * 1024)
+
+/* A hello's `assign` from a host that takes no more games */
+#define WIRE_NO_ROOM 0xff
 
 typedef struct WireHello {
     char build[96];
     char mod_set[17];
     char versions[17]; /* tgg_mod_set_versions */
     char target[32];   /* the platform, TGG_GAME_TARGET */
-    uint8_t side;    /* 0 hosts: its seed starts a match the boot sets up */
+    uint8_t host;      /* the sender hosts */
+    uint8_t assign;    /* the host's: the receiver's side, from 1; WIRE_NO_ROOM */
     uint8_t delay;
     uint8_t heard;   /* the sender has the receiver's hello */
     uint32_t seed;
@@ -110,25 +123,33 @@ typedef struct WireHello {
     uint8_t strict;   /* the host wants every mod to match, display mods too */
 } WireHello;
 
+/* A run of one side's inputs, from frame `first` */
+typedef struct WireRun {
+    uint8_t side;
+    int32_t first;
+    uint8_t count;
+} WireRun;
+
 typedef struct WireInputs {
     uint32_t number;     /* the match: 1 for the session's first */
     int32_t frame;       /* the sender's next frame to run */
-    int32_t ack;         /* the newest frame of the receiver's input the sender has */
     uint32_t match;      /* a hash of the sender's match setup, 0 before it */
     int32_t sum_frame;   /* a confirmed frame and its checksum, or -1 */
     uint64_t sum;
     uint32_t ping;       /* the sender's clock, ms */
     uint32_t pong;       /* the last ping it had from the receiver */
     uint16_t pong_age;   /* how long ago it had it, ms */
-    int32_t first;       /* the frame of inputs[0] */
-    uint8_t count;
-    WireInput inputs[WIRE_MAX_INPUTS];
+    int32_t ack[SIDES];  /* the newest frame of each side's input the sender has */
+    uint8_t runs;
+    WireRun run[WIRE_MAX_RUNS];
+    WireInput inputs[WIRE_MAX_INPUTS]; /* the runs' inputs, one after another */
 } WireInputs;
 
-/* A message: what netplay_send sends, and netplay's own about matches */
+/* A message: what netplay_send sends, and netplay's own about the session */
 typedef struct WireMsg {
-    uint32_t seq; /* from 1, one more for each message sent */
-    uint8_t kind; /* MSG_* (session.c) */
+    uint32_t seq; /* from 1, one more for each message sent on the link */
+    uint8_t kind; /* MSG_* */
+    uint8_t from; /* the side that sent it first: the host passes joiners' on */
     uint16_t len;
     uint8_t data[WIRE_MSG_MAX];
 } WireMsg;
@@ -140,7 +161,7 @@ typedef struct WireLobby {
     uint16_t pong_age;
     uint32_t msg_ack;   /* the newest message the sender has, in order */
     uint32_t number;    /* the sender's last match, 0 before one */
-    int32_t input_ack;  /* the newest frame of the receiver's input it has in it */
+    int32_t input_ack[SIDES]; /* the newest frame of each side's input it has in it */
     uint8_t count;
     WireMsg msgs[WIRE_MAX_MSGS];
 } WireLobby;
@@ -172,88 +193,113 @@ size_t wire_encode(const WirePacket* p, uint8_t* buf);
 /* Reads one: 1, or 0 if it isn't netplay's packet, or -1 if it's netplay's
  * of another wire version (the version in `*version`) */
 int wire_decode(const uint8_t* buf, size_t len, WirePacket* p, int* version);
+/* The bytes a message takes in a lobby packet */
+size_t wire_msg_bytes(const WireMsg* m);
 
 /* ---- session.c: the session (the handshake, keeping in touch, messages)
- * and the API */
+ * and the API
+ *
+ * The games meet in a star: each joiner talks to the host only, and the host
+ * passes on what one joiner sends the others (inputs and messages). A link is
+ * a peer of net.c: a joiner's one link is the host; the host's link L is the
+ * joiner playing side L + 1. */
 
 enum {
-    MSG_USER = 1,  /* netplay_send's */
-    MSG_MATCH = 2, /* side 0's match: its number, seed and setup */
-    MSG_READY = 3, /* side 1 called netplay_play */
-    MSG_INPUT = 4, /* a shared screen's menu input for a tick (tgg/session.h) */
+    MSG_USER = 1,   /* netplay_send's */
+    MSG_MATCH = 2,  /* the host's match: its number, seed and setup */
+    MSG_READY = 3,  /* a joiner called netplay_play */
+    MSG_INPUT = 4,  /* a shared screen's menu input for a tick (tgg/session.h) */
+    MSG_ROSTER = 5, /* the host: how many games are in, and whether that's all */
 };
+
+/* A link to one other game */
+typedef struct Link {
+    int greeted; /* its hello arrived and matched */
+    int heard;   /* it has ours */
+    double last_hello_ms, last_lobby_ms, last_heard_ms;
+    uint32_t peer_ping;
+    double peer_ping_ms;
+    double rtt_ms;
+    char display[256]; /* its display mods, from its hello */
+} Link;
 
 /* The session, shared with match.c */
 typedef struct Session {
     int state; /* NETPLAY_* */
-    int side;
+    int side;  /* 0 hosts; a joiner's comes from the host's hello */
+    int players; /* games in the session, this one included */
+    int locked;  /* the host takes no more games: the session (tgg/session.h) is on */
+    int want;    /* the environment's TGG_NETPLAY_GAMES: the host locks at that many */
     int delay;
     int max_rollback;
     int env;       /* opened from the environment, for a match the boot sets up */
     int replay;    /* the replay test */
-    uint32_t seed; /* side 0's: the boot's match starts from it */
-    int greeted;   /* the other side's hello arrived and matched */
-    int heard;     /* it has ours */
-    double opened_ms, last_hello_ms, last_lobby_ms, last_heard_ms;
-    uint32_t peer_ping;
-    double peer_ping_ms;
-    double rtt_ms;
+    uint32_t seed; /* the host's: the boot's match starts from it */
+    double opened_ms;
     int matches;
-    char peer_display[256]; /* the other game's display mods, from its hello */
+    Link link[NET_PEERS];
     char why[160];
     char desync[256]; /* netplay_info.desync */
 } Session;
 
 extern Session ss;
 
+/* The side link `link` plays */
+int link_side(int link);
+/* The link a side's packets come from: the host's for a joiner */
+int side_link(int side);
+
 /* The settings */
 extern int setting_delay;
 extern int setting_controller; /* 0 any, else the port + 1 */
 extern int setting_strict; /* 1: every mod must match, display mods too (the host's) */
-/* The display mods only one game has, "a (yours), b (theirs)", or "" */
-void session_display_difference(char* out, size_t cap);
+/* The display mods only this game or link `link`'s has, "a (yours), b
+ * (theirs)", or "" */
+void session_display_difference(int link, char* out, size_t cap);
 
 /* Reads the network: every packet waiting goes where it belongs */
 void session_receive(void);
-/* Sends the between-matches packet when it's due (now with `force`) */
+/* Sends the between-matches packet to every link when it's due (now with
+ * `force`) */
 void session_send_lobby(int force);
-void session_send_packet(const WirePacket* p);
+void session_send_packet(int link, const WirePacket* p);
 /* Ends the session with `why` for the player */
 void session_fail(const char* why);
 /* A match ended: back to CONNECTED */
 void session_match_over(void);
 /* The clock in packets */
 uint32_t session_clock(void);
-/* The round trip: a ping came back, `age` ms after the other side had it */
-void session_got_pong(uint32_t pong, uint16_t age);
-/* A ping from the other side, and how long ago the newest came, to send back */
-void session_got_ping(uint32_t ping);
-uint16_t session_pong_age(void);
+/* The round trip on `link`: a ping came back, `age` ms after it was had */
+void session_got_pong(int link, uint32_t pong, uint16_t age);
+/* A ping from `link`, and how long ago the newest came, to send back */
+void session_got_ping(int link, uint32_t ping);
+uint16_t session_pong_age(int link);
+/* How long since the link heard from least recently said anything, ms */
+double session_silence_ms(void);
 
 /* ---- match.c: the match being played and its rollback */
 
-/* Starts match `number` from `data` (already as both sides have it) with
+/* Starts match `number` from `data` (already as every game has it) with
  * `seed`; from a screen, the screen leaves for it. Returns 0 or -1. */
 int match_begin(uint32_t number, uint32_t seed, const StartMeleeData* data);
 /* The env session's match, the one the boot sets up: number 1, the hello's
  * seed */
 void match_expect_boot(void);
-void match_got_inputs(const WireInputs* in);
-/* The other side's ack of this side's inputs in match `number` */
-void match_got_ack(uint32_t number, int32_t ack);
-/* The newest frame of the other side's input in match `number`, for the
- * between-matches packet; -1 when it isn't the current one */
+void match_got_inputs(int link, const WireInputs* in);
+/* Link `link`'s acks of each side's inputs in match `number` */
+void match_got_ack(int link, uint32_t number, const int32_t ack[SIDES]);
+/* The match's number, and the newest frame of each side's input this game
+ * has in it, for the between-matches packet */
 uint32_t match_number(void);
-int32_t match_input_ack(void);
-/* Between matches: sends the last match's inputs until the other side has
- * them all */
+void match_input_acks(int32_t out[SIDES]);
+/* Between matches: sends the last match's inputs until every link has them */
 void match_linger(void);
 /* Before the game exits: the same, for up to three seconds */
 void match_linger_until_done(void);
 /* The session ended during a match: stop holding, leave it */
 void match_abandon(void);
-/* Fill in a match's ports from its setup */
-int match_ports(const StartMeleeData* data, int ports[2]);
+/* A match's human ports, in port order: how many, or -1 for none */
+int match_ports(const StartMeleeData* data, int ports[SIDES]);
 
 /* ---- replaytest.c: TGG_NETPLAY_REPLAY=<file.slp>, two games play a Slippi
  * replay against each other: each boots its match, plays one side's recorded

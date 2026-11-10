@@ -1,24 +1,34 @@
-/* The session: two games find each other, check they can play together, keep
- * in touch between matches, pass messages, and agree on each match. The API
- * other mods call (include/netplay.h) is here.
+/* The session: two to four games find each other, check they can play
+ * together, keep in touch between matches, pass messages, and agree on each
+ * match. The API other mods call (include/netplay.h) is here.
  *
- *   - Hello: each side says hello every 100 ms until the other has its hello
- *     (the build, the mod-set id, the side). Side 0 with no peer address
- *     plays the first game whose hello arrives with the same build and mods.
+ * The games meet in a star: each joiner talks to the host only, and the host
+ * passes on to the others what one joiner sends (its messages, and its inputs
+ * in match.c). The host's link L is the joiner playing side L + 1.
+ *
+ *   - Hello: a joiner says hello to the host every 100 ms until the host has
+ *     its hello (the build, the mod-set id). The host takes each game whose
+ *     hello arrives with the same build and mods, gives it the next side in
+ *     its hello back, and tells every game how many are in (MSG_ROSTER).
  *   - A joiner whose game differs from the host's asks for the host's
  *     profile (NETPLAY_MISMATCH) and gets it in pieces; the host answers and
  *     keeps waiting.
- *   - Between matches, a lobby packet goes out every 100 ms: the round trip,
- *     every message the other side hasn't acknowledged, and which of the
- *     last match's inputs this side has.
- *   - Messages are numbered; a receiver takes them in order and says which
- *     it has, and the sender sends the rest again until it does.
- *   - A match: side 0's netplay_play sends it (its number, seed and setup, as
- *     the console lays a StartMeleeData out); side 1's says it's ready. Each
- *     side starts once it has both.
+ *   - Locking: the host stops taking games (netplay_lock, or its first
+ *     netplay_play) and tells the others; every game then provides the port's
+ *     session (tgg/session.h) with that many players.
+ *   - Between matches, a lobby packet goes out on each link every 100 ms: the
+ *     round trip, every message the other end hasn't acknowledged, and which
+ *     of the last match's inputs this game has.
+ *   - Messages are numbered on each link; a receiver takes them in order and
+ *     says which it has, and the sender sends the rest again until it does.
+ *   - A match: the host's netplay_play sends it to every joiner (its number,
+ *     seed and setup, as the console lays a StartMeleeData out); each
+ *     joiner's says it's ready. A joiner starts once it has the match, the
+ *     host once every joiner is ready.
  *
- * The environment can open a session too (TGG_NETPLAY_PEER), for a match the
- * boot sets up (TGG_BOOT_MATCH) and the replay test. */
+ * The environment can open a session too (TGG_NETPLAY_PEER, or
+ * TGG_NETPLAY_GAMES for a host that waits for that many games), for a match
+ * the boot sets up (TGG_BOOT_MATCH) and the replay test. */
 #include "internal.h"
 #include "netplay.h"
 
@@ -45,23 +55,29 @@ int setting_strict;
 TGG_SETTING_CHOICE_LOCAL(setting_strict, "match", "When hosting, mods that must match", 0,
                          "Gameplay mods", "All mods");
 
-#define OUT_MAX 32
-#define IN_MAX 32
-/* How long the other side may say nothing before the session ends */
+/* Messages waiting to be acknowledged, per link: a shared screen sends one
+ * menu input per player per frame, and the host passes each on */
+#define OUT_MAX 256
+#define IN_MAX 64
+/* How long another game may say nothing before the session ends */
 #define SILENCE_MS 10000
 
-static struct {
+/* Messages on one link */
+typedef struct Queue {
     WireMsg out[OUT_MAX]; /* sent, not yet acknowledged, oldest first */
     int n_out;
     uint32_t next_seq;    /* the next message's number */
     uint32_t in_next;     /* the next message number expected */
-    WireMsg in[IN_MAX];   /* netplay_send's from the other side, not yet read */
+} Queue;
+
+static struct {
+    Queue q[NET_PEERS];
+    WireMsg in[IN_MAX];   /* netplay_send's from the other games, not yet read */
     int in_first, n_in;
 
     /* The next match */
-    int playing_next;     /* this side called netplay_play */
-    int peer_ready;       /* side 1 said it's ready (side 0) */
-    int have_match;       /* side 0's match arrived (side 1) */
+    int ready[NET_PEERS]; /* the host: each joiner said it's ready */
+    int have_match;       /* a joiner: the host's match arrived */
     uint32_t number, seed;
     uint8_t console[TGG_CONSOLE_MATCH_SIZE];
     uint32_t last_number; /* the last match started */
@@ -76,14 +92,41 @@ static struct {
     double last_ask_ms, last_got_ms;
 } pf;
 
+static int hosting(void)
+{
+    return ss.side == 0;
+}
+
+int link_side(int link)
+{
+    return hosting() ? link + 1 : 0;
+}
+
+int side_link(int side)
+{
+    return hosting() ? side - 1 : 0;
+}
+
+/* Games that met this one: the host's joiners, or a joiner's host */
+static int links_greeted(void)
+{
+    int n = 0;
+    for (int l = 0; l < net_peers(); l++) {
+        n += ss.link[l].greeted;
+    }
+    return n;
+}
+
 static void reset(void)
 {
     tgg_session_provide(NULL);
     memset(&ss, 0, sizeof ss);
     memset(&sn, 0, sizeof sn);
     memset(&pf, 0, sizeof pf);
-    sn.next_seq = 1;
-    sn.in_next = 1;
+    for (int l = 0; l < NET_PEERS; l++) {
+        sn.q[l].next_seq = 1;
+        sn.q[l].in_next = 1;
+    }
 }
 
 uint32_t session_clock(void)
@@ -91,36 +134,53 @@ uint32_t session_clock(void)
     return (uint32_t) (net_now_ms() - ss.opened_ms) + 1;
 }
 
-void session_got_ping(uint32_t ping)
+void session_got_ping(int link, uint32_t ping)
 {
-    if (ping > ss.peer_ping) {
-        ss.peer_ping = ping;
-        ss.peer_ping_ms = net_now_ms();
+    Link* k = &ss.link[link];
+    if (ping > k->peer_ping) {
+        k->peer_ping = ping;
+        k->peer_ping_ms = net_now_ms();
     }
 }
 
-uint16_t session_pong_age(void)
+uint16_t session_pong_age(int link)
 {
-    const double age = ss.peer_ping == 0 ? 0 : net_now_ms() - ss.peer_ping_ms;
+    const Link* k = &ss.link[link];
+    const double age = k->peer_ping == 0 ? 0 : net_now_ms() - k->peer_ping_ms;
     return (uint16_t) (age < 65535 ? age : 65535);
 }
 
-void session_got_pong(uint32_t pong, uint16_t age)
+void session_got_pong(int link, uint32_t pong, uint16_t age)
 {
     if (pong == 0) {
         return;
     }
+    Link* k = &ss.link[link];
     const double rtt = (double) session_clock() - (double) pong - age;
     if (rtt >= 0 && rtt < 5000) {
-        ss.rtt_ms = ss.rtt_ms == 0 ? rtt : ss.rtt_ms * 0.9 + rtt * 0.1;
+        k->rtt_ms = k->rtt_ms == 0 ? rtt : k->rtt_ms * 0.9 + rtt * 0.1;
     }
 }
 
-void session_send_packet(const WirePacket* p)
+double session_silence_ms(void)
+{
+    double longest = 0;
+    const double now = net_now_ms();
+    for (int l = 0; l < net_peers(); l++) {
+        if (ss.link[l].greeted && ss.link[l].last_heard_ms >= 0 &&
+            now - ss.link[l].last_heard_ms > longest)
+        {
+            longest = now - ss.link[l].last_heard_ms;
+        }
+    }
+    return longest;
+}
+
+void session_send_packet(int link, const WirePacket* p)
 {
     uint8_t buf[WIRE_MAX_BYTES];
     const size_t len = wire_encode(p, buf);
-    net_send(buf, len);
+    net_send(link, buf, len);
 }
 
 /* A hello that says who this game is */
@@ -132,44 +192,58 @@ static void hello_packet(WirePacket* p)
     snprintf(p->u.hello.mod_set, sizeof p->u.hello.mod_set, "%s", tgg_mod_set_id());
     snprintf(p->u.hello.versions, sizeof p->u.hello.versions, "%s", tgg_mod_set_versions());
     snprintf(p->u.hello.target, sizeof p->u.hello.target, "%s", TGG_GAME_TARGET);
-    p->u.hello.side = (uint8_t) ss.side;
+    p->u.hello.host = (uint8_t) hosting();
     snprintf(p->u.hello.all, sizeof p->u.hello.all, "%s", tgg_mod_set_all());
     snprintf(p->u.hello.display, sizeof p->u.hello.display, "%s", tgg_mod_set_display());
-    p->u.hello.strict = (uint8_t) (ss.side == 0 && setting_strict == 1);
+    p->u.hello.strict = (uint8_t) (hosting() && setting_strict == 1);
 }
 
-static void send_hello(void)
+static void send_hello(int link)
 {
     WirePacket p;
     hello_packet(&p);
+    p.u.hello.assign = (uint8_t) (hosting() ? link_side(link) : 0);
     p.u.hello.delay = (uint8_t) ss.delay;
-    p.u.hello.heard = (uint8_t) ss.greeted;
+    p.u.hello.heard = (uint8_t) ss.link[link].greeted;
     p.u.hello.seed = ss.seed;
     p.u.hello.replay = ss.replay ? replaytest_hash() : 0;
-    session_send_packet(&p);
+    session_send_packet(link, &p);
 }
 
-void session_send_lobby(int force)
+static void send_lobby(int link)
 {
-    const double now = net_now_ms();
-    if (!force && now - ss.last_lobby_ms < 100) {
-        return;
-    }
-    ss.last_lobby_ms = now;
+    Link* k = &ss.link[link];
+    const Queue* q = &sn.q[link];
+    k->last_lobby_ms = net_now_ms();
     WirePacket p;
     memset(&p, 0, sizeof p);
     p.type = WIRE_LOBBY;
     WireLobby* l = &p.u.lobby;
     l->ping = session_clock();
-    l->pong = ss.peer_ping;
-    l->pong_age = session_pong_age();
-    l->msg_ack = sn.in_next - 1;
+    l->pong = k->peer_ping;
+    l->pong_age = session_pong_age(link);
+    l->msg_ack = q->in_next - 1;
     l->number = match_number();
-    l->input_ack = match_input_ack();
-    for (int i = 0; i < sn.n_out && l->count < WIRE_MAX_MSGS; i++) {
-        l->msgs[l->count++] = sn.out[i];
+    match_input_acks(l->input_ack);
+    size_t bytes = 0;
+    for (int i = 0; i < q->n_out && l->count < WIRE_MAX_MSGS; i++) {
+        bytes += wire_msg_bytes(&q->out[i]);
+        if (bytes > WIRE_MSGS_BYTES) {
+            break;
+        }
+        l->msgs[l->count++] = q->out[i];
     }
-    session_send_packet(&p);
+    session_send_packet(link, &p);
+}
+
+void session_send_lobby(int force)
+{
+    const double now = net_now_ms();
+    for (int l = 0; l < net_peers(); l++) {
+        if (ss.link[l].greeted && (force || now - ss.link[l].last_lobby_ms >= 100)) {
+            send_lobby(l);
+        }
+    }
 }
 
 static void send_bye(void)
@@ -178,7 +252,9 @@ static void send_bye(void)
     memset(&p, 0, sizeof p);
     p.type = WIRE_BYE;
     for (int i = 0; i < 3; i++) {
-        session_send_packet(&p);
+        for (int l = 0; l < net_peers(); l++) {
+            session_send_packet(l, &p);
+        }
     }
     const double until = net_now_ms() + 100;
     while (net_now_ms() < until) {
@@ -191,13 +267,18 @@ static void send_bye(void)
     }
 }
 
-static void stop_env(const char* why, int code)
+static void exit_env(int code)
 {
-    tgg_log("%s", why);
-    tgg_log("stopping: the two games can't play together");
+    tgg_log("stopping: the games can't play together");
     fflush(stdout);
     fflush(stderr);
     _Exit(code);
+}
+
+static void stop_env(const char* why, int code)
+{
+    tgg_log("%s", why);
+    exit_env(code);
 }
 
 void session_fail(const char* why)
@@ -207,11 +288,11 @@ void session_fail(const char* why)
     }
     tgg_log("%s", why);
     tgg_session_provide(NULL);
-    if (ss.env) {
-        stop_env(why, 4);
-    }
     if (ss.state == NETPLAY_PLAYING) {
-        match_abandon();
+        match_abandon(); /* logs where the match was */
+    }
+    if (ss.env) {
+        exit_env(4);
     }
     send_bye();
     net_close();
@@ -219,18 +300,41 @@ void session_fail(const char* why)
     snprintf(ss.why, sizeof ss.why, "%s", why);
 }
 
-static int queue(uint8_t kind, const void* data, int len)
+/* Queues a message on `link`, as from side `from`; sends it at once */
+static int queue_to(int link, uint8_t kind, int from, const void* data, int len)
 {
-    if (len < 0 || len > WIRE_MSG_MAX || sn.n_out == OUT_MAX) {
+    Queue* q = &sn.q[link];
+    if (len < 0 || len > WIRE_MSG_MAX || q->n_out == OUT_MAX) {
         return -1;
     }
-    WireMsg* m = &sn.out[sn.n_out++];
+    WireMsg* m = &q->out[q->n_out++];
     memset(m, 0, sizeof *m);
-    m->seq = sn.next_seq++;
+    m->seq = q->next_seq++;
     m->kind = kind;
+    m->from = (uint8_t) from;
     m->len = (uint16_t) len;
     memcpy(m->data, data, (size_t) len);
-    session_send_lobby(1);
+    send_lobby(link);
+    return 0;
+}
+
+/* Queues a message on every link but `except` (-1: none); -1 if any can't
+ * take it, before any does */
+static int queue_all(uint8_t kind, int from, const void* data, int len, int except)
+{
+    if (len < 0 || len > WIRE_MSG_MAX) {
+        return -1;
+    }
+    for (int l = 0; l < net_peers(); l++) {
+        if (l != except && ss.link[l].greeted && sn.q[l].n_out == OUT_MAX) {
+            return -1;
+        }
+    }
+    for (int l = 0; l < net_peers(); l++) {
+        if (l != except && ss.link[l].greeted) {
+            queue_to(l, kind, from, data, len);
+        }
+    }
     return 0;
 }
 
@@ -250,20 +354,20 @@ static uint32_t get_be32(const uint8_t* p)
 }
 
 /* ---- The session provider (tgg/session.h) ----------------------------------
- * While the two games are connected, this mod is the port's session: shared
- * screens run in lockstep on the menu inputs both games send here, and
+ * Once the host locks the session, this mod is the port's session: shared
+ * screens run in lockstep on the menu inputs every game sends here, and
  * tgg_play_match starts a match through netplay_play. */
 
 #define LOCK_RING 64
 
 static struct {
-    uint32_t own[LOCK_RING], peer[LOCK_RING];
-    uint32_t own_tick[LOCK_RING], peer_tick[LOCK_RING]; /* tick + 1, 0 when empty */
+    uint32_t input[SIDES][LOCK_RING];
+    uint32_t tick[SIDES][LOCK_RING]; /* tick + 1, 0 when empty */
 } ls;
 
 static int provider_players(void)
 {
-    return 2;
+    return ss.players;
 }
 
 static int provider_me(void)
@@ -276,32 +380,44 @@ static uint32_t provider_seed(void)
     return ss.seed;
 }
 
+static void got_input(int side, const uint8_t* data)
+{
+    const uint32_t tick = get_be32(data);
+    const int at = (int) (tick % LOCK_RING);
+    ls.input[side][at] = get_be32(data + 4);
+    ls.tick[side][at] = tick + 1;
+}
+
 static void provider_send_input(uint32_t tick, uint32_t menu)
 {
-    const int at = (int) (tick % LOCK_RING);
-    ls.own[at] = menu;
-    ls.own_tick[at] = tick + 1;
     uint8_t msg[8];
     put_be32(msg, tick);
     put_be32(msg + 4, menu);
-    queue(MSG_INPUT, msg, (int) sizeof msg);
+    got_input(ss.side, msg);
+    if (queue_all(MSG_INPUT, ss.side, msg, (int) sizeof msg, -1) != 0) {
+        session_fail("Too much to send to the other games.");
+    }
 }
 
 static int provider_inputs(uint32_t tick, uint32_t* out)
 {
     const int at = (int) (tick % LOCK_RING);
-    if (ls.own_tick[at] != tick + 1 || ls.peer_tick[at] != tick + 1) {
-        return 0;
+    for (int s = 0; s < ss.players; s++) {
+        if (ls.tick[s][at] != tick + 1) {
+            return 0;
+        }
     }
-    out[ss.side] = ls.own[at];
-    out[1 - ss.side] = ls.peer[at];
+    for (int s = 0; s < ss.players; s++) {
+        out[s] = ls.input[s][at];
+    }
     return 1;
 }
 
 static int provider_play_match(const StartMeleeData* data)
 {
-    /* Every game calls it with the same match: side 0 sends it, side 1 takes it */
-    return netplay_play(ss.side == 0 ? data : NULL);
+    /* Every game calls it with the same match: the host sends it, the
+     * joiners take it */
+    return netplay_play(hosting() ? data : NULL);
 }
 
 static const tgg_session_provider provider = {
@@ -313,29 +429,55 @@ static const tgg_session_provider provider = {
     .play_match = provider_play_match,
 };
 
-static void got_input(const WireMsg* m)
+/* The session's games are settled: provide it */
+static void start_session(void)
 {
-    const uint32_t tick = get_be32(m->data);
-    const int at = (int) (tick % LOCK_RING);
-    ls.peer[at] = get_be32(m->data + 4);
-    ls.peer_tick[at] = tick + 1;
+    ss.locked = 1;
+    memset(&ls, 0, sizeof ls);
+    tgg_log("the session is on: %d games, this one side %d", ss.players, ss.side);
+    tgg_session_provide(&provider);
 }
 
-static void got_msg(const WireMsg* m)
+/* The host: tells every game how many are in, and whether that's all */
+static void send_roster(void)
 {
+    const uint8_t msg[2] = { (uint8_t) ss.players, (uint8_t) ss.locked };
+    queue_all(MSG_ROSTER, 0, msg, (int) sizeof msg, -1);
+}
+
+static void got_msg(int link, const WireMsg* m)
+{
+    /* What a joiner sends, the host passes on to the others, as from it */
+    const int from = hosting() ? link_side(link) : m->from;
+    if (from < 0 || from >= SIDES) {
+        return;
+    }
+    if (hosting() && (m->kind == MSG_USER || m->kind == MSG_INPUT)) {
+        if (queue_all(m->kind, from, m->data, m->len, link) != 0) {
+            session_fail("Too much to send to the other games.");
+            return;
+        }
+    }
     if (m->kind == MSG_USER) {
         if (sn.n_in < IN_MAX) {
-            sn.in[(sn.in_first + sn.n_in++) % IN_MAX] = *m;
+            WireMsg* in = &sn.in[(sn.in_first + sn.n_in++) % IN_MAX];
+            *in = *m;
+            in->from = (uint8_t) from;
         }
-    } else if (m->kind == MSG_MATCH && ss.side == 1 && m->len == 8 + TGG_CONSOLE_MATCH_SIZE) {
+    } else if (m->kind == MSG_MATCH && !hosting() && m->len == 8 + TGG_CONSOLE_MATCH_SIZE) {
         sn.have_match = 1;
         sn.number = get_be32(m->data);
         sn.seed = get_be32(m->data + 4);
         memcpy(sn.console, m->data + 8, TGG_CONSOLE_MATCH_SIZE);
-    } else if (m->kind == MSG_READY && ss.side == 0) {
-        sn.peer_ready = 1;
-    } else if (m->kind == MSG_INPUT && m->len == 8) {
-        got_input(m);
+    } else if (m->kind == MSG_READY && hosting()) {
+        sn.ready[link] = 1;
+    } else if (m->kind == MSG_INPUT && m->len == 8 && from < ss.players) {
+        got_input(from, m->data);
+    } else if (m->kind == MSG_ROSTER && !hosting() && m->len == 2) {
+        ss.players = m->data[0] <= SIDES ? m->data[0] : SIDES;
+        if (m->data[1] && !ss.locked) {
+            start_session();
+        }
     }
 }
 
@@ -377,11 +519,16 @@ static void only_in(const char* a, const char* b, const char* tag, char* out, si
     }
 }
 
-void session_display_difference(char* out, size_t cap)
+static void display_difference(const char* theirs, char* out, size_t cap)
 {
     out[0] = '\0';
-    only_in(tgg_mod_set_display(), ss.peer_display, "yours", out, cap);
-    only_in(ss.peer_display, tgg_mod_set_display(), "theirs", out, cap);
+    only_in(tgg_mod_set_display(), theirs, "yours", out, cap);
+    only_in(theirs, tgg_mod_set_display(), "theirs", out, cap);
+}
+
+void session_display_difference(int link, char* out, size_t cap)
+{
+    display_difference(link >= 0 && link < NET_PEERS ? ss.link[link].display : "", out, cap);
 }
 
 /* Whether the game that sent `h` can't play this one: another game version or
@@ -412,11 +559,11 @@ static int differs(const WireHello* h, char* why, size_t cap)
 
 /* ---- The host's profile, for a joiner whose game differs
  *
- * A host waiting for anyone answers a hello from a game that differs with its
- * own hello and keeps waiting. That joiner asks for the host's profile a
- * piece at a time (WIRE_PROFILE_ASK with the offset it has), and the host
- * sends each piece (WIRE_PROFILE). The joiner's connect mod shows the
- * difference and can restart into the profile, then join again. */
+ * The host answers a hello from a game that differs with its own hello and
+ * keeps waiting. That joiner asks for the host's profile a piece at a time
+ * (WIRE_PROFILE_ASK with the offset it has), and the host sends each piece
+ * (WIRE_PROFILE). The joiner's connect mod shows the difference and can
+ * restart into the profile, then join again. */
 
 static void send_profile_ask(void)
 {
@@ -424,7 +571,7 @@ static void send_profile_ask(void)
     memset(&p, 0, sizeof p);
     p.type = WIRE_PROFILE_ASK;
     p.u.profile_ask = pf.have;
-    session_send_packet(&p);
+    session_send_packet(0, &p);
     pf.last_ask_ms = net_now_ms();
 }
 
@@ -447,8 +594,8 @@ static void start_mismatch(const WireHello* h, const char* why)
     send_profile_ask();
 }
 
-/* The host: a game that differs said hello */
-static void other_game_said_hello(const char* why)
+/* The host: a game it won't take said hello; it hears why in our hello */
+static void turn_away(const char* why, int no_room)
 {
     static char logged[64];
     static double logged_ms;
@@ -457,12 +604,12 @@ static void other_game_said_hello(const char* why)
     if (strcmp(from, logged) != 0 || now - logged_ms > 10000) {
         snprintf(logged, sizeof logged, "%s", from);
         logged_ms = now;
-        tgg_log("%s said hello: %s Sending it this game's profile if it asks; still waiting",
-                from, why);
+        tgg_log("%s said hello: %s%s", from, why,
+                no_room ? "" : " Sending it this game's profile if it asks; still waiting");
     }
-    /* Our hello, so it knows */
     WirePacket p;
     hello_packet(&p);
+    p.u.hello.assign = no_room ? WIRE_NO_ROOM : 0;
     uint8_t buf[WIRE_MAX_BYTES];
     net_reply(buf, wire_encode(&p, buf));
 }
@@ -524,82 +671,137 @@ static void got_profile(const WireProfile* pr)
     tgg_log("the host's profile: %s", pf.data);
 }
 
-static int got_hello(const WireHello* h)
+/* The host: a hello from link `link`, or from a game that isn't one yet (-1).
+ * The link, or -1 when the hello goes no further. */
+static int host_got_hello(int link, const WireHello* h)
 {
     char why[320];
-    if (ss.state == NETPLAY_MISMATCH) {
-        return 0;
+    if (h->host) {
+        session_fail("Both games host: one hosts, the others join.");
+        return -1;
     }
-    if (h->side == ss.side) {
-        snprintf(why, sizeof why, "Both games are side %d: one hosts, the other joins.", ss.side);
-        session_fail(why);
-        return 0;
+    if (link < 0 && (ss.locked || net_peers() == NET_PEERS)) {
+        turn_away(ss.locked ? "the session has started." : "the session is full.", 1);
+        return -1;
     }
-    snprintf(ss.peer_display, sizeof ss.peer_display, "%s", h->display);
     if (differs(h, why, sizeof why)) {
-        if (ss.side == 0 && !net_has_peer()) {
-            /* Hosting for anyone: that game may come back with these mods */
-            other_game_said_hello(why);
-        } else if (ss.side == 1 && !ss.greeted && !ss.env) {
+        if (link < 0 || !ss.link[link].greeted) {
+            turn_away(why, 0); /* that game may come back with these mods */
+            return -1;
+        }
+        tgg_log("this game's mods: %s", tgg_mod_set_names());
+        session_fail(why);
+        return -1;
+    }
+    if (setting_strict == 1 && strcmp(h->all, tgg_mod_set_all()) != 0) {
+        char diff[200];
+        display_difference(h->display, diff, sizeof diff);
+        snprintf(why, sizeof why, "The host wants every mod to match, display mods too%s%s.",
+                 diff[0] != '\0' ? ": " : "", diff);
+        turn_away(why, 0);
+        return -1;
+    }
+    if (h->replay != (ss.replay ? replaytest_hash() : 0)) {
+        session_fail("The games play different replays.");
+        return -1;
+    }
+    if (link < 0) {
+        link = net_adopt();
+        if (link < 0) {
+            return -1;
+        }
+    }
+    Link* k = &ss.link[link];
+    if (!k->greeted) {
+        k->greeted = 1;
+        k->last_heard_ms = net_now_ms();
+        snprintf(k->display, sizeof k->display, "%s", h->display);
+        tgg_log("%s said hello: same build and mods (%s: %s); it plays side %d",
+                net_peer_name(link), tgg_mod_set_id()[0] != '\0' ? tgg_mod_set_id() : "none",
+                tgg_mod_set_names(), link_side(link));
+        if (strcmp(h->target, TGG_GAME_TARGET) != 0) {
+            tgg_log("it runs on %s: its mods are compared by version, not by build", h->target);
+        }
+        send_hello(link);
+        ss.players = 1 + links_greeted();
+        send_roster();
+    }
+    if (h->heard) {
+        k->heard = 1;
+    }
+    return link;
+}
+
+/* A joiner: a hello from the host (link 0). 0, or -1 when it goes no further. */
+static int join_got_hello(int link, const WireHello* h)
+{
+    char why[320];
+    if (link != 0) {
+        return -1; /* not the game this one joins */
+    }
+    if (!h->host) {
+        session_fail("The other game joins too: one game hosts, the others join it.");
+        return -1;
+    }
+    if (h->assign == WIRE_NO_ROOM) {
+        session_fail("The host's session is full or has started.");
+        return -1;
+    }
+    Link* k = &ss.link[0];
+    snprintf(k->display, sizeof k->display, "%s", h->display);
+    if (differs(h, why, sizeof why)) {
+        if (!k->greeted && !ss.env) {
             start_mismatch(h, why);
         } else {
             tgg_log("this game's mods: %s", tgg_mod_set_names());
             session_fail(why);
         }
-        return 0;
+        return -1;
     }
-    /* The host may want every mod to match, display mods too */
-    const int strict = ss.side == 0 ? setting_strict == 1 : h->strict != 0;
-    if (strict && strcmp(h->all, tgg_mod_set_all()) != 0) {
+    if (h->strict && strcmp(h->all, tgg_mod_set_all()) != 0) {
         char diff[200];
-        session_display_difference(diff, sizeof diff);
+        session_display_difference(0, diff, sizeof diff);
         snprintf(why, sizeof why, "The host wants every mod to match, display mods too%s%s.",
                  diff[0] != '\0' ? ": " : "", diff);
-        if (ss.side == 0 && !net_has_peer()) {
-            other_game_said_hello(why); /* it hears our hello, and why, and we keep waiting */
-            return 0;
-        }
-        if (ss.side == 0) {
-            send_hello(); /* so the other game hears it too */
-        }
         session_fail(why);
-        return 0;
+        return -1;
     }
     if (h->replay != (ss.replay ? replaytest_hash() : 0)) {
-        session_fail("The two games play different replays.");
-        return 0;
+        session_fail("The games play different replays.");
+        return -1;
     }
-    if (ss.side == 1) {
-        ss.seed = h->seed;
+    if (h->assign == 0 || h->assign >= SIDES) {
+        return -1; /* the host hasn't taken this game yet */
     }
-    if (!net_has_peer()) {
-        net_adopt();
-    }
-    if (!ss.greeted) {
-        ss.greeted = 1;
-        tgg_log("%s said hello: same build and mods (%s: %s)", net_peer_name(),
-                tgg_mod_set_id()[0] != '\0' ? tgg_mod_set_id() : "none", tgg_mod_set_names());
+    ss.seed = h->seed;
+    if (!k->greeted) {
+        k->greeted = 1;
+        k->last_heard_ms = net_now_ms();
+        ss.side = h->assign;
+        tgg_log("%s said hello: same build and mods (%s: %s); this game plays side %d",
+                net_peer_name(0), tgg_mod_set_id()[0] != '\0' ? tgg_mod_set_id() : "none",
+                tgg_mod_set_names(), ss.side);
         if (strcmp(h->target, TGG_GAME_TARGET) != 0) {
-            tgg_log("the other game runs on %s: its mods are compared by version, not by build",
+            tgg_log("the host runs on %s: its mods are compared by version, not by build",
                     h->target);
         }
-        send_hello();
+        send_hello(0);
     }
     if (h->heard) {
-        ss.heard = 1;
+        k->heard = 1;
     }
-    return 1;
+    return 0;
 }
 
-/* A packet from a netplay with another wire version: the joiner can't go on;
- * a host waiting for anyone keeps waiting */
+/* A packet from a netplay with another wire version: a joiner can't go on;
+ * the host keeps waiting */
 static void other_wire(int version)
 {
     char why[160];
     snprintf(why, sizeof why,
              "The other game has another version of netplay (wire %d here, %d there).",
              WIRE_VERSION, version);
-    if (ss.side == 0 && !net_has_peer()) {
+    if (hosting() && net_last_peer() < 0) {
         static double logged_ms = -1e9;
         if (net_now_ms() - logged_ms > 10000) {
             logged_ms = net_now_ms();
@@ -610,23 +812,25 @@ static void other_wire(int version)
     session_fail(why);
 }
 
-static void got_lobby(const WireLobby* l)
+static void got_lobby(int link, const WireLobby* l)
 {
-    ss.heard = 1;
-    session_got_ping(l->ping);
-    session_got_pong(l->pong, l->pong_age);
+    Link* k = &ss.link[link];
+    Queue* q = &sn.q[link];
+    k->heard = 1;
+    session_got_ping(link, l->ping);
+    session_got_pong(link, l->pong, l->pong_age);
     int kept = 0;
-    for (int i = 0; i < sn.n_out; i++) {
-        if (sn.out[i].seq > l->msg_ack) {
-            sn.out[kept++] = sn.out[i];
+    for (int i = 0; i < q->n_out; i++) {
+        if (q->out[i].seq > l->msg_ack) {
+            q->out[kept++] = q->out[i];
         }
     }
-    sn.n_out = kept;
-    match_got_ack(l->number, l->input_ack);
-    for (int i = 0; i < l->count; i++) {
-        if (l->msgs[i].seq == sn.in_next) {
-            sn.in_next++;
-            got_msg(&l->msgs[i]);
+    q->n_out = kept;
+    match_got_ack(link, l->number, l->input_ack);
+    for (int i = 0; i < l->count && ss.state != NETPLAY_FAILED; i++) {
+        if (l->msgs[i].seq == q->in_next) {
+            q->in_next++;
+            got_msg(link, &l->msgs[i]);
         }
     }
 }
@@ -642,6 +846,7 @@ void session_receive(void)
     while (ss.state != NETPLAY_FAILED && (len = net_recv(buf, sizeof buf)) != 0) {
         WirePacket p;
         int version = 0;
+        int link = net_last_peer();
         const int decoded = wire_decode(buf, len, &p, &version);
         if (decoded < 0) {
             other_wire(version);
@@ -651,43 +856,44 @@ void session_receive(void)
             continue;
         }
         if (p.type == WIRE_PROFILE_ASK) {
-            if (ss.side == 0 && !net_has_peer()) {
+            if (hosting() && link < 0) {
                 got_profile_ask(p.u.profile_ask);
             }
             continue;
         }
         if (p.type == WIRE_PROFILE) {
-            if (ss.state == NETPLAY_MISMATCH) {
+            if (ss.state == NETPLAY_MISMATCH && link == 0) {
                 got_profile(&p.u.profile);
             }
             continue;
         }
         if (p.type == WIRE_HELLO) {
-            if (!got_hello(&p.u.hello)) {
+            if (ss.state == NETPLAY_MISMATCH) {
                 continue;
             }
-        } else if (!net_has_peer() || !ss.greeted) {
+            link = hosting() ? host_got_hello(link, &p.u.hello) : join_got_hello(link, &p.u.hello);
+            if (link < 0) {
+                continue;
+            }
+        } else if (link < 0 || !ss.link[link].greeted) {
             continue;
         } else if (p.type == WIRE_INPUT) {
-            ss.heard = 1;
-            match_got_inputs(&p.u.inputs);
+            ss.link[link].heard = 1;
+            match_got_inputs(link, &p.u.inputs);
         } else if (p.type == WIRE_LOBBY) {
-            got_lobby(&p.u.lobby);
+            got_lobby(link, &p.u.lobby);
         } else if (p.type == WIRE_BYE) {
-            session_fail(ss.state == NETPLAY_PLAYING ? "The other player left the match."
-                                                     : "The other player left.");
+            session_fail(ss.state == NETPLAY_PLAYING ? "Another player left the match."
+                                                     : "Another player left.");
             continue;
         }
-        ss.last_heard_ms = net_now_ms();
+        ss.link[link].last_heard_ms = net_now_ms();
     }
-    if ((ss.state == NETPLAY_WAITING || ss.state == NETPLAY_CONNECTING) && ss.greeted &&
-        ss.heard)
+    if ((ss.state == NETPLAY_WAITING || ss.state == NETPLAY_CONNECTING) && ss.link[0].greeted &&
+        ss.link[0].heard)
     {
         ss.state = NETPLAY_CONNECTED;
-        ss.last_heard_ms = net_now_ms();
-        tgg_log("connected to %s as side %d", net_peer_name(), ss.side);
-        memset(&ls, 0, sizeof ls);
-        tgg_session_provide(&provider);
+        tgg_log("connected to %s as side %d", net_peer_name(0), ss.side);
     }
 }
 
@@ -698,15 +904,19 @@ static void maybe_start(void)
     if (ss.state != NETPLAY_STARTING) {
         return;
     }
-    const int go = ss.side == 0 ? sn.peer_ready : sn.have_match;
-    if (!go) {
+    if (hosting()) {
+        for (int l = 0; l < net_peers(); l++) {
+            if (ss.link[l].greeted && !sn.ready[l]) {
+                return;
+            }
+        }
+    } else if (!sn.have_match) {
         return;
     }
     static StartMeleeData data;
     memset(&data, 0, sizeof data);
     tgg_match_from_console(&data, sn.console);
-    sn.playing_next = 0;
-    sn.peer_ready = 0;
+    memset(sn.ready, 0, sizeof sn.ready);
     sn.have_match = 0;
     sn.last_number = sn.number;
     if (match_begin(sn.number, sn.seed, &data) != 0) {
@@ -721,7 +931,9 @@ void session_match_over(void)
         ss.state = NETPLAY_CONNECTED;
         /* match_end is simulation code, which can't read the clock: the next
          * frame starts the silence from then */
-        ss.last_heard_ms = -1;
+        for (int l = 0; l < NET_PEERS; l++) {
+            ss.link[l].last_heard_ms = -1;
+        }
     }
 }
 
@@ -738,28 +950,36 @@ static void on_frame(void)
     const double now = net_now_ms();
     if (ss.state == NETPLAY_MISMATCH) {
         if (!pf.whole && now - pf.last_got_ms > SILENCE_MS) {
-            session_fail("Lost the connection to the other game.");
+            session_fail("Lost the connection to the host.");
         } else if (!pf.whole && now - pf.last_ask_ms > 100) {
             send_profile_ask();
         }
         return;
     }
-    if (ss.last_heard_ms < 0) {
-        ss.last_heard_ms = now;
-    }
-    if (ss.state == NETPLAY_WAITING || ss.state == NETPLAY_CONNECTING || !ss.heard) {
-        if (net_has_peer() && now - ss.last_hello_ms > 100) {
-            ss.last_hello_ms = now;
-            send_hello();
+    for (int l = 0; l < net_peers(); l++) {
+        Link* k = &ss.link[l];
+        if (k->last_heard_ms < 0) {
+            k->last_heard_ms = now;
         }
+        if (!k->heard && now - k->last_hello_ms > 100) {
+            k->last_hello_ms = now;
+            send_hello(l);
+        }
+    }
+    if (ss.state == NETPLAY_WAITING || ss.state == NETPLAY_CONNECTING) {
         return;
     }
-    if (now - ss.last_heard_ms > SILENCE_MS) {
-        session_fail("Lost the connection to the other game.");
+    if (session_silence_ms() > SILENCE_MS) {
+        session_fail(hosting() ? "Lost the connection to another game."
+                               : "Lost the connection to the host.");
         return;
     }
     session_send_lobby(0);
     match_linger();
+    /* The environment's host locks once its games are in */
+    if (ss.env && hosting() && !ss.locked && ss.players >= ss.want) {
+        netplay_lock();
+    }
     maybe_start();
 }
 TGG_ON(frame, on_frame);
@@ -773,7 +993,8 @@ static int open_session(int side, const char* peer, int port, const char** why)
         netplay_close();
     }
     reset();
-    ss.side = side != 0;
+    ss.side = side != 0 ? -1 : 0;
+    ss.players = 1;
     ss.delay = setting_delay;
     const char* delay = getenv("TGG_NETPLAY_DELAY");
     if (delay != NULL && delay[0] != '\0') {
@@ -790,8 +1011,8 @@ static int open_session(int side, const char* peer, int port, const char** why)
     if (ss.max_rollback < 1 || ss.max_rollback > TGG_ROLLBACK_MAX) {
         ss.max_rollback = 8;
     }
-    if (side == 1 && peer == NULL) {
-        snprintf(reason, sizeof reason, "The joining side needs the host's address.");
+    if (side != 0 && peer == NULL) {
+        snprintf(reason, sizeof reason, "Joining needs the host's address.");
         if (why != NULL) {
             *why = reason;
         }
@@ -808,8 +1029,8 @@ static int open_session(int side, const char* peer, int port, const char** why)
         return -1;
     }
     fakenet_init(getenv("TGG_NETPLAY_FAKE"));
-    /* Side 0's seed starts a match the boot sets up; side 1 takes it from the
-     * hello */
+    /* The host's seed starts a match the boot sets up; joiners take it from
+     * its hello */
     FILE* f = fopen("/dev/urandom", "rb");
     if (f == NULL || fread(&ss.seed, sizeof ss.seed, 1, f) != 1) {
         ss.seed = (uint32_t) net_now_ms();
@@ -819,14 +1040,16 @@ static int open_session(int side, const char* peer, int port, const char** why)
     }
     tgg_rollback_init(ss.max_rollback);
     ss.opened_ms = net_now_ms();
-    ss.last_heard_ms = ss.opened_ms;
-    ss.state = peer == NULL ? NETPLAY_WAITING : NETPLAY_CONNECTING;
-    if (peer != NULL) {
-        tgg_log("side %d: saying hello to %s from port %d; %d frames of delay, rolls back up "
-                "to %d", ss.side, peer, port, ss.delay, ss.max_rollback);
+    ss.state = side != 0 ? NETPLAY_CONNECTING : NETPLAY_WAITING;
+    if (side != 0) {
+        tgg_log("joining %s from port %d; %d frames of delay, rolls back up to %d", peer, port,
+                ss.delay, ss.max_rollback);
+    } else if (peer != NULL) {
+        tgg_log("hosting on port %d, saying hello to %s; %d frames of delay, rolls back up to "
+                "%d", port, peer, ss.delay, ss.max_rollback);
     } else {
-        tgg_log("side %d: waiting on port %d; %d frames of delay, rolls back up to %d", ss.side,
-                port, ss.delay, ss.max_rollback);
+        tgg_log("hosting on port %d; %d frames of delay, rolls back up to %d", port, ss.delay,
+                ss.max_rollback);
     }
     return 0;
 }
@@ -834,6 +1057,19 @@ static int open_session(int side, const char* peer, int port, const char** why)
 int netplay_open(int side, const char* peer, int port, const char** why)
 {
     return open_session(side, peer, port, why);
+}
+
+int netplay_lock(void)
+{
+    if (!hosting() || ss.state != NETPLAY_CONNECTED) {
+        return -1;
+    }
+    if (!ss.locked) {
+        ss.players = 1 + links_greeted();
+        start_session();
+        send_roster();
+    }
+    return 0;
 }
 
 void netplay_close(void)
@@ -856,9 +1092,15 @@ void netplay_status(netplay_info* out)
 {
     memset(out, 0, sizeof *out);
     out->state = ss.state;
-    out->side = ss.side;
-    snprintf(out->peer, sizeof out->peer, "%s", net_peer_name());
-    out->rtt_ms = (float) ss.rtt_ms;
+    out->side = ss.side > 0 ? ss.side : 0;
+    out->players = ss.players;
+    out->locked = ss.locked;
+    snprintf(out->peer, sizeof out->peer, "%s", net_peer_name(0));
+    for (int l = 0; l < NET_PEERS; l++) {
+        if (ss.link[l].rtt_ms > out->rtt_ms) {
+            out->rtt_ms = (float) ss.link[l].rtt_ms;
+        }
+    }
     out->matches = ss.matches;
     snprintf(out->why, sizeof out->why, "%s", ss.why);
     snprintf(out->desync, sizeof out->desync, "%s", ss.desync);
@@ -874,10 +1116,10 @@ int netplay_send(const void* data, int len)
     if (ss.state != NETPLAY_CONNECTED && ss.state != NETPLAY_STARTING) {
         return -1;
     }
-    return queue(MSG_USER, data, len);
+    return queue_all(MSG_USER, ss.side, data, len, -1);
 }
 
-int netplay_receive(void* buf, int cap)
+int netplay_receive(void* buf, int cap, int* from)
 {
     if (sn.n_in == 0) {
         return 0;
@@ -889,6 +1131,9 @@ int netplay_receive(void* buf, int cap)
     if (n > 0) {
         memcpy(buf, m->data, (size_t) n);
     }
+    if (from != NULL) {
+        *from = m->from;
+    }
     return n;
 }
 
@@ -897,9 +1142,9 @@ int netplay_play(const StartMeleeData* data)
     if (ss.state != NETPLAY_CONNECTED) {
         return -1;
     }
-    if (ss.side == 0) {
-        int ports[2];
-        if (data == NULL || match_ports(data, ports) != 0) {
+    if (hosting()) {
+        int ports[SIDES];
+        if (netplay_lock() != 0 || data == NULL || match_ports(data, ports) != ss.players) {
             return -1;
         }
         uint8_t msg[8 + TGG_CONSOLE_MATCH_SIZE];
@@ -915,19 +1160,18 @@ int netplay_play(const StartMeleeData* data)
         put_be32(msg, sn.number);
         put_be32(msg + 4, sn.seed);
         memcpy(msg + 8, sn.console, TGG_CONSOLE_MATCH_SIZE);
-        if (queue(MSG_MATCH, msg, (int) sizeof msg) != 0) {
+        if (queue_all(MSG_MATCH, 0, msg, (int) sizeof msg, -1) != 0) {
             return -1;
         }
-    } else if (queue(MSG_READY, "", 0) != 0) {
+    } else if (queue_to(0, MSG_READY, ss.side, "", 0) != 0) {
         return -1;
     }
-    sn.playing_next = 1;
     ss.state = NETPLAY_STARTING;
     maybe_start();
     return 0;
 }
 
-/* ---- The environment: TGG_NETPLAY_PEER and the rest */
+/* ---- The environment: TGG_NETPLAY_PEER, TGG_NETPLAY_GAMES and the rest */
 
 static int env_int(const char* name, int fallback)
 {
@@ -938,7 +1182,11 @@ static int env_int(const char* name, int fallback)
 static void init(void)
 {
     const char* peer = getenv("TGG_NETPLAY_PEER");
-    if (peer == NULL || peer[0] == '\0') {
+    const int games = env_int("TGG_NETPLAY_GAMES", 0);
+    if (peer != NULL && peer[0] == '\0') {
+        peer = NULL;
+    }
+    if (peer == NULL && games == 0) {
         return;
     }
     const int side = env_int("TGG_NETPLAY_SIDE", 0) != 0;
@@ -955,6 +1203,7 @@ static void init(void)
         stop_env(why, 3);
     }
     ss.env = 1;
+    ss.want = games >= 2 && games <= SIDES ? games : 2;
     ss.replay = is_replay;
     if (is_replay) {
         ss.seed = replaytest_start_seed();
@@ -967,7 +1216,7 @@ static void init(void)
 }
 TGG_INIT(init);
 
-/* Before the game exits: tell the other side */
+/* Before the game exits: tell the other games */
 static void on_quit(void)
 {
     if (ss.state != NETPLAY_OFF && ss.state != NETPLAY_FAILED) {

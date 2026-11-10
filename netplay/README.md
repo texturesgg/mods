@@ -1,18 +1,18 @@
 # Netplay
 
-Rollback netplay for tgg-melee: two games play matches against each other over UDP, on
-Linux, macOS and Windows, and a game on one plays a game on another.
+Rollback netplay for tgg-melee: two to four games play matches together over UDP, on Linux,
+macOS and Windows, and games on different ones play each other.
 
 ## For players
 
 Netplay has no screen of its own. Install a connect mod with it, like `tgg.direct-connect`
 (host, or type the host's address), and that mod opens the session and starts the matches.
 
-Each game runs ahead on a guess of the other player's input. When the real input arrives and
+Each game runs ahead on a guess of the other players' input. When the real input arrives and
 differs, the game rolls back to that frame and runs the frames since again. Matches played
 offline are untouched: rollback is on only while a session is open.
 
-Settings, on the Mods page. They're your own and don't have to match the other player's.
+Settings, on the Mods page. They're your own and don't have to match the other players'.
 
 | Setting | Default | Does |
 |---|---|---|
@@ -20,7 +20,7 @@ Settings, on the Mods page. They're your own and don't have to match the other p
 | Your controller | Any | the controller you play with: Any (the first one plugged in) or Port 1 to 4. It plays your side's port wherever it's plugged in |
 | When hosting, mods that must match | Gameplay mods | Gameplay mods: display mods (skins, HUDs, the replay recorder) can differ. All mods: every mod has to match, display mods too, for tournaments and the like. The host's choice counts |
 
-Both games need the same game and the same gameplay mods. They check when they meet, and the
+All the games need the same game and the same gameplay mods. They check when they meet, and the
 session ends if they differ. On one platform that's the same build and mod-set id. Between
 platforms (Linux, macOS and Windows) it's the same game version and the same mod versions,
 built from the same reviewed source. Display mods, the ones textures.gg's review marked as
@@ -29,32 +29,34 @@ stops agreeing, the log names the display mods only one of you has: the likely c
 
 ## The session
 
-While two games are connected, this mod is the port's session (`tgg/session.h`): shared
-screens run in lockstep on the menu input both games send, `tgg_session_rand` starts from
-the seed side 0 picked, and `tgg_play_match` starts the match through `netplay_play`. A mod
-with shared screens gets netplay from that alone and doesn't depend on this mod. Two games
-for now; the session API takes up to four.
+One game hosts and up to three join it. Once the host locks the session, this mod is the
+port's session (`tgg/session.h`): shared screens run in lockstep on the menu input every game
+sends, `tgg_session_rand` starts from the seed the host picked, and `tgg_play_match` starts
+the match through `netplay_play`. A mod with shared screens gets netplay from that alone and
+doesn't depend on this mod.
 
 ## For mod makers
 
 ### The API
 
 A connect mod (a direct-connect screen, a lobby, a matchmaker) opens a session, talks to the
-other game with messages, and starts a match from its screen. Netplay does the rest: inputs,
-guessing, rollback, pacing and desync checks. List it in your manifest and include
-`include/netplay.h` (copy it, or add netplay's `include/` to the include path):
+other games with messages, locks the session once everyone's in, and starts a match or a
+shared screen. Netplay does the rest: inputs, guessing, rollback, pacing and desync checks.
+List it in your manifest and include `include/netplay.h` (copy it, or add netplay's
+`include/` to the include path):
 
 ```json
-"depends": { "tgg.netplay": "^0.4" }
+"depends": { "tgg.netplay": "^0.5" }
 ```
 
 | Function | Does |
 |---|---|
-| `netplay_open(side, peer, port, &why)` | opens a session. Side 0 with `peer` NULL waits on `port` for anyone; otherwise it says hello to `peer` ("host:port") |
-| `netplay_status(&info)` | the state (waiting, connecting, connected, starting, playing, failed), the peer, the round trip, why it failed |
-| `netplay_send(data, len)`, `netplay_receive(buf, cap)` | messages between the two games, up to 400 bytes, whole, once and in order |
-| `netplay_play(data)` | from a screen: side 0 passes the match (`StartMeleeData`), side 1 passes NULL to take it. Both leave for the match together and come back after |
-| `netplay_close()` | ends the session and tells the other game |
+| `netplay_open(side, peer, port, &why)` | opens a session. Side 0 hosts: with `peer` NULL it waits on `port` and takes up to three games. Any other side joins the host at `peer` ("host:port") |
+| `netplay_status(&info)` | the state (waiting, connecting, connected, starting, playing, failed), this game's side, how many games are in, whether it's locked, the round trip, why it failed |
+| `netplay_lock()` | the host: no more games join, and the session (`tgg/session.h`) starts on every game. The first `netplay_play` locks too |
+| `netplay_send(data, len)`, `netplay_receive(buf, cap, &from)` | messages to every other game, up to 400 bytes, whole, once and in order, with the side that sent each |
+| `netplay_play(data)` | from a screen: the host passes the match (`StartMeleeData`, one human player per game, in side order), joiners pass NULL to take it. All leave for the match together and come back after |
+| `netplay_close()` | ends the session and tells the other games. When any game leaves, the session ends for all |
 
 Call these from presentation code (a screen's functions or a PRESENT event), never from
 simulation code. `tgg.direct-connect` is a complete example of a mod built on them.
@@ -65,56 +67,65 @@ simulation code. `tgg.direct-connect` is a complete example of a mod built on th
 src/session.c     the session: hello, keeping in touch, messages, agreeing on a match; the API
 src/match.c       a match: inputs, rollback, confirming frames, checksums, pacing
 src/wire.c        the packets, byte by byte
-src/net.c         the UDP socket, over the port's tgg/net.h
+src/net.c         the UDP socket and its peers, over the port's tgg/net.h
 src/fakenet.c     a fake network for testing: latency, jitter, loss, reordering
 src/replaytest.c  the replay test
 src/slp.c         reading a Slippi replay
 ```
 
-- **Hello.** Each side says hello every 100 ms until the other has its hello: the game build,
-  the platform, the mod-set ids, the side. Side 0 with no peer address plays the first game
-  whose hello arrives.
-- **Between matches.** A lobby packet every 100 ms carries the round trip, unacknowledged
-  messages, and which of the last match's inputs this side has. Ten seconds of silence ends
-  the session.
-- **A match.** Side 0's `netplay_play` sends the match number, a new seed and the setup as
-  the console lays it out (`tgg_match_to_console`); side 1's says it's ready. Each starts once
-  it has both, and holds the first frame until the other's first packet arrives. Every packet
+- **A star.** Each joiner talks to the host only. The host passes on what one joiner sends
+  the others: its messages, its menu input on shared screens, and its match inputs. Side 0
+  hosts; joiners get sides 1 to 3 in the order the host took them.
+- **Hello.** A joiner says hello every 100 ms until the host has its hello: the game build,
+  the platform, the mod-set ids. The host takes each game whose hello arrives with the same
+  build and mods, gives it its side, and tells every game how many are in. After the lock it
+  turns new games away.
+- **Between matches.** A lobby packet on each link every 100 ms carries the round trip,
+  unacknowledged messages, and which of the last match's inputs this game has. Ten seconds
+  of silence from any game ends the session.
+- **A match.** The host's `netplay_play` sends the match number, a new seed and the setup as
+  the console lays it out (`tgg_match_to_console`); each joiner's says it's ready. A joiner
+  starts once it has the match, the host once every joiner is ready, and each holds the
+  first frame until a packet of the match has come from every game it talks to. Every packet
   carries a hash of the setup, and a mismatch ends the session.
 - **Inputs** (`pad_read` event). Your controller is read when a frame first runs and plays the
   input delay later, in your side's port. An input is the controller's report and the state
-  the game made of it, so the other game sets both exactly. Every packet carries every input
-  the other side hasn't acknowledged (up to 40), so a lost packet costs only time.
-- **Rollback** (`advance` event). Each frame gets the other side's input if it has arrived,
-  else the last one that did. When the real input differs from the guess, `tgg_rollback`
-  goes back to that frame.
-- **Confirming.** A frame is confirmed once both inputs are known and it has run on them
-  (`tgg_rollback_confirm`). Packets carry a confirmed frame's `tgg_frame_checksum`, and the
-  first frame that differs is logged as a desync.
+  the game made of it, so the other games set both exactly. Every packet carries every input
+  the other end hasn't acknowledged (up to 40, shared between the sides it carries), so a
+  lost packet costs only time.
+- **Rollback** (`advance` event). Each frame gets each other side's input if it has arrived,
+  else the last one that did. When a real input differs from the guess, `tgg_rollback` goes
+  back to that frame.
+- **Confirming.** A frame is confirmed once every input is known and it has run on them
+  (`tgg_rollback_confirm`). Packets carry a confirmed frame's `tgg_frame_checksum`: joiners
+  compare with the host's and the host with each joiner's, and the first frame that differs
+  is logged as a desync.
 - **Pacing.** A frame is held when running it would guess further ahead than a rollback
-  reaches, and once in ten frames when this game is more than a frame ahead of the other.
+  reaches, and once in ten frames when this game is more than a frame ahead of the slowest
+  game it talks to.
 - **The end** (`match_end`, `quit` events). The port holds the end of the match until its
-  last frame is confirmed, and inputs keep going until the other side has them all. The log
-  has each match's result, last checksum, rollbacks, holds and round trip.
+  last frame is confirmed, and inputs keep going until every game has them all. The log has
+  each match's result, last checksum, rollbacks, holds and round trip.
 
 ### Without a connect mod
 
 Environment variables open a session for a match the boot sets up (`TGG_BOOT_MATCH`), or,
-without one, a plain session for a mod to play in (a shared screen, below):
+without one, a plain session for a mod to play in (a shared screen):
 
 ```sh
-# one machine, side 0, port 1
-TGG_NETPLAY_PEER=192.168.1.20:51000 TGG_NETPLAY_SIDE=0 TGG_BOOT_MATCH=fox,marth,31 tgg mod dev
-# the other machine, side 1, port 2
-TGG_NETPLAY_PEER=192.168.1.10:51000 TGG_NETPLAY_SIDE=1 TGG_BOOT_MATCH=fox,marth,31 tgg mod dev
+# the host, side 0, port 1: waits for three more games
+TGG_NETPLAY_GAMES=4 TGG_BOOT_MATCH=fox,marth,31,falco,peach tgg mod dev
+# each joiner: sides 1 to 3, ports 2 to 4, in the order they join
+TGG_NETPLAY_PEER=192.168.1.10:51000 TGG_NETPLAY_SIDE=1 TGG_BOOT_MATCH=fox,marth,31,falco,peach tgg mod dev
 ```
 
 | Variable | Meaning |
 |---|---|
-| `TGG_NETPLAY_PEER` | the other game, `host:port` |
+| `TGG_NETPLAY_GAMES` | the host: how many games the session has, 2 to 4, default 2. It locks once they're in |
+| `TGG_NETPLAY_PEER` | a joiner: the host, `host:port`. A host may say hello to its one joiner too |
 | `TGG_NETPLAY_PORT` | the UDP port this game listens on, default 51000 |
-| `TGG_NETPLAY_SIDE` | 0 or 1, one of each: side 0 picks the match's seed |
-| `TGG_NETPLAY_PLAYERS` | the ports side 0 and side 1 play, default `1,2` |
+| `TGG_NETPLAY_SIDE` | 0 hosts (and picks the match's seed), 1 joins |
+| `TGG_NETPLAY_PLAYERS` | the ports each side plays, in side order, default `1,2,3,4` |
 | `TGG_NETPLAY_DELAY` | frames of input delay, over the setting |
 | `TGG_NETPLAY_ROLLBACK` | the most frames to roll back, default 8 (up to 30) |
 | `TGG_NETPLAY_FAKE` | a fake network: `latency=40,jitter=10,loss=5` (one way, ms and percent) |
@@ -144,8 +155,8 @@ replay's Slippi rule mods have to be installed.
 
 ## Requirements
 
-tgg-melee 0.1.0-rc.9 or later: netplay talks to the network through the port's `tgg/net.h`,
-which older builds don't have.
+tgg-melee 0.1.0-rc.12 or later: netplay provides the port's session (`tgg/session.h`), which
+older builds don't have.
 
 ## Build
 

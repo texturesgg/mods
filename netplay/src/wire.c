@@ -191,6 +191,11 @@ static void get_input(Cursor* c, WireInput* in)
     in->nr = get_f(c);
 }
 
+size_t wire_msg_bytes(const WireMsg* m)
+{
+    return 4 + 1 + 1 + 2 + m->len;
+}
+
 size_t wire_encode(const WirePacket* p, uint8_t* buf)
 {
     Cursor c = { .w = buf };
@@ -203,7 +208,8 @@ size_t wire_encode(const WirePacket* p, uint8_t* buf)
         put_bytes(&c, h->mod_set, sizeof h->mod_set);
         put_bytes(&c, h->versions, sizeof h->versions);
         put_bytes(&c, h->target, sizeof h->target);
-        put(&c, h->side, 1);
+        put(&c, h->host, 1);
+        put(&c, h->assign, 1);
         put(&c, h->delay, 1);
         put(&c, h->heard, 1);
         put(&c, h->seed, 4);
@@ -215,16 +221,28 @@ size_t wire_encode(const WirePacket* p, uint8_t* buf)
         const WireInputs* in = &p->u.inputs;
         put(&c, in->number, 4);
         put(&c, (uint32_t) in->frame, 4);
-        put(&c, (uint32_t) in->ack, 4);
         put(&c, in->match, 4);
         put(&c, (uint32_t) in->sum_frame, 4);
         put(&c, in->sum, 8);
         put(&c, in->ping, 4);
         put(&c, in->pong, 4);
         put(&c, in->pong_age, 2);
-        put(&c, (uint32_t) in->first, 4);
-        put(&c, in->count, 1);
-        for (int i = 0; i < in->count && i < WIRE_MAX_INPUTS; i++) {
+        for (int s = 0; s < SIDES; s++) {
+            put(&c, (uint32_t) in->ack[s], 4);
+        }
+        const int runs = in->runs <= WIRE_MAX_RUNS ? in->runs : WIRE_MAX_RUNS;
+        int total = 0;
+        for (int r = 0; r < runs; r++) {
+            total += in->run[r].count;
+        }
+        const int fits = total <= WIRE_MAX_INPUTS;
+        put(&c, fits ? runs : 0, 1);
+        for (int r = 0; r < runs && fits; r++) {
+            put(&c, in->run[r].side, 1);
+            put(&c, (uint32_t) in->run[r].first, 4);
+            put(&c, in->run[r].count, 1);
+        }
+        for (int i = 0; i < total && fits; i++) {
             put_input(&c, &in->inputs[i]);
         }
     } else if (p->type == WIRE_LOBBY) {
@@ -234,12 +252,15 @@ size_t wire_encode(const WirePacket* p, uint8_t* buf)
         put(&c, l->pong_age, 2);
         put(&c, l->msg_ack, 4);
         put(&c, l->number, 4);
-        put(&c, (uint32_t) l->input_ack, 4);
+        for (int s = 0; s < SIDES; s++) {
+            put(&c, (uint32_t) l->input_ack[s], 4);
+        }
         put(&c, l->count, 1);
         for (int i = 0; i < l->count && i < WIRE_MAX_MSGS; i++) {
             const WireMsg* m = &l->msgs[i];
             put(&c, m->seq, 4);
             put(&c, m->kind, 1);
+            put(&c, m->from, 1);
             put(&c, m->len, 2);
             put_bytes(&c, m->data, m->len);
         }
@@ -284,7 +305,8 @@ int wire_decode(const uint8_t* buf, size_t len, WirePacket* p, int* version)
         h->target[sizeof h->target - 1] = '\0';
         h->build[sizeof h->build - 1] = '\0';
         h->mod_set[sizeof h->mod_set - 1] = '\0';
-        h->side = (uint8_t) get(&c, 1);
+        h->host = (uint8_t) get(&c, 1);
+        h->assign = (uint8_t) get(&c, 1);
         h->delay = (uint8_t) get(&c, 1);
         h->heard = (uint8_t) get(&c, 1);
         h->seed = (uint32_t) get(&c, 4);
@@ -298,19 +320,30 @@ int wire_decode(const uint8_t* buf, size_t len, WirePacket* p, int* version)
         WireInputs* in = &p->u.inputs;
         in->number = (uint32_t) get(&c, 4);
         in->frame = (int32_t) get(&c, 4);
-        in->ack = (int32_t) get(&c, 4);
         in->match = (uint32_t) get(&c, 4);
         in->sum_frame = (int32_t) get(&c, 4);
         in->sum = get(&c, 8);
         in->ping = (uint32_t) get(&c, 4);
         in->pong = (uint32_t) get(&c, 4);
         in->pong_age = (uint16_t) get(&c, 2);
-        in->first = (int32_t) get(&c, 4);
-        in->count = (uint8_t) get(&c, 1);
-        if (in->count > WIRE_MAX_INPUTS) {
+        for (int s = 0; s < SIDES; s++) {
+            in->ack[s] = (int32_t) get(&c, 4);
+        }
+        in->runs = (uint8_t) get(&c, 1);
+        if (in->runs > WIRE_MAX_RUNS) {
             return 0;
         }
-        for (int i = 0; i < in->count; i++) {
+        int total = 0;
+        for (int r = 0; r < in->runs; r++) {
+            in->run[r].side = (uint8_t) get(&c, 1);
+            in->run[r].first = (int32_t) get(&c, 4);
+            in->run[r].count = (uint8_t) get(&c, 1);
+            total += in->run[r].count;
+        }
+        if (total > WIRE_MAX_INPUTS) {
+            return 0;
+        }
+        for (int i = 0; i < total; i++) {
             get_input(&c, &in->inputs[i]);
         }
     } else if (p->type == WIRE_LOBBY) {
@@ -320,7 +353,9 @@ int wire_decode(const uint8_t* buf, size_t len, WirePacket* p, int* version)
         l->pong_age = (uint16_t) get(&c, 2);
         l->msg_ack = (uint32_t) get(&c, 4);
         l->number = (uint32_t) get(&c, 4);
-        l->input_ack = (int32_t) get(&c, 4);
+        for (int s = 0; s < SIDES; s++) {
+            l->input_ack[s] = (int32_t) get(&c, 4);
+        }
         l->count = (uint8_t) get(&c, 1);
         if (l->count > WIRE_MAX_MSGS) {
             return 0;
@@ -329,6 +364,7 @@ int wire_decode(const uint8_t* buf, size_t len, WirePacket* p, int* version)
             WireMsg* m = &l->msgs[i];
             m->seq = (uint32_t) get(&c, 4);
             m->kind = (uint8_t) get(&c, 1);
+            m->from = (uint8_t) get(&c, 1);
             m->len = (uint16_t) get(&c, 2);
             if (m->len > WIRE_MSG_MAX) {
                 return 0;
