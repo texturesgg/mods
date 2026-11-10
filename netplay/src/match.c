@@ -315,6 +315,11 @@ static void compare_sums(int upto)
                 mt.desync_frame = f;
                 tgg_log("desync: frame %d's checksum is %016llx here, %016llx there", f,
                         (unsigned long long) ours, (unsigned long long) mt.peer_sums[i].sum);
+                char diff[200];
+                session_display_difference(diff, sizeof diff);
+                if (diff[0] != '\0') {
+                    tgg_log("desync: display mods only one game has, the likely cause: %s", diff);
+                }
             }
         }
     }

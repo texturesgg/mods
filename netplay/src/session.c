@@ -37,6 +37,9 @@ TGG_SETTING_INT_LOCAL(setting_delay, "delay", "Input delay (frames)", 2, 0, 15);
 int setting_controller;
 TGG_SETTING_CHOICE_LOCAL(setting_controller, "controller", "Your controller", 0, "Any", "Port 1",
                    "Port 2", "Port 3", "Port 4");
+int setting_strict;
+TGG_SETTING_CHOICE_LOCAL(setting_strict, "match", "When hosting, mods that must match", 0,
+                         "Gameplay mods", "All mods");
 
 #define OUT_MAX 32
 #define IN_MAX 32
@@ -119,6 +122,9 @@ static void send_hello(void)
     p.u.hello.heard = (uint8_t) ss.greeted;
     p.u.hello.seed = ss.seed;
     p.u.hello.replay = ss.replay ? replaytest_hash() : 0;
+    snprintf(p.u.hello.all, sizeof p.u.hello.all, "%s", tgg_mod_set_all());
+    snprintf(p.u.hello.display, sizeof p.u.hello.display, "%s", tgg_mod_set_display());
+    p.u.hello.strict = (uint8_t) (ss.side == 0 && setting_strict == 1);
     session_send_packet(&p);
 }
 
@@ -247,6 +253,41 @@ static void game_version(const char* build, char* out, size_t cap)
     }
 }
 
+/* Whether "id version" is in the list "a 1.0, b 2.0" */
+static int listed(const char* list, const char* entry, size_t n)
+{
+    for (const char* p = list; *p != '\0';) {
+        const char* end = strstr(p, ", ");
+        const size_t len = end != NULL ? (size_t) (end - p) : strlen(p);
+        if (len == n && strncmp(p, entry, n) == 0) {
+            return 1;
+        }
+        p += len + (end != NULL ? 2 : 0);
+    }
+    return 0;
+}
+
+/* Appends each entry of `a` that `b` lacks, tagged */
+static void only_in(const char* a, const char* b, const char* tag, char* out, size_t cap)
+{
+    for (const char* p = a; *p != '\0';) {
+        const char* end = strstr(p, ", ");
+        const size_t len = end != NULL ? (size_t) (end - p) : strlen(p);
+        if (!listed(b, p, len)) {
+            const size_t at = strlen(out);
+            snprintf(out + at, cap - at, "%s%.*s (%s)", at > 0 ? ", " : "", (int) len, p, tag);
+        }
+        p += len + (end != NULL ? 2 : 0);
+    }
+}
+
+void session_display_difference(char* out, size_t cap)
+{
+    out[0] = '\0';
+    only_in(tgg_mod_set_display(), ss.peer_display, "yours", out, cap);
+    only_in(ss.peer_display, tgg_mod_set_display(), "theirs", out, cap);
+}
+
 static int got_hello(const WireHello* h)
 {
     char why[320];
@@ -275,6 +316,20 @@ static int got_hello(const WireHello* h)
         snprintf(why, sizeof why,
                  "The other game has other mods (mod set %s here, %s there). The log lists "
                  "this game's.", mine[0] != '\0' ? mine : "none", other[0] != '\0' ? other : "none");
+        session_fail(why);
+        return 0;
+    }
+    snprintf(ss.peer_display, sizeof ss.peer_display, "%s", h->display);
+    /* The host may want every mod to match, display mods too */
+    const int strict = ss.side == 0 ? setting_strict == 1 : h->strict != 0;
+    if (strict && strcmp(h->all, tgg_mod_set_all()) != 0) {
+        char diff[200];
+        session_display_difference(diff, sizeof diff);
+        snprintf(why, sizeof why, "The host wants every mod to match, display mods too%s%s.",
+                 diff[0] != '\0' ? ": " : "", diff);
+        if (ss.side == 0) {
+            send_hello(); /* so the other game hears it too */
+        }
         session_fail(why);
         return 0;
     }

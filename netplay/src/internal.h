@@ -74,7 +74,7 @@ WireInput wire_neutral(void);
 int wire_same(const WireInput* a, const WireInput* b);
 
 #define WIRE_MAGIC 0x4e474754u /* "TGGN" */
-#define WIRE_VERSION 3
+#define WIRE_VERSION 4
 enum { WIRE_HELLO = 1, WIRE_INPUT = 2, WIRE_BYE = 3, WIRE_LOBBY = 4 };
 #define WIRE_MAX_INPUTS 40
 #define WIRE_MSG_MAX 400
@@ -90,6 +90,9 @@ typedef struct WireHello {
     uint8_t heard;   /* the sender has the receiver's hello */
     uint32_t seed;
     uint32_t replay; /* the replay test: a hash of the replay played, else 0 */
+    char all[17];     /* tgg_mod_set_all: every mod that loaded, display mods too */
+    char display[256]; /* tgg_mod_set_display: the display mods, "id version, ..." */
+    uint8_t strict;   /* the host wants every mod to match, display mods too */
 } WireHello;
 
 typedef struct WireInputs {
@@ -167,6 +170,7 @@ typedef struct Session {
     double peer_ping_ms;
     double rtt_ms;
     int matches;
+    char peer_display[256]; /* the other game's display mods, from its hello */
     char why[160];
 } Session;
 
@@ -175,6 +179,9 @@ extern Session ss;
 /* The settings */
 extern int setting_delay;
 extern int setting_controller; /* 0 any, else the port + 1 */
+extern int setting_strict; /* 1: every mod must match, display mods too (the host's) */
+/* The display mods only one game has, "a (yours), b (theirs)", or "" */
+void session_display_difference(char* out, size_t cap);
 
 /* Reads the network: every packet waiting goes where it belongs */
 void session_receive(void);

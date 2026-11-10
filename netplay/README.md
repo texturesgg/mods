@@ -18,10 +18,14 @@ Settings, on the Mods page. They're your own and don't have to match the other p
 |---|---|---|
 | Input delay (frames) | 2 | frames between pressing a button and it happening, 0 to 15. More delay means fewer rollbacks |
 | Your controller | Any | the controller you play with: Any (the first one plugged in) or Port 1 to 4. It plays your side's port wherever it's plugged in |
+| When hosting, mods that must match | Gameplay mods | Gameplay mods: display mods (skins, HUDs, the replay recorder) can differ. All mods: every mod has to match, display mods too, for tournaments and the like. The host's choice counts |
 
-Both games need the same game and the same mods. They check when they meet, and the session
-ends if they differ. On one platform that's the same build and mod-set id. Between platforms
-(Linux, macOS and Windows) it's the same game version and the same mod versions.
+Both games need the same game and the same gameplay mods. They check when they meet, and the
+session ends if they differ. On one platform that's the same build and mod-set id. Between
+platforms (Linux, macOS and Windows) it's the same game version and the same mod versions,
+built from the same reviewed source. Display mods, the ones textures.gg's review marked as
+only changing what you see, can differ unless the host wants every mod to match. If a match
+stops agreeing, the log names the display mods only one of you has: the likely cause.
 
 ## For mod makers
 

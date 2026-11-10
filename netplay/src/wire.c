@@ -208,6 +208,9 @@ size_t wire_encode(const WirePacket* p, uint8_t* buf)
         put(&c, h->heard, 1);
         put(&c, h->seed, 4);
         put(&c, h->replay, 4);
+        put_bytes(&c, h->all, sizeof h->all);
+        put_bytes(&c, h->display, sizeof h->display);
+        put(&c, h->strict, 1);
     } else if (p->type == WIRE_INPUT) {
         const WireInputs* in = &p->u.inputs;
         put(&c, in->number, 4);
@@ -267,6 +270,11 @@ int wire_decode(const uint8_t* buf, size_t len, WirePacket* p)
         h->heard = (uint8_t) get(&c, 1);
         h->seed = (uint32_t) get(&c, 4);
         h->replay = (uint32_t) get(&c, 4);
+        get_bytes(&c, h->all, sizeof h->all);
+        get_bytes(&c, h->display, sizeof h->display);
+        h->all[sizeof h->all - 1] = '\0';
+        h->display[sizeof h->display - 1] = '\0';
+        h->strict = (uint8_t) get(&c, 1);
     } else if (p->type == WIRE_INPUT) {
         WireInputs* in = &p->u.inputs;
         in->number = (uint32_t) get(&c, 4);
