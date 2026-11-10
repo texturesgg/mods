@@ -2,7 +2,7 @@
   "api": "tgg-melee/0",
   "id": "tgg.ledgedash-trainer",
   "name": "Ledge dash trainer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Breaks down each ledge dash: your timing, and how much intangibility you had left.",
   "icon": "icon.png",
   "tags": [

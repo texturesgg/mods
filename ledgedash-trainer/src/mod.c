@@ -53,7 +53,7 @@ enum {
 
 enum { RESULT_DASH = 1, RESULT_NO_STAGE };
 
-/* An attempt that takes longer than this from the drop isn't a ledge dash */
+/* No air dodge this long after the drop: not a ledge dash */
 #define GIVE_UP 60
 
 typedef struct Attempt {
@@ -145,7 +145,7 @@ static void on_fighter_update(Fighter_GObj* gobj)
     if (fp->x1990 == 0 && a->gone == 0) {
         a->gone = st.tick;
     }
-    if (a->phase != PHASE_LEDGE && a->phase != PHASE_LANDED && st.tick - a->drop > GIVE_UP) {
+    if ((a->phase == PHASE_DROPPED || a->phase == PHASE_JUMPED) && st.tick - a->drop > GIVE_UP) {
         a->phase = PHASE_NONE;
         return;
     }
