@@ -6,7 +6,6 @@
   "description": "HTTPS requests and WebSockets for other mods, over the port's networking.",
   "icon": "icon.png",
   "tags": [
-    "netplay",
-    "library"
+    "netplay"
   ]
 }
