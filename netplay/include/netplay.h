@@ -94,6 +94,11 @@ TGG_API(NETPLAY, void, netplay_close, (void));
 /* Where the session is. */
 TGG_API(NETPLAY, void, netplay_status, (netplay_info* out));
 
+/* The round trip to the game playing `side`, in ms, as the link to it measures
+ * it: 0 before it's known, for this game, and for a game this one has no link
+ * to (a joiner's only link is to the host). For a player's ping. */
+TGG_API(NETPLAY, float, netplay_rtt, (int side));
+
 /* NETPLAY_MISMATCH: the host's mod profile, the JSON its tgg_mod_set_profile
  * gives (the game's version and layout, and each counted mod's version and
  * settings), once it has arrived whole; else NULL. Write it to a file and

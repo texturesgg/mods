@@ -1209,6 +1209,18 @@ void netplay_close(void)
     tgg_rollback_init(0);
 }
 
+float netplay_rtt(int side)
+{
+    if (ss.state == NETPLAY_OFF || side == ss.side || side < 0 || side >= SIDES) {
+        return 0;
+    }
+    if (!hosting() && side != 0) {
+        return 0; /* joiners link only to the host */
+    }
+    const int l = side_link(side);
+    return l >= 0 && l < net_peers() ? (float) ss.link[l].rtt_ms : 0;
+}
+
 void netplay_status(netplay_info* out)
 {
     memset(out, 0, sizeof *out);
