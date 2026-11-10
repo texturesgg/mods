@@ -22,6 +22,7 @@
 #include "tgg/events.h"
 #include "tgg/files.h"
 #include "tgg/input.h"
+#include "tgg/menu.h"
 #include "tgg/screen.h"
 #include "tgg/settings.h"
 
@@ -736,13 +737,21 @@ static void leave(void)
 }
 
 static const tgg_screen screen = {
-    .title = "Direct connect",
     .enter = enter,
     .frame = frame,
     .draw = dc_draw,
     .leave = leave,
 };
 TGG_SCREEN("connect", screen);
+
+/* Online, on the main menu after VS Mode */
+static const tgg_menu_entry online = {
+    .label = "Online",
+    .description = "Play people over the internet.",
+    .after = "main/vs",
+    .screen = &screen,
+};
+TGG_MENU_ADD("main/online", online);
 
 /* What the game starts on: TGG_DIRECT_CONNECT=host or join:<address> starts
  * it on this screen, hosting or joining, for scripted runs and a quick

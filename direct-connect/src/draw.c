@@ -49,7 +49,7 @@ static void status_text(char* out, int cap)
 
 static void draw_menu(void)
 {
-    band("Direct connect", NULL);
+    band("Online", NULL);
     const char* rows[4];
     const int n = menu_rows(rows, 4);
     for (int i = 0; i < n; i++) {
@@ -112,7 +112,7 @@ static void draw_connecting(void)
 
 static void draw_failed(void)
 {
-    band("Direct connect", NULL);
+    band("Online", NULL);
     tgg_draw_rect(60, 170, 520, 100, PANEL);
     char fit[160];
     tgg_text_fit(fit, sizeof fit, 20, 500, dc.why);
@@ -326,7 +326,7 @@ static void draw_lobby(void)
     } else {
         snprintf(status, sizeof status, "%s", peer);
     }
-    band("Direct connect", status);
+    band("Online", status);
 
     /* The characters */
     for (int i = 0; i < GRID_CELLS; i++) {
