@@ -1,0 +1,79 @@
+# Builds every mod against tgg-melee main's SDK for Linux x86-64, Windows
+# x86-64 and macOS arm64, on every push and pull request, and every night,
+# so a change on either side that breaks a mod shows. The SDKs are the ones
+# tgg-melee's CI puts at dl.textures.gg/tgg-melee/main/ for its latest main:
+# not a release.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "23 7 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  SDKS: https://dl.textures.gg/tgg-melee/main
+
+jobs:
+  linux-x86_64:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build every mod
+        run: |
+          mkdir sdk
+          curl -fsSL --retry 3 "$SDKS/tgg-melee-sdk-x86_64-linux.tar.gz" | tar -xz -C sdk --strip-components=1
+          nix develop --command ci/build-all.sh sdk
+
+  windows-x86_64:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Cross-built with MinGW-w64 GCC, as the game is
+      - name: Build every mod
+        run: |
+          mkdir sdk
+          curl -fsSL --retry 3 "$SDKS/tgg-melee-sdk-x86_64-windows.tar.gz" | tar -xz -C sdk --strip-components=1
+          nix develop .#windows --command ci/build-all.sh sdk ci/x86_64-windows-gnu.cmake
+
+  macos-arm64:
+    runs-on: blacksmith-6vcpu-macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install GCC, CMake and Ninja
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+          HOMEBREW_NO_ANALYTICS: "1"
+        run: brew install gcc@15 cmake ninja
+
+      # GCC, as the game is built with, through the SDK's own toolchain file
+      - name: Build every mod
+        run: |
+          mkdir sdk
+          curl -fsSL --retry 3 "$SDKS/tgg-melee-sdk-aarch64-macos.tar.gz" | tar -xz -C sdk --strip-components=1
+          ci/build-all.sh sdk sdk/toolchain.cmake
