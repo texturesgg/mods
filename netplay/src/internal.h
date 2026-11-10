@@ -180,6 +180,7 @@ enum {
     MSG_USER = 1,  /* netplay_send's */
     MSG_MATCH = 2, /* side 0's match: its number, seed and setup */
     MSG_READY = 3, /* side 1 called netplay_play */
+    MSG_INPUT = 4, /* a shared screen's menu input for a tick (tgg/session.h) */
 };
 
 /* The session, shared with match.c */

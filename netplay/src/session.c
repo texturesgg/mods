@@ -25,6 +25,7 @@
 #include "tgg/control.h"
 #include "tgg/events.h"
 #include "tgg/rollback.h"
+#include "tgg/session.h"
 #include "tgg/settings.h"
 
 #include <melee/mn/types.h>
@@ -77,6 +78,7 @@ static struct {
 
 static void reset(void)
 {
+    tgg_session_provide(NULL);
     memset(&ss, 0, sizeof ss);
     memset(&sn, 0, sizeof sn);
     memset(&pf, 0, sizeof pf);
@@ -204,6 +206,7 @@ void session_fail(const char* why)
         return;
     }
     tgg_log("%s", why);
+    tgg_session_provide(NULL);
     if (ss.env) {
         stop_env(why, 4);
     }
@@ -246,6 +249,78 @@ static uint32_t get_be32(const uint8_t* p)
     return (uint32_t) p[0] << 24 | (uint32_t) p[1] << 16 | (uint32_t) p[2] << 8 | p[3];
 }
 
+/* ---- The session provider (tgg/session.h) ----------------------------------
+ * While the two games are connected, this mod is the port's session: shared
+ * screens run in lockstep on the menu inputs both games send here, and
+ * tgg_play_match starts a match through netplay_play. */
+
+#define LOCK_RING 64
+
+static struct {
+    uint32_t own[LOCK_RING], peer[LOCK_RING];
+    uint32_t own_tick[LOCK_RING], peer_tick[LOCK_RING]; /* tick + 1, 0 when empty */
+} ls;
+
+static int provider_players(void)
+{
+    return 2;
+}
+
+static int provider_me(void)
+{
+    return ss.side;
+}
+
+static uint32_t provider_seed(void)
+{
+    return ss.seed;
+}
+
+static void provider_send_input(uint32_t tick, uint32_t menu)
+{
+    const int at = (int) (tick % LOCK_RING);
+    ls.own[at] = menu;
+    ls.own_tick[at] = tick + 1;
+    uint8_t msg[8];
+    put_be32(msg, tick);
+    put_be32(msg + 4, menu);
+    queue(MSG_INPUT, msg, (int) sizeof msg);
+}
+
+static int provider_inputs(uint32_t tick, uint32_t* out)
+{
+    const int at = (int) (tick % LOCK_RING);
+    if (ls.own_tick[at] != tick + 1 || ls.peer_tick[at] != tick + 1) {
+        return 0;
+    }
+    out[ss.side] = ls.own[at];
+    out[1 - ss.side] = ls.peer[at];
+    return 1;
+}
+
+static int provider_play_match(const StartMeleeData* data)
+{
+    /* Every game calls it with the same match: side 0 sends it, side 1 takes it */
+    return netplay_play(ss.side == 0 ? data : NULL);
+}
+
+static const tgg_session_provider provider = {
+    .players = provider_players,
+    .me = provider_me,
+    .seed = provider_seed,
+    .send_input = provider_send_input,
+    .inputs = provider_inputs,
+    .play_match = provider_play_match,
+};
+
+static void got_input(const WireMsg* m)
+{
+    const uint32_t tick = get_be32(m->data);
+    const int at = (int) (tick % LOCK_RING);
+    ls.peer[at] = get_be32(m->data + 4);
+    ls.peer_tick[at] = tick + 1;
+}
+
 static void got_msg(const WireMsg* m)
 {
     if (m->kind == MSG_USER) {
@@ -259,6 +334,8 @@ static void got_msg(const WireMsg* m)
         memcpy(sn.console, m->data + 8, TGG_CONSOLE_MATCH_SIZE);
     } else if (m->kind == MSG_READY && ss.side == 0) {
         sn.peer_ready = 1;
+    } else if (m->kind == MSG_INPUT && m->len == 8) {
+        got_input(m);
     }
 }
 
@@ -355,6 +432,7 @@ static void send_profile_ask(void)
 static void start_mismatch(const WireHello* h, const char* why)
 {
     tgg_log("%s", why);
+    tgg_session_provide(NULL);
     tgg_log("this game's mods: %s", tgg_mod_set_names()[0] != '\0' ? tgg_mod_set_names() : "none");
     tgg_log("the host runs %s; asking for its profile", h->build);
     ss.state = NETPLAY_MISMATCH;
@@ -608,6 +686,8 @@ void session_receive(void)
         ss.state = NETPLAY_CONNECTED;
         ss.last_heard_ms = net_now_ms();
         tgg_log("connected to %s as side %d", net_peer_name(), ss.side);
+        memset(&ls, 0, sizeof ls);
+        tgg_session_provide(&provider);
     }
 }
 
@@ -879,7 +959,11 @@ static void init(void)
     if (is_replay) {
         ss.seed = replaytest_start_seed();
     }
-    match_expect_boot();
+    /* Without a boot match, a plain session: a mod starts the matches */
+    const char* boot = getenv("TGG_BOOT_MATCH");
+    if (is_replay || (boot != NULL && boot[0] != '\0')) {
+        match_expect_boot();
+    }
 }
 TGG_INIT(init);
 

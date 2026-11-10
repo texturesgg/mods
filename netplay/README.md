@@ -27,6 +27,14 @@ built from the same reviewed source. Display mods, the ones textures.gg's review
 only changing what you see, can differ unless the host wants every mod to match. If a match
 stops agreeing, the log names the display mods only one of you has: the likely cause.
 
+## The session
+
+While two games are connected, this mod is the port's session (`tgg/session.h`): shared
+screens run in lockstep on the menu input both games send, `tgg_session_rand` starts from
+the seed side 0 picked, and `tgg_play_match` starts the match through `netplay_play`. A mod
+with shared screens gets netplay from that alone and doesn't depend on this mod. Two games
+for now; the session API takes up to four.
+
 ## For mod makers
 
 ### The API
@@ -91,7 +99,8 @@ src/slp.c         reading a Slippi replay
 
 ### Without a connect mod
 
-Environment variables open a session for a match the boot sets up (`TGG_BOOT_MATCH`):
+Environment variables open a session for a match the boot sets up (`TGG_BOOT_MATCH`), or,
+without one, a plain session for a mod to play in (a shared screen, below):
 
 ```sh
 # one machine, side 0, port 1
