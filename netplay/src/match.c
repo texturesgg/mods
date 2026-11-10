@@ -572,7 +572,10 @@ static void on_setup(const StartMeleeData* data)
     }
     mt.pending = 0;
     mt.live = 1;
-    *HSD_RandSeedPtr = ss.env ? ss.seed : mt.seed;
+    /* match_seed gives the same seed: the port starts the first frame from it
+     * too, whatever the setup drew from this game's save */
+    mt.seed = ss.env ? ss.seed : mt.seed;
+    *HSD_RandSeedPtr = mt.seed;
     const uint8_t* p = (const uint8_t*) data;
     uint32_t h = 0x811c9dc5u;
     /* The rules' callbacks are addresses, which differ between games; the
