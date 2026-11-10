@@ -18,6 +18,7 @@
 #include "dc.h"
 
 #include "tgg/control.h"
+#include "tgg/draw.h"
 #include "tgg/events.h"
 #include "tgg/files.h"
 #include "tgg/input.h"
@@ -760,3 +761,41 @@ static void on_frame(void)
     }
 }
 TGG_ON(frame, on_frame);
+
+/* ---- The character select: each player's name and ping, and the room ------ */
+
+/* A player's panel: their name where the room says it (the host first, then
+ * in the order they joined, as the sides go), and their ping where this game
+ * has a link to them. Online, side s plays port s. */
+static void on_panel(int port, float x, float y, float w, float h)
+{
+    netplay_info info;
+    netplay_status(&info);
+    if (info.players < 2 || port >= info.players ||
+        (info.state != NETPLAY_CONNECTED && info.state != NETPLAY_STARTING))
+    {
+        return;
+    }
+    const float size = h * 0.8f;
+    const float top = y + (h - size) / 2;
+    const tgg_color white = TGG_RGBA(255, 255, 255, 230);
+    char ping[16] = "";
+    const float rtt = netplay_rtt(port);
+    if (port != info.side && rtt > 0) {
+        snprintf(ping, sizeof ping, "%d ms", (int) (rtt + 0.5f));
+        tgg_draw_text(x + w - 2, top, size, TGG_RGBA(200, 200, 200, 230), TGG_ALIGN_RIGHT, ping);
+    }
+    if (dc.room && port < dc.meet.n_members && dc.meet.members[port][0] != '\0') {
+        char name[64];
+        const float room = w - 4 - (ping[0] != '\0' ? tgg_text_width(size, ping) + 6 : 0);
+        tgg_text_fit(name, sizeof name, size, room, dc.meet.members[port]);
+        tgg_draw_text(x + 2, top, size, white, TGG_ALIGN_LEFT, name);
+    }
+    if (port == 0 && dc.room && dc.meet.code[0] != '\0') {
+        /* The room, below the panels, so more friends can join */
+        char line[32];
+        snprintf(line, sizeof line, "Room %s", dc.meet.code);
+        tgg_draw_text(320, 456, 18, white, TGG_ALIGN_CENTER, line);
+    }
+}
+TGG_ON(css_panel_draw, on_panel);
