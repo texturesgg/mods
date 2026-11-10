@@ -28,6 +28,7 @@ static int n_candidates;
 static int punching; /* a joiner: the host is whichever candidate answers */
 static double punch_started_ms, punched_ms = -1;
 static char punched_kind[12];
+static int heard_any;   /* any datagram arrived while punching, from anywhere */
 
 static const char* open_socket(int port)
 {
@@ -105,6 +106,7 @@ int net_punch(int joining, const char* const* addrs, const char* const* kinds, i
             n_candidates++;
         }
     }
+    heard_any = 0;
     punch_started_ms = net_now_ms();
     if (joining && n_candidates > 0) {
         punching = 1;
@@ -232,6 +234,7 @@ size_t net_recv(void* buf, size_t cap)
         if (stun_got(buf, (size_t) n)) {
             continue;
         }
+        heard_any = 1;
         last_from = from;
         have_last = 1;
         last_peer = -1;
@@ -318,4 +321,23 @@ int net_take_host(void)
     }
     last_peer = 0;
     return 0;
+}
+
+void net_punch_report(void)
+{
+    char tried[NET_CANDIDATES * 80] = "";
+    size_t used = 0;
+    for (int i = 0; i < n_candidates && used < sizeof tried; i++) {
+        char text[TGG_NET_ADDR_TEXT];
+        tgg_net_addr_format(&candidates[i], text, sizeof text);
+        used += (size_t) snprintf(tried + used, sizeof tried - used, "%s%s (%s)",
+                                  i > 0 ? ", " : "", text, candidate_kinds[i]);
+    }
+    char mapped[TGG_NET_ADDR_TEXT] = "";
+    const int stun = stun_mapped(mapped, sizeof mapped);
+    tgg_log("gave up after %.0f s: said hello to %s; %s. This game's internet address: %s",
+            net_punch_age_ms() / 1000, tried[0] != '\0' ? tried : "nothing",
+            heard_any ? "packets came back, but none from the other game"
+                      : "nothing came back from anywhere",
+            stun == 1 ? mapped : "unknown (STUN didn't answer)");
 }
