@@ -124,7 +124,7 @@ int wire_same(const WireInput* a, const WireInput* b);
 #define SIDES (NET_PEERS + 1)
 
 #define WIRE_MAGIC 0x4e474754u /* "TGGN" */
-#define WIRE_VERSION 6
+#define WIRE_VERSION 7
 enum {
     WIRE_HELLO = 1,
     WIRE_INPUT = 2,
@@ -162,6 +162,7 @@ typedef struct WireHello {
     char display[256]; /* tgg_mod_set_display: the display mods, "id version, ..." */
     uint8_t strict;   /* the host wants every mod to match, display mods too */
     uint64_t token;   /* a session the meeting point set up: both games have it; 0 for none */
+    uint32_t game;    /* a random number this game picked when the session opened */
 } WireHello;
 
 /* A run of one side's inputs, from frame `first` */
@@ -263,6 +264,7 @@ typedef struct Link {
     uint32_t peer_ping;
     double peer_ping_ms;
     double rtt_ms;
+    uint32_t game;     /* its hello's `game` */
     char display[256]; /* its display mods, from its hello */
 } Link;
 
@@ -278,6 +280,8 @@ typedef struct Session {
     int env;       /* opened from the environment, for a match the boot sets up */
     int replay;    /* the replay test */
     uint32_t seed; /* the host's: the boot's match starts from it */
+    uint32_t game;  /* this game's hello `game`: a game that says hello from several
+                     * addresses is one game */
     uint64_t token; /* set by the meeting point: hellos without it are ignored; 0 for none */
     double last_punch_ms; /* the host: when it last said hello to the candidates */
     double opened_ms;

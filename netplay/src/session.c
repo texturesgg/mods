@@ -198,6 +198,7 @@ static void hello_packet(WirePacket* p)
     snprintf(p->u.hello.display, sizeof p->u.hello.display, "%s", tgg_mod_set_display());
     p->u.hello.strict = (uint8_t) (hosting() && setting_strict == 1);
     p->u.hello.token = ss.token;
+    p->u.hello.game = ss.game;
 }
 
 static void send_hello(int link)
@@ -754,6 +755,11 @@ static int host_got_hello(int link, const WireHello* h)
         session_fail("Both games host: one hosts, the others join.");
         return -1;
     }
+    for (int l = 0; link < 0 && l < net_peers(); l++) {
+        if (ss.link[l].greeted && ss.link[l].game == h->game) {
+            return -1; /* a game already in, by another of its addresses */
+        }
+    }
     if (link < 0 && (ss.locked || net_peers() == NET_PEERS)) {
         turn_away(ss.locked ? "the session has started." : "the session is full.", 1);
         return -1;
@@ -787,6 +793,7 @@ static int host_got_hello(int link, const WireHello* h)
     }
     Link* k = &ss.link[link];
     if (!k->greeted) {
+        k->game = h->game;
         k->greeted = 1;
         k->last_heard_ms = net_now_ms();
         snprintf(k->display, sizeof k->display, "%s", h->display);
@@ -1141,6 +1148,9 @@ static int open_session(int side, const char* peer, int port, const char** why)
         fclose(f);
     }
     tgg_rollback_init(ss.max_rollback);
+    if (tgg_net_random(&ss.game, sizeof ss.game) != TGG_NET_OK) {
+        ss.game = (uint32_t) net_now_ms();
+    }
     ss.opened_ms = net_now_ms();
     ss.state = side != 0 ? NETPLAY_CONNECTING : NETPLAY_WAITING;
     if (side != 0) {
