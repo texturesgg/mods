@@ -1,0 +1,12 @@
+{
+  "api": "tgg-melee/0",
+  "id": "tgg.practice-menu",
+  "name": "Practice",
+  "version": "0.1.0",
+  "description": "Adds Practice to 1-P Mode: every practice drill you have installed, in one menu.",
+  "icon": "icon.png",
+  "class": "offline",
+  "tags": [
+    "training"
+  ]
+}
