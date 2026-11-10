@@ -1,0 +1,19 @@
+{
+  "api": "tgg-melee/0",
+  "id": "tgg.stadium-monitor",
+  "name": "Camera-free Stadium monitor",
+  "version": "0.1.3",
+  "description": "Pokémon Stadium's big screen no longer depends on the camera, as in Slippi.",
+  "icon": "icon.png",
+  "tags": [
+    "competitive",
+    "stage"
+  ],
+  "slippi": [
+    {
+      "code": "0x801D24FC",
+      "name": "PS Camera Independent Monitor",
+      "versions": "*"
+    }
+  ]
+}
