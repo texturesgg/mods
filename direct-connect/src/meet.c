@@ -16,6 +16,7 @@
 #include "tgg/account.h"
 #include "tgg/events.h"
 #include "tgg/mod.h"
+#include "tgg/net.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,6 +35,10 @@ static struct {
     char want_code[16];
     http_ws* ws;
     int sent_hello, sent_room, sent_candidates, reported;
+    double met_ms;        /* when the meeting point said go */
+    int relay_asked;      /* the host asked for a relay */
+    int relay_told;       /* and told the others its address */
+    double bytes_told, bytes_ms; /* relay bytes reported so far, and when */
     char peer_name[64];
 } m;
 
@@ -313,6 +318,7 @@ static void got_meet(const char* msg)
         fail(why != NULL ? why : "Netplay couldn't start.");
         return;
     }
+    m.met_ms = tgg_net_time_ms();
     m.st.state = MEET_PUNCHING;
     m.step = STEP_PUNCH;
 }
@@ -350,6 +356,36 @@ static void got_room(const char* msg)
     }
 }
 
+/* The host: bytes through the relay since the last report, when there are some and
+ * `due` */
+static void report_relay_bytes(int due)
+{
+    const double bytes = netplay_relay_bytes();
+    if (!due || bytes <= m.bytes_told || m.ws == NULL) {
+        return;
+    }
+    char msg[96];
+    snprintf(msg, sizeof msg, "{\"type\":\"relay.bytes\",\"bytes\":%.0f}", bytes - m.bytes_told);
+    send_json(msg);
+    m.bytes_told = bytes;
+    m.bytes_ms = tgg_net_time_ms();
+}
+
+/* The host: relay credentials from the meeting point */
+static void got_relay(const char* msg)
+{
+    char server[128], user[256], pass[256];
+    const char* why = NULL;
+    if (!text(msg, "server", server, sizeof server) || !text(msg, "username", user, sizeof user) ||
+        !text(msg, "credential", pass, sizeof pass))
+    {
+        return;
+    }
+    if (netplay_relay(server, user, pass, &why) != 0) {
+        tgg_log("meet: no relay: %s", why != NULL ? why : "?");
+    }
+}
+
 static void got(const char* msg)
 {
     char type[24];
@@ -363,6 +399,16 @@ static void got(const char* msg)
         got_room(msg);
     } else if (strcmp(type, "meet") == 0) {
         got_meet(msg);
+    } else if (strcmp(type, "relay") == 0) {
+        got_relay(msg);
+    } else if (strcmp(type, "relay.peer") == 0) {
+        char addr[64];
+        if (text(msg, "addr", addr, sizeof addr) && m.st.side > 0) {
+            const char* addrs[1] = {addr};
+            const char* kinds[1] = {"relay"};
+            tgg_log("meet: the host is also at %s, through a relay", addr);
+            netplay_add_candidates(addrs, kinds, 1);
+        }
     } else if (strcmp(type, "closed") == 0) {
         char why[200];
         if (m.step != STEP_DONE) {
@@ -374,6 +420,32 @@ static void got(const char* msg)
             fail(why);
         }
     }
+}
+
+/* The host: no direct way through after 3 seconds, so ask for a relay and tell the
+ * others its address; once relayed, report its bytes each minute */
+static void relay_step(void)
+{
+    const double now = tgg_net_time_ms();
+    double ms = 0;
+    if (m.st.side != 0) {
+        return;
+    }
+    if (m.step == STEP_PUNCH && !m.relay_asked && netplay_route(&ms)[0] == '\0' &&
+        now - m.met_ms > 3000)
+    {
+        m.relay_asked = 1;
+        tgg_log("meet: no direct way through yet; asking for a relay");
+        send_json("{\"type\":\"relay.request\"}");
+    }
+    char addr[64];
+    if (m.relay_asked && !m.relay_told && netplay_relay_address(addr, sizeof addr) == 1) {
+        char msg[128];
+        m.relay_told = 1;
+        snprintf(msg, sizeof msg, "{\"type\":\"relay.ready\",\"addr\":\"%s\"}", addr);
+        send_json(msg);
+    }
+    report_relay_bytes(now - m.bytes_ms > 60000);
 }
 
 /* What to tell the player when the games couldn't reach each other */
@@ -487,6 +559,7 @@ static void step(void)
         m.sent_room = 1;
         m.step = STEP_ROOM;
     }
+    relay_step();
     if (m.step == STEP_PUNCH) {
         netplay_info info;
         netplay_status(&info);
@@ -557,6 +630,7 @@ void meet_leave(void)
 {
     if (m.ws != NULL) {
         if (http_ws_state(m.ws) == HTTP_WS_OPEN) {
+            report_relay_bytes(1);
             send_json("{\"type\":\"room.leave\"}");
         }
         http_ws_close(m.ws);
