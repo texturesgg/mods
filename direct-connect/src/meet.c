@@ -316,7 +316,12 @@ static void got_meet(const char* msg)
 
 static void got_room(const char* msg)
 {
+    char was[sizeof m.st.code];
+    snprintf(was, sizeof was, "%s", m.st.code);
     text(msg, "code", m.st.code, sizeof m.st.code);
+    if (strcmp(was, m.st.code) != 0) {
+        tgg_log("meet: in room %s", m.st.code);
+    }
     m.st.n_members = 0;
     const char* list = member(msg, "members");
     const char* p = list != NULL ? ws_skip(list) : NULL;
