@@ -138,6 +138,7 @@ int replay_playing(void)
 static void on_setup(const StartMeleeData* data)
 {
     (void) data;
+    unlocks_follow(loaded); /* before the setup reads the save */
     if (loaded && !st.set_up) {
         st.set_up = 1;
         *HSD_RandSeedPtr = slp.start_seed;
@@ -257,6 +258,7 @@ static void reset_controls(void)
 /* The controls, and the replay's end, once per displayed frame */
 static void on_frame(void)
 {
+    unlocks_follow(loaded);
     const int in_match = tgg_in_match();
     if (!in_match) {
         if (view.was_in_match) {

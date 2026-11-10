@@ -14,6 +14,9 @@ typedef struct StartMeleeData StartMeleeData;
 void player_match(const Slp* slp, StartMeleeData* start);
 /* Logs the replay and the Slippi rules its console ran. */
 void player_log_rules(const Slp* slp);
+
+/* unlocks.c: everything unlocked while `playing`, this game's save kept */
+void unlocks_follow(int playing);
 /* The Slippi rule mods a console's gecko list (and its Stadium
  * transformations, -1 when unknown) call for, ", "-separated into `out`;
  * with `missing_only`, only those that aren't loaded. Returns how many. */
