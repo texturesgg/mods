@@ -30,7 +30,7 @@ typedef struct Keys {
     int pause, step, faster, slower, normal, leave, rewind, take;
 } Keys;
 
-/* takeover.c: rewinding, and taking over from a replay */
+/* takeover.c: rewinding, skipping ahead, and taking over from a replay */
 enum { TAKE_RECORDING = -1, TAKE_STILL = -2 }; /* else a controller, 0 to 3 */
 /* A new replay's match */
 void takeover_reset(const StartMeleeData* match);
@@ -44,6 +44,8 @@ int takeover_source(int port);
 void takeover_advance(int replay_frame);
 /* Back a couple of seconds; 0 or -1 */
 int takeover_rewind(int replay_frame);
+/* Ahead about 10 seconds, fast */
+void takeover_skip(void);
 /* Opens the takeover panel, `controller` (0 to 3) playing the first player */
 void takeover_open(int controller);
 int takeover_panel_shown(void);

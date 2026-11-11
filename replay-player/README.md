@@ -1,8 +1,8 @@
 # Replay player
 
 Plays a Slippi replay (`.slp`) in tgg-melee. You watch the match as it was played: pause it,
-step through it a frame at a time, speed it up or slow it down, or go back a couple of
-seconds. At any frame you can take over and play from there with your own controllers.
+step through it a frame at a time, speed it up or slow it down, go back a couple of seconds
+or skip ahead. At any frame you can take over and play from there with your own controllers.
 
 ## For players
 
@@ -16,7 +16,7 @@ TGG_REPLAY_PLAYER_FILE=~/Slippi/Game_20250101T120000.slp tgg mod dev
 | Key | Button | Does |
 |---|---|---|
 | space | Start | pause, play |
-| `.` or right arrow | D-pad right | one frame, while paused |
+| `.` or right arrow | D-pad right | one frame while paused; skip ahead 10 seconds while playing |
 | `,` or left arrow | D-pad left | back about 2 seconds (as far as the last 30 seconds) |
 | `=` or up arrow | D-pad up | twice as fast (up to 4x) |
 | `-` or down arrow | D-pad down | half as fast (down to 1/16x) |
@@ -25,7 +25,7 @@ TGG_REPLAY_PLAYER_FILE=~/Slippi/Game_20250101T120000.slp tgg mod dev
 | Escape | B | back to the screen that started it |
 
 The controls are the viewer's own keyboard and controllers, whatever the replay plays on
-the game's ports. The corner shows when the replay is paused or sped up.
+the game's ports. The corner shows when the replay is paused, sped up or skipping ahead.
 Started from the environment, the match pauses when the replay ends. In a game restarted to
 play it (see the port's [restart docs](https://textures.gg/docs/mods/latest/restart)), the
 player's own game comes back when the match is over or they leave.
@@ -83,7 +83,7 @@ src/slp.c      reading the replay
 src/summary.c  the summary other mods read
 src/setup.c    the replay's match setup, and the rule mods it needs
 src/keys.c     the viewer's keys and buttons (tgg/input.h)
-src/takeover.c rewinding and taking over: snapshots and the panel
+src/takeover.c rewinding, skipping ahead and taking over: snapshots, fast forward, the panel
 ```
 
 - The match comes from the replay's Game Info block (the console's `StartMeleeData`) via
@@ -99,7 +99,7 @@ src/takeover.c rewinding and taking over: snapshots and the panel
 - `frame` reads the viewer's controls and calls `tgg_pause`, `tgg_step` and
   `tgg_set_speed`, which change when frames run, never what they do.
 - `advance` keeps a snapshot (`tgg/snapshot.h`) about once a second for the last 30
-  seconds; going back loads one.
+  seconds; going back loads one, and skipping ahead is `tgg_fast_forward`.
 - Taking over: a snapshot marks the moment, and from then `pad_read` gives each taken port
   that controller's own report (`tgg_pad_process`), a port standing still a released
   controller, and the rest the recording, without setting the RNG seed any more. Who plays

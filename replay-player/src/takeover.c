@@ -3,7 +3,8 @@
  *
  * While a replay plays, a snapshot (tgg/snapshot.h) is kept about once a
  * second for the last REWIND_KEEP seconds, so the viewer can go back a couple
- * of seconds at a time.
+ * of seconds at a time, and skipping ahead fast-forwards (tgg_fast_forward),
+ * taking those snapshots on the way.
  *
  * Taking over: the viewer picks, for each player in the replay, whether the
  * recording keeps playing them, they stand still, or one of the viewer's
@@ -35,6 +36,8 @@
 #define REWIND_EVERY 60
 #define REWIND_KEEP 30
 #define REWIND_BACK 120
+/* Logic frames one skip ahead runs */
+#define SKIP 600
 
 static struct {
     tgg_snapshot* snap;
@@ -174,6 +177,7 @@ int takeover_rewind(int replay_frame)
     if (best < 0 || tgg_snapshot_load(ring[best].snap) != TGG_SNAPSHOT_OK) {
         return -1;
     }
+    tgg_fast_forward(0); /* going back ends a skip ahead */
     /* what came after it gets played (and kept) again */
     const int to = ring[best].frame;
     for (int i = 0; i < REWIND_KEEP; i++) {
@@ -187,6 +191,13 @@ int takeover_rewind(int replay_frame)
     return 0;
 }
 
+void takeover_skip(void)
+{
+    if (!taken) {
+        tgg_fast_forward(SKIP);
+        tgg_log("skipping ahead %d frames", SKIP);
+    }
+}
 
 /* ---- The panel ----------------------------------------------------------- */
 
@@ -217,6 +228,7 @@ void takeover_open(int controller)
         return;
     }
     panel = 1;
+    tgg_fast_forward(0);
     panel_was_paused = tgg_paused();
     tgg_pause(1);
     panel_row = -1;

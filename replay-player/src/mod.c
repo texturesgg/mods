@@ -18,7 +18,7 @@
  *   pause can end, then the next recorded frame presses Start again.
  *
  * The viewer's keys and controllers (keys.c) pause, step a frame, change the
- * speed, go back, take over (takeover.c: from then on chosen
+ * speed, go back or skip ahead, take over (takeover.c: from then on chosen
  * ports play from the viewer's controllers) and, for a replay a screen
  * started, leave it. Booted from the
  * environment, the match pauses when the replay ends, unless the game was
@@ -365,7 +365,11 @@ static void on_frame(void)
                 tgg_paused() ? st.frame - 1 : st.frame);
     }
     if (k.step) {
-        tgg_step(1);
+        if (tgg_paused()) {
+            tgg_step(1);
+        } else {
+            takeover_skip();
+        }
     }
     if (k.rewind) {
         takeover_rewind(st.frame);
@@ -393,7 +397,9 @@ static void on_hud(void)
     }
     char text[48];
     text[0] = '\0';
-    if (tgg_paused()) {
+    if (tgg_fast_forwarding() > 0) {
+        snprintf(text, sizeof text, "Skipping ahead");
+    } else if (tgg_paused()) {
         snprintf(text, sizeof text, "Paused");
     } else if (tgg_speed() != 1.0f) {
         snprintf(text, sizeof text, tgg_speed() > 1 ? "%gx" : "1/%gx",
@@ -406,7 +412,7 @@ static void on_hud(void)
         tgg_draw_text(b.x + 26, 20, 22, TGG_RGBA(255, 255, 255, 255), TGG_ALIGN_LEFT, text);
     }
     if (from_screen && view.shown_frames < 240) {
-        const char* help = "Start: Pause    Left: Back    X: Take over    B: Back";
+        const char* help = "Start: Pause    Left/Right: Back/Ahead    X: Take over    B: Back";
         const float w = tgg_text_width(18, help) + 24;
         tgg_draw_rect(320 - w / 2, 4, w, 26, TGG_RGBA(0, 0, 0, 150));
         tgg_draw_text(320, 8, 18, TGG_RGBA(220, 225, 240, 255), TGG_ALIGN_CENTER, help);
