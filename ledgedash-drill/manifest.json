@@ -2,7 +2,7 @@
   "api": "tgg-melee/0",
   "id": "tgg.ledgedash-drill",
   "name": "Ledge dash drill",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Practice > Ledge dash: hang on the ledge once, and every try puts you back there.",
   "icon": "icon.png",
   "class": "offline",

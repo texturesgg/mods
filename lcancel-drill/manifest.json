@@ -2,7 +2,7 @@
   "api": "tgg-melee/0",
   "id": "tgg.lcancel-drill",
   "name": "L-cancel drill",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Practice > L-cancel: just you on the stage, with your L-cancel timing after every aerial.",
   "icon": "icon.png",
   "class": "offline",

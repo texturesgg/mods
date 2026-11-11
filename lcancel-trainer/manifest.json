@@ -2,7 +2,7 @@
   "api": "tgg-melee/0",
   "id": "tgg.lcancel-trainer",
   "name": "L-cancel trainer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shows whether each aerial landing was L-canceled, and by how many frames you missed.",
   "icon": "icon.png",
   "tags": [
