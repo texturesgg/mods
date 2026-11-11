@@ -4,8 +4,8 @@ The Universal Controller Fix as Slippi ran it up to 3.16: the three codes of
 slippi-ssbm-asm's `External/UCF 0.8/Logic/`, dashback, shield drop and tumble wiggle. Replays
 from those versions play back with it.
 
-The port has the newer UCF 0.84 (Slippi 3.17 and later) built in, on by default. Both replace
-the same spot dodge checks, so turn the built-in one off to use this: `TGG_UCF=0`.
+The newer UCF 0.84 (Slippi 3.17 and later) is `tgg.ucf`. Both replace the same spot dodge
+checks, so only one can be on: turn `tgg.ucf` off to use this.
 
 ```text
 manifest.json    the mod's id, name and version

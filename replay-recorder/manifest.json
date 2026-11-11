@@ -2,7 +2,7 @@
   "api": "tgg-melee/0",
   "id": "tgg.replay-recorder",
   "name": "Replay recorder",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Saves every VS match as a Slippi replay (.slp).",
   "icon": "icon.png",
   "tags": [
