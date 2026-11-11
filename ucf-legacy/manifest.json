@@ -2,7 +2,7 @@
   "api": "tgg-melee/0",
   "id": "tgg.ucf-legacy",
   "name": "UCF (Slippi 3.16 and earlier)",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "slippi": [
     {
       "code": "0x800908F4",

@@ -81,7 +81,7 @@ static void on_turn(Fighter_GObj* gobj, tgg_turn* turn)
     }
     turn->smash = 1;
 
-    if (fp->kind != Ft_Kind_Popo) {
+    if (FT_CODE(fp->kind) != Ft_Kind_Popo) {
         return;
     }
     Fighter_GObj* nana = Player_GetEntityAtIndex(fp->player_idx, 1);

@@ -118,7 +118,7 @@ static void on_input(Fighter_GObj* gobj, tgg_input* input)
 
     /* Farore's Wind aims with the stick's exact value */
     _Static_assert(ftZd_MS_SpecialHiStart_0 == 349, "UCF's Farore's Wind start state");
-    if (!(fp->kind == Ft_Kind_Zelda && fp->motion_id == ftZd_MS_SpecialHiStart_0)) {
+    if (!(FT_CODE(fp->kind) == Ft_Kind_Zelda && fp->motion_id == ftZd_MS_SpecialHiStart_0)) {
         snap_cardinal(raw->stickX, raw->stickY, &input->stick_x, &input->stick_y);
         snap_cardinal(raw->substickX, raw->substickY, &input->cstick_x, &input->cstick_y);
     }

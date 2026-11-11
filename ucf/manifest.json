@@ -2,7 +2,7 @@
   "api": "tgg-melee/0",
   "id": "tgg.ucf",
   "name": "UCF",
-  "version": "0.84.0",
+  "version": "0.84.1",
   "description": "The Universal Controller Fix: dashback, shield drop, 1.0 cardinals, SDI, tumble and crouch release, as Slippi 3.17 and later run it.",
   "icon": "icon.png",
   "tags": [
