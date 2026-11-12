@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1
+
+- A rematch after a boot match no longer hangs: both games count it as match 2.
+
 ## 0.6.0
 
 - Two to four games in a session.

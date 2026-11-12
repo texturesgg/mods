@@ -1340,6 +1340,8 @@ static void init(void)
     const char* boot = getenv("TGG_BOOT_MATCH");
     if (is_replay || (boot != NULL && boot[0] != '\0')) {
         match_expect_boot();
+        /* The boot's match is match 1: the next is 2 */
+        sn.last_number = 1;
     }
 }
 TGG_INIT(init);
