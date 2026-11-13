@@ -28,8 +28,8 @@ Off in netplay: an offline mod, switched off by the game for a netplay session.
 
 - `practice_start(&how)` from a menu entry's action: opens Training Mode's character select,
   and the match after it is your drill's (`how.drill` is your mod id; `keep_cpu` and
-  `keep_screen` keep what you want of Training; `stage`, a `StKind`, is where the stage select
-  starts, still free to move).
+  `keep_screen` keep what you want of Training; `stage`, a content id like
+  `"melee/final-destination"` (NULL for the default), is where the stage select starts, still free to move).
 - `practice_drill()`: the drill this Training Mode was started for, or NULL.
 - `practice_reset_here()` keeps this moment as the reset point ("Ready" shows), and
   `practice_reset(say)` goes back to it ("Reset" shows when `say` is nonzero, for a reset the

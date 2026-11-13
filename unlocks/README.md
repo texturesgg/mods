@@ -12,6 +12,6 @@ Every character, stage, unlockable and trophy is unlocked, as on Slippi.
 
 ## For mod makers
 
-`src/mod.c` is two after hooks: after the game resets the save block that holds the unlocks
-(`gmMainLib_8015F600`), and after it loads a save from the card (`gmMainLib_8015FA34`). Both
-call the game's own unlock-everything functions, the ones its debug build runs.
+`src/mod.c` is one `save_loaded` event that calls `tgg_save_unlock_all()`: the game's own
+unlock-everything functions, the ones its debug build runs. It logs when the save had
+something still locked.

@@ -24,14 +24,10 @@
 #include "tgg/files.h"
 #include "tgg/input.h"
 #include "tgg/menu.h"
+#include "tgg/mode.h"
 #include "tgg/screen.h"
 #include "tgg/session.h"
 #include "tgg/settings.h"
-
-#include <melee/gm/forward.h>
-#include <melee/gm/gm_1601.h>
-#include <melee/mn/types.h>
-#include <melee/pl/forward.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -684,17 +680,17 @@ static void init(void)
         snprintf(rejoin, sizeof rejoin, "join:%s", then);
         autostart = rejoin;
         tgg_log("restarted with the host's mods: joining %s", then);
-        tgg_boot_mode(GM_MENU);
+        tgg_boot_mode(TGG_MODE_MENU);
         return;
     }
     if (tgg_restarted("tgg.direct-connect") != NULL) {
         tgg_log("back in this player's own game after netplay");
-        tgg_boot_mode(GM_MENU);
+        tgg_boot_mode(TGG_MODE_MENU);
         return;
     }
     autostart = getenv("TGG_DIRECT_CONNECT");
     if (autostart != NULL && autostart[0] != '\0') {
-        tgg_boot_mode(GM_MENU);
+        tgg_boot_mode(TGG_MODE_MENU);
     } else {
         autostart = NULL;
     }

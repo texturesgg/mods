@@ -13,10 +13,10 @@
 #include "tgg/control.h"
 #include "tgg/settings.h"
 
-#include <melee/gm/forward.h>
+#include "tgg/mode.h"
 
 /* Where the game starts, in the order of the choices below */
-static const int modes[] = { GM_MENU, GM_VS, GM_TRAINING };
+static const int modes[] = { TGG_MODE_MENU, TGG_MODE_VS, TGG_MODE_TRAINING };
 
 static int start;
 TGG_SETTING_CHOICE_LOCAL(start, "start", "Start at", 0, "Main menu", "VS mode", "Training mode");

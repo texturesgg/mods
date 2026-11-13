@@ -22,8 +22,9 @@ typedef struct practice_how {
     const char* drill; /* the drill's mod id, what practice_drill() answers */
     int keep_cpu;      /* nonzero: leave Training's CPU in */
     int keep_screen;   /* nonzero: leave Training's readouts on screen */
-    int stage;         /* a StKind the stage select starts on (still free to
-                        * move), or 0 */
+    const char* stage; /* the stage the stage select starts on, as a content
+                        * id ("melee/final-destination"; still free to move),
+                        * or NULL */
 } practice_how;
 
 /* From a menu entry's action: opens Training Mode's character select, and

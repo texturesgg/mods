@@ -16,6 +16,7 @@
  * An offline mod ("class": "offline"): the port switches it off for netplay.
  */
 #include "practice_stage.h"
+#include "tgg/content.h"
 
 #include "tgg/game/hooks.h"
 #include "tgg/draw.h"
@@ -248,7 +249,7 @@ TGG_ON(match_start, on_match_start_placed);
 
 static void before_sss_cursor(HSD_GObj* gobj)
 {
-    if (!drill.on || drill.how.stage == 0 || stage_icons == NULL || sss_frames > SETTLED) {
+    if (!drill.on || drill.how.stage == NULL || stage_icons == NULL || sss_frames > SETTLED) {
         return;
     }
     HSD_JObj* cursor = HSD_GObjGetHSDObj(gobj);
@@ -265,7 +266,7 @@ static void before_sss_cursor(HSD_GObj* gobj)
         return;
     }
     for (int i = 0; i < 30; i++) {
-        if (stage_icons[i].stkind == drill.how.stage && stage_icons[i].shown &&
+        if (stage_icons[i].stkind == tgg_stage_kind(drill.how.stage) && stage_icons[i].shown &&
             stage_icons[i].icon != NULL)
         {
             Vec3 at;

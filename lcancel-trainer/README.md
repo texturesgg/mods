@@ -26,17 +26,17 @@ Both are yours alone: they don't change the game, so they don't matter for netpl
 
 `src/mod.c`, in one file:
 
-- A before hook on `ftCo_LandingAir_EnterWithLag`, where the game picks an aerial's landing
-  lag, reads the frames since L, R or Z was pressed (`fp->x67F`) and the game's window
-  (`p_ftCommonData->xE4`). Inside it: an L-cancel. Up to 20 frames before it: early, by that
-  many frames.
-- Otherwise `fighter_update` watches the landing lag for a press: late, by the frames since
-  the landing. Leaving the landing with no press: missed.
+- The `fighter_land` event comes when an aerial's landing lag is picked, with the frames since
+  L, R or Z was pressed (`press_age`) and the game's window (`window`). Inside it: an L-cancel.
+  Up to 20 frames before it: early, by that many frames.
+- Otherwise `fighter_update` watches the landing lag for a press
+  (`tgg_fighter_cancel_press_age`): late, by the frames since the landing. Leaving the landing
+  with no press: missed.
 - Each result is kept in `TGG_STATE`, so it comes out right through a rollback. The `advance`
   event counts a result once its frame is final (`tgg_frame_final`), and `hud_draw` draws it
-  above the player's percent, where the game's HUD puts it.
+  above the player's percent (`tgg_player_hud_x` / `tgg_player_hud_y`).
 
-It only reads: before hooks and `fighter_update`, no replaced function and no `pad_read`.
+It only reads: stable-tier events and calls, no game symbols and no `pad_read`.
 
 ## Build
 

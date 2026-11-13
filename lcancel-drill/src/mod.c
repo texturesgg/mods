@@ -21,7 +21,7 @@
 
 static void start(void)
 {
-    static const practice_how how = { .drill = ID, .stage = 32 /* Final Destination */ };
+    static const practice_how how = { .drill = ID, .stage = "melee/final-destination" };
     practice_start(&how);
 }
 

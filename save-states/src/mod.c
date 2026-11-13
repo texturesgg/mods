@@ -20,11 +20,9 @@
 #include "tgg/events.h"
 #include "tgg/input.h"
 #include "tgg/menu.h"
+#include "tgg/mode.h"
 #include "tgg/settings.h"
 #include "tgg/snapshot.h"
-
-#include <melee/gm/forward.h>
-#include <melee/gm/gm_1A3F.h>
 
 #include <stddef.h>
 #include <string.h>
@@ -100,7 +98,7 @@ static int usable(void)
         return tgg_in_match() && strcmp(drill, "tgg.save-states") == 0;
     }
     return tgg_in_match() && !replay_playing() &&
-           (where == WHERE_EVERY_MATCH || gm_GetCurrentGameMode() == GM_TRAINING);
+           (where == WHERE_EVERY_MATCH || tgg_mode() == TGG_MODE_TRAINING);
 }
 
 /* What went down on any controller since the last displayed frame */

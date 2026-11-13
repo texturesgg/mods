@@ -14,13 +14,9 @@ screen, as Slippi does.
 ## For mod makers
 
 The results screen only shows the match. The records are written when VS mode leaves its
-results step (`gmVsMelee_ExitResults`, `gm_801623A4`), whatever the screen did. So the mod
-keeps the step and leaves out the screen (`src/mod.c`):
-
-- `TGG_REPLACE` on `gm_Scene_Results_OnEnter` builds nothing in VS mode and calls
-  `TGG_ORIGINAL` in every other mode.
-- A `tick` event ends the scene (`gm_801A4B60`) on the next frame. Ending it from the setup
-  wouldn't stick: the scene loop clears an end asked for before it starts.
+results step, whatever the screen did. So the mod keeps the step and leaves out the screen
+(`src/mod.c`): the `results_enter` event sets `skip` in VS mode (`tgg_mode() == TGG_MODE_VS`),
+and every other mode shows its results.
 
 ## Build
 

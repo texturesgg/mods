@@ -5,60 +5,40 @@
  * percent where it stops are the game's own. Matches Slippi's online code
  * (slippi-ssbm-asm Online/Core/BrawlOffscreenDamage.asm).
  *
- * Each frame Fighter_procAnim asks ifMagnify_802FC998 whether the fighter is
- * in a bubble. This answers that one question from the camera bounds instead;
- * the bubbles on screen still come from the game's own answer.
+ * The game asks each frame whether the fighter counts as off screen (the
+ * fighter_check event's TGG_CHECK_OFFSCREEN_DAMAGE); this answers from the
+ * camera bounds. The bubbles on screen still come from the game's own answer.
  */
-#include "tgg/game/hooks.h"
+#include "tgg/action.h"
+#include "tgg/events.h"
+#include "tgg/fighter.h"
+#include "tgg/mode.h"
+#include "tgg/stage.h"
 
-#include <melee/ft/fighter.h>
-#include <melee/ft/kinds/ftCommon/forward.h>
-#include <melee/ft/types.h>
-#include <melee/gm/forward.h>
-#include <melee/gm/gm_1A3F.h>
-#include <melee/gr/stage.h>
-#include <melee/if/ifmagnify.h>
-
-/* The fighter Fighter_procAnim is running for, while it runs */
-static const Fighter* animating;
-
-static void before_anim(Fighter_GObj* gobj)
-{
-    animating = GET_FIGHTER(gobj);
-}
-TGG_BEFORE(Fighter_procAnim, before_anim);
-
-static void after_anim(Fighter_GObj* gobj)
-{
-    (void) gobj;
-    animating = NULL;
-}
-TGG_AFTER(Fighter_procAnim, after_anim);
-
-static bool outside_camera(const Fighter* fp)
+static int outside_camera(tgg_fighter fighter)
 {
     /* The Home-Run Contest's Sandbag never takes offscreen damage */
-    if (gm_GetCurrentGameMode() == GM_HOME_RUN_CONTEST) {
-        return false;
+    if (tgg_mode() == TGG_MODE_HOME_RUN_CONTEST) {
+        return 0;
     }
     /* Nor does a fighter already KO'd, or flying into the screen or the
      * distance on a star or screen KO */
-    if (fp->x221F_b1 || fp->motion_id == ftCo_MS_DeadUpStar ||
-        fp->motion_id == ftCo_MS_DeadUpFall)
+    const int action = tgg_fighter_action(fighter);
+    if (tgg_fighter_out_of_play(fighter) || action == TGG_ACTION_DEAD_UP_STAR ||
+        action == TGG_ACTION_DEAD_UP_FALL)
     {
-        return false;
+        return 0;
     }
-    return fp->cur_pos.x < Stage_GetCamBoundsLeftOffset() ||
-           fp->cur_pos.x > Stage_GetCamBoundsRightOffset() ||
-           fp->cur_pos.y > Stage_GetCamBoundsTopOffset() ||
-           fp->cur_pos.y < Stage_GetCamBoundsBottomOffset();
+    const float x = tgg_fighter_x(fighter);
+    const float y = tgg_fighter_y(fighter);
+    return x < tgg_stage_camera_left() || x > tgg_stage_camera_right() ||
+           y > tgg_stage_camera_top() || y < tgg_stage_camera_bottom();
 }
 
-static bool in_bubble(s32 slot)
+static void on_check(tgg_fighter fighter, tgg_check* check)
 {
-    if (animating != NULL) {
-        return outside_camera(animating);
+    if (check->kind == TGG_CHECK_OFFSCREEN_DAMAGE) {
+        check->pass = outside_camera(fighter);
     }
-    return TGG_ORIGINAL(ifMagnify_802FC998)(slot);
 }
-TGG_REPLACE(ifMagnify_802FC998, in_bubble);
+TGG_ON(fighter_check, on_check);

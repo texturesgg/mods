@@ -67,8 +67,8 @@ for manifest in "$root"/*/manifest.json; do
     fi
 
     # The rest of what makes a mod game tier
-    for marker in TGG_GAME_SYMBOL TGG_GAME_FN TGG_ORIGINAL TGG_FIGHTER TGG_STAGE 'tgg/game/'; do
-        if grep -qE "${marker}" "${files[@]}" 2>/dev/null; then reasons+=("uses ${marker}"); fi
+    for marker in TGG_GAME_SYMBOL TGG_GAME_FN TGG_ORIGINAL 'TGG_FIGHTER[[:space:]]*\(' 'TGG_STAGE[[:space:]]*\(' 'tgg/game/'; do
+        if grep -qE "${marker}" "${files[@]}" 2>/dev/null; then reasons+=("uses ${marker%%\[*}"); fi
     done
 
     # What it links against, from its build's import list

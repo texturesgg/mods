@@ -18,15 +18,13 @@ them.
 
 ## For mod makers
 
-The game stores each player's starting position with `Player_80032768` while it sets up
-the match's players (`fn_8016E2BC`). `src/mod.c`:
+`src/mod.c` is one `player_spawn` event: the game is placing a player at the start of a
+match, and the mod moves `x`, `y` and `facing` before it does.
 
-- `TGG_BEFORE` / `TGG_AFTER` on `fn_8016E2BC` mark the setup, so the mod only touches
-  spawns stored there.
-- `TGG_BEFORE` on `Player_80032768` rewrites the position argument before the game stores
-  it, then sets the facing direction with `Player_SetFacingDirection`.
-- The spawn table holds one set of points for singles and one for teams per stage
-  (`StKind` numbers). Other stages read the stage's own points with `Stage_80224E64`.
+- `tgg_stage()` is the stage's content id. The spawn table holds one set of points for singles
+  and one for teams per stage.
+- Other stages keep the stage's own points, read with `tgg_stage_spawn_x` / `tgg_stage_spawn_y`.
+- Teams come from `tgg_player_team`, and 1P modes (`tgg_mode_single_player`) are left alone.
 
 ## Build
 

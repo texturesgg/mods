@@ -18,13 +18,9 @@ Final Destination, Dream Land, Yoshi's Story, Fountain of Dreams and Pokémon St
 ## For mod makers
 
 - The `stage_offered` event turns every other stage off (`TGG_STAGE_OFF`): faded, in its place.
-The list lives in the save (`GamePrefs.stage_mask`), so the mod only writes it after the
-game sets it up (`src/mod.c`):
-
-- `TGG_AFTER` on `gmMainLib_8015F600` (the save block holding the list is reset: at start,
-  for a new save, and on erase) and on `gmMainLib_8015FA34` (the save loads).
-- `TGG_GAME_SYMBOL` reads `gmMainLib_DefaultGamePrefs`, to tell an untouched list from one
-  the player changed.
+  Stages are content ids (`"melee/battlefield"`), compared with `strcmp`.
+- `save_loaded` writes the Random Stage Switch list with `tgg_save_set_random_stage`, only
+  while `tgg_save_random_stages_untouched()` says the player hasn't changed it.
 
 ## Build
 

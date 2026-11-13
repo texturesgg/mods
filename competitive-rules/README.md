@@ -27,13 +27,12 @@ Netplay: this is a code mod, so it counts toward the mod-set. Every player needs
 
 ## For mod makers
 
-All in `src/mod.c`:
+`src/mod.c` uses two save events and the save calls (`tgg/save.h`):
 
-- `TGG_AFTER` on `gmMainLib_8015FBA4` (the game resets its rules at start and on erase)
-  writes the competitive rules.
-- `TGG_AFTER` on `gmMainLib_8015FA34` (the save loads) turns items off when the item
-  switch is the game's default, read with `TGG_GAME_SYMBOL` from
-  `gmMainLib_DefaultGamePrefs`.
+- `rules_defaults` (the game resets its rules: at start and on erase) writes the competitive
+  rules with `tgg_save_set_rule`.
+- `save_loaded` turns items off when the item switch is still the game's default
+  (`tgg_save_rule_default`), so a player's own choice stays.
 
 ## Build
 

@@ -17,10 +17,10 @@ is, not on the camera.
 
 ## For mod makers
 
-`grStadium_801D32D0` places the close-up and answers whether it fits on screen.
-`src/mod.c` replaces it with `TGG_REPLACE`, calls `TGG_ORIGINAL` so the close-up is still
-placed, and returns its own answer from the fighter's position. It's the shortest example
-of keeping a function's side effects and changing only its return value.
+The game places the close-up and asks whether it fits on screen. `src/mod.c` answers with
+the `fighter_check` event, kind `TGG_CHECK_STADIUM_CLOSE_UP`, from the fighter's position. The
+close-up is still placed by the game; only the answer changes. It's the shortest example of a
+check.
 
 ## Build
 

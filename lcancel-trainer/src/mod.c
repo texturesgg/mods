@@ -3,36 +3,25 @@
  * line by the player's percent says whether it was, and by how many frames it
  * was missed, with the running rate.
  *
- * It reads the game's own decision. When a fighter lands from an aerial,
- * ftCo_LandingAir_EnterWithLag halves the landing lag if L, R or Z was
- * pressed fewer than p_ftCommonData->xE4 (7) frames before (fp->x67F counts
- * the frames since). A before hook there reads both, so "early" is exact and
- * analog presses count as the game counts them. A press during the landing
- * lag after a miss counts as late, by the frames since the landing.
+ * It reads the game's own decision. When a fighter lands from an aerial, the
+ * game halves the landing lag if L, R or Z was pressed fewer than the window
+ * (7) frames before; the fighter_land event passes both, so "early" is exact
+ * and analog presses count as the game counts them. A press during the
+ * landing lag after a miss counts as late, by the frames since the landing.
  *
- * Display only: before hooks and fighter_update, which only read. The result
+ * Display only: fighter_land and fighter_update, which only read. The result
  * of each landing is simulation state (TGG_STATE), so it's right through a
  * rollback; the rate is counted from presentation code once a landing's frame
  * is final, so a frame run again is never counted twice.
  */
-#include "tgg/game/bridge.h"
-#include "tgg/game/hooks.h"
+#include "tgg/action.h"
 #include "tgg/draw.h"
 #include "tgg/events.h"
+#include "tgg/fighter.h"
+#include "tgg/mode.h"
+#include "tgg/player.h"
 #include "tgg/rollback.h"
 #include "tgg/settings.h"
-
-#include <melee/ft/fighter.h>
-#include <melee/ft/inlines.h>
-#include <melee/ft/kinds/ftCommon/ftCo_LandingAir.h>
-#include <melee/ft/types.h>
-#include <melee/gm/forward.h>
-#include <melee/gm/gm_1A3F.h>
-#include <melee/if/ifstatus.h>
-#include <melee/if/types.h>
-#include <melee/pl/player.h>
-#include <sysdolphin/baselib/gobj.h>
-#include <sysdolphin/baselib/jobj.h>
 
 #include <limits.h>
 #include <stdio.h>
@@ -96,29 +85,28 @@ static void on_tick(void)
 }
 TGG_ON(tick, on_tick);
 
-static int is_aerial(int msid)
+static int is_aerial(int action)
 {
-    return msid >= ftCo_MS_AttackAirN && msid <= ftCo_MS_AttackAirLw;
+    return action >= TGG_ACTION_ATTACK_AIR_N && action <= TGG_ACTION_ATTACK_AIR_LW;
 }
 
-static int is_aerial_landing(int msid)
+static int is_aerial_landing(int action)
 {
-    return msid >= ftCo_MS_LandingAirN && msid <= ftCo_MS_LandingAirLw;
+    return action >= TGG_ACTION_LANDING_AIR_N && action <= TGG_ACTION_LANDING_AIR_LW;
 }
 
 /* A fighter touches down: the game is about to pick the landing lag */
-static void before_landing(Fighter_GObj* gobj)
+static void on_land(tgg_fighter fighter, const tgg_landing* land)
 {
-    const Fighter* fp = GET_FIGHTER(gobj);
-    const int port = fp->player_idx;
-    /* cmd_vars[0] is the aerial's "landing lag applies" flag: clear, it
-     * auto-cancels and there's nothing to L-cancel. Nana follows Popo. */
-    if (port < 0 || port >= 4 || fp->is_sub_fighter || !fp->cmd_vars[0] ||
-        !is_aerial(fp->motion_id)) {
+    const int port = tgg_fighter_port(fighter);
+    /* Without landing lag it auto-cancels and there's nothing to L-cancel.
+     * Nana follows Popo. */
+    if (port < 0 || port >= 4 || tgg_fighter_follower(fighter) || !land->lag_applies ||
+        !is_aerial(land->action)) {
         return;
     }
-    const int since = fp->x67F;
-    const int window = p_ftCommonData->xE4;
+    const int since = land->press_age;
+    const int window = land->window;
     if (since < window) {
         decide(port, RESULT_CANCEL, 0);
     } else if (since - window < EARLY_MAX) {
@@ -128,19 +116,18 @@ static void before_landing(Fighter_GObj* gobj)
         st.port[port].landed = st.tick;
     }
 }
-TGG_BEFORE(ftCo_LandingAir_EnterWithLag, before_landing);
+TGG_ON(fighter_land, on_land);
 
 /* While a missed landing's lag lasts, a press is late */
 static void on_fighter_update(tgg_fighter fighter)
 {
-    const Fighter* fp = GET_FIGHTER(tgg_fighter_gobj(fighter));
-    const int port = fp->player_idx;
-    if (port < 0 || port >= 4 || fp->is_sub_fighter || !st.port[port].waiting) {
+    const int port = tgg_fighter_port(fighter);
+    if (port < 0 || port >= 4 || tgg_fighter_follower(fighter) || !st.port[port].waiting) {
         return;
     }
-    if (!is_aerial_landing(fp->motion_id)) {
+    if (!is_aerial_landing(tgg_fighter_action(fighter))) {
         decide(port, RESULT_MISSED, 0);
-    } else if (fp->x67F == 0) {
+    } else if (tgg_fighter_cancel_press_age(fighter) == 0) {
         decide(port, RESULT_LATE, st.tick - st.port[port].landed);
     }
 }
@@ -152,10 +139,7 @@ TGG_ON(fighter_update, on_fighter_update);
 #define SHOW 100
 #define FADE 20
 
-/* The HUD camera to the screen (measured), and the gap above the percent */
-#define HUD_CENTER_X 355.0f
-#define HUD_SCALE_X 10.8f
-#define HUD_SCALE_Y 10.0f
+/* The gap above the percent */
 #define HUD_ABOVE 95.0f
 
 static struct {
@@ -170,7 +154,7 @@ static struct {
 static int showing(void)
 {
     return tgg_in_match() &&
-           (where == WHERE_EVERY_MATCH || gm_GetCurrentGameMode() == GM_TRAINING);
+           (where == WHERE_EVERY_MATCH || tgg_mode() == TGG_MODE_TRAINING);
 }
 
 /* Before each logic frame: counts the landings whose frame is final */
@@ -216,22 +200,12 @@ static void on_frame(void)
 TGG_ON(frame, on_frame);
 
 /* Where the game draws a player's percent, in the 640 by 480 screen: x is the
- * percent's center and y the bottom of the HUD, from the HUD's own position
- * for the port (HUD camera units, measured against the screen). 0 when the
- * port has no HUD. */
+ * percent's center and y the bottom of the HUD. 0 when the port has no HUD. */
 static int hud_anchor(int port, float* x, float* y)
 {
-    const IfDamageState* hud = &ifStatus_GetHUDInfo()->players[port];
-    if (hud->HUD_parent_entity == NULL) {
-        return 0;
-    }
-    HSD_JObj* jobj = HSD_GObjGetHSDObj(hud->HUD_parent_entity);
-    if (jobj == NULL) {
-        return 0;
-    }
-    *x = HUD_CENTER_X + HSD_JObjGetTranslationX(jobj) * HUD_SCALE_X;
-    *y = 240.0f - HSD_JObjGetTranslationY(jobj) * HUD_SCALE_Y;
-    return 1;
+    *x = tgg_player_hud_x(port);
+    *y = tgg_player_hud_y(port);
+    return *x >= 0;
 }
 
 static void label(char* out, size_t cap, int result, int frames)
@@ -258,7 +232,7 @@ static void on_hud(void)
         return;
     }
     for (int p = 0; p < 4; p++) {
-        if (view.age[p] >= SHOW || Player_GetPlayerSlotType(p) != Gm_PKind_Human) {
+        if (view.age[p] >= SHOW || tgg_player_kind(p) != TGG_PLAYER_HUMAN) {
             continue;
         }
         float x, y;

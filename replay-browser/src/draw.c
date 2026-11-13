@@ -3,6 +3,7 @@
  * the game's font, colors and pictures, over the menus' background. */
 #include "browser.h"
 
+#include "tgg/content.h"
 #include "tgg/draw.h"
 
 #include <stdio.h>
@@ -92,7 +93,7 @@ static void draw_row(int i, float y)
         x -= 26;
         const int lost = s->winner >= 0 && pl->placement != 0 &&
                          !(s->teams && pl->team == s->players[s->winner].team);
-        tgg_draw_image(tgg_image_stock_icon(pl->ckind, pl->costume), x, y + 7, 24, 24,
+        tgg_draw_image(tgg_image_stock_icon(tgg_character_id(pl->ckind), pl->costume), x, y + 7, 24, 24,
                        lost ? TGG_RGBA(255, 255, 255, 110) : WHITE);
     }
 }
@@ -139,8 +140,8 @@ static void draw_preview(void)
 
     /* The stage: its icon from the stage select, and its name */
     float y = TOP + 12;
-    const tgg_image* icon = tgg_image_stage(s->stage);
-    const tgg_image* name = tgg_image_stage_name(s->stage);
+    const tgg_image* icon = tgg_image_stage(tgg_stage_id(s->stage));
+    const tgg_image* name = tgg_image_stage_name(tgg_stage_id(s->stage));
     char text[160];
     if (icon != NULL) {
         tgg_draw_rect(x + 11, y - 1, 82, 72, TGG_RGBA(90, 115, 255, 160));
@@ -160,7 +161,7 @@ static void draw_preview(void)
         if (!pl->present) {
             continue;
         }
-        tgg_draw_image(tgg_image_stock_icon(pl->ckind, pl->costume), x + 12, y + 2, 30, 30, WHITE);
+        tgg_draw_image(tgg_image_stock_icon(tgg_character_id(pl->ckind), pl->costume), x + 12, y + 2, 30, 30, WHITE);
         const int won = s->winner >= 0 &&
                         (p == s->winner || (s->teams && pl->team == s->players[s->winner].team));
         /* Room for "Winner" on the right */

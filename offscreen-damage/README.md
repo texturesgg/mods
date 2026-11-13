@@ -18,14 +18,12 @@ Slippi online does it.
 
 ## For mod makers
 
-Each frame `Fighter_procAnim` asks `ifMagnify_802FC998` whether the fighter is in a
-bubble. The mod answers that one question from the camera bounds and leaves the HUD's own
-calls alone (`src/mod.c`):
-
-- `TGG_BEFORE` / `TGG_AFTER` on `Fighter_procAnim` remember which fighter is being
-  animated.
-- `TGG_REPLACE` on `ifMagnify_802FC998` checks the fighter against
-  `Stage_GetCamBounds*Offset` during that call, and calls `TGG_ORIGINAL` otherwise.
+Each frame the game asks whether a fighter is in a magnifying bubble, and takes the
+off-screen damage when it is. The mod answers that question with the `fighter_check` event,
+kind `TGG_CHECK_OFFSCREEN_DAMAGE` (`src/mod.c`): the fighter is off screen when its position
+(`tgg_fighter_x` / `tgg_fighter_y`) is outside the camera bounds (`tgg_stage_camera_left` and
+the rest). Fighters out of play or on their way out are left out, and so is the Home-Run
+Contest.
 
 ## Build
 

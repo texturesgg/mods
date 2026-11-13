@@ -7,24 +7,19 @@
  * simulation. Matches Slippi's code (slippi-ssbm-asm
  * Common/PSCameraIndependentMonitor), which runs in every Slippi game.
  *
- * grStadium_801D32D0 places the close-up and answers whether it fits on
- * screen; the close-up still goes where the game puts it, and the answer comes
- * from the bounds.
+ * The close-up still goes where the game puts it; whether it stays comes from
+ * the bounds (the fighter_check event's TGG_CHECK_STADIUM_CLOSE_UP).
  */
-#include "tgg/game/hooks.h"
+#include "tgg/events.h"
+#include "tgg/fighter.h"
 
-#include <melee/ft/types.h>
-#include <melee/gr/grpstadium.h>
-#include <melee/gr/types.h>
-#include <melee/pl/player.h>
-
-static bool close_up_fits(Ground_GObj* gobj)
+static void on_check(tgg_fighter fighter, tgg_check* check)
 {
-    TGG_ORIGINAL(grStadium_801D32D0)(gobj);
-    const Ground* gp = gobj->user_data;
-    const Fighter* fp = Player_GetEntity(gp->u.display.xEE)->user_data;
-    const float x = fp->cur_pos.x;
-    const float y = fp->cur_pos.y;
-    return !(x < -120.0f || x > 120.0f || y > 80.0f || y < -20.0f);
+    if (check->kind != TGG_CHECK_STADIUM_CLOSE_UP) {
+        return;
+    }
+    const float x = tgg_fighter_x(fighter);
+    const float y = tgg_fighter_y(fighter);
+    check->pass = !(x < -120.0f || x > 120.0f || y > 80.0f || y < -20.0f);
 }
-TGG_REPLACE(grStadium_801D32D0, close_up_fits);
+TGG_ON(fighter_check, on_check);

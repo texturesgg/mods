@@ -6,33 +6,24 @@
  * ended. That last number is the one that matters: above zero, nobody could
  * hit you the moment you could act.
  *
- * It follows each fighter's motion state in fighter_update: hanging
- * (CliffCatch, CliffWait), off the ledge, a jump (jumps used goes up),
- * EscapeAir, then LandingFallSpecial, the waveland's landing. The
- * intangibility is the game's own timer (fp->x1990, which the ledge grab sets
- * through ftColl_8007B760 and the fighter's update counts down).
+ * It follows each fighter's action state in fighter_update: hanging
+ * (CLIFF_CATCH, CLIFF_WAIT), off the ledge, a jump (jumps used goes up),
+ * ESCAPE_AIR, then LANDING_FALL_SPECIAL, the waveland's landing. The
+ * intangibility is the game's own timer (tgg_fighter_intangible), which the
+ * ledge grab sets and the fighter's update counts down.
  *
  * Display only: fighter_update, which only reads. The attempt in progress and
  * each result live in TGG_STATE, so they're right through a rollback, and a
  * result is counted once its frame is final, as the L-cancel trainer does.
  */
-#include "tgg/game/bridge.h"
+#include "tgg/action.h"
 #include "tgg/draw.h"
 #include "tgg/events.h"
+#include "tgg/fighter.h"
+#include "tgg/mode.h"
+#include "tgg/player.h"
 #include "tgg/rollback.h"
 #include "tgg/settings.h"
-
-#include <melee/ft/fighter.h>
-#include <melee/ft/inlines.h>
-#include <melee/ft/kinds/ftCommon/forward.h>
-#include <melee/ft/types.h>
-#include <melee/gm/forward.h>
-#include <melee/gm/gm_1A3F.h>
-#include <melee/if/ifstatus.h>
-#include <melee/if/types.h>
-#include <melee/pl/player.h>
-#include <sysdolphin/baselib/gobj.h>
-#include <sysdolphin/baselib/jobj.h>
 
 #include <limits.h>
 #include <stdio.h>
@@ -114,24 +105,23 @@ static void decide(int port, Result r)
 
 static int on_ledge(int msid)
 {
-    return msid == ftCo_MS_CliffCatch || msid == ftCo_MS_CliffWait;
+    return msid == TGG_ACTION_CLIFF_CATCH || msid == TGG_ACTION_CLIFF_WAIT;
 }
 
 /* The ledge's own options: getting up, rolling, attacking or jumping from it */
 static int ledge_option(int msid)
 {
-    return msid >= ftCo_MS_CliffClimbSlow && msid <= ftCo_MS_CliffJumpQuick2;
+    return msid >= TGG_ACTION_CLIFF_CLIMB_SLOW && msid <= TGG_ACTION_CLIFF_JUMP_QUICK2;
 }
 
 static void on_fighter_update(tgg_fighter fighter)
 {
-    const Fighter* fp = GET_FIGHTER(tgg_fighter_gobj(fighter));
-    const int port = fp->player_idx;
-    if (port < 0 || port >= 4 || fp->is_sub_fighter) {
+    const int port = tgg_fighter_port(fighter);
+    if (port < 0 || port >= 4 || tgg_fighter_follower(fighter)) {
         return;
     }
     Attempt* a = &st.at[port];
-    const int msid = fp->motion_id;
+    const int msid = tgg_fighter_action(fighter);
     if (on_ledge(msid)) {
         if (a->phase != PHASE_LEDGE) {
             memset(a, 0, sizeof *a);
@@ -143,7 +133,7 @@ static void on_fighter_update(tgg_fighter fighter)
     if (a->phase == PHASE_NONE) {
         return;
     }
-    if (fp->x1990 == 0 && a->gone == 0) {
+    if (tgg_fighter_intangible(fighter) == 0 && a->gone == 0) {
         a->gone = st.tick;
     }
     if ((a->phase == PHASE_DROPPED || a->phase == PHASE_JUMPED) && st.tick - a->drop > GIVE_UP) {
@@ -157,37 +147,37 @@ static void on_fighter_update(tgg_fighter fighter)
         } else {
             a->phase = PHASE_DROPPED;
             a->drop = st.tick;
-            a->jumps = fp->x1968_jumpsUsed;
+            a->jumps = tgg_fighter_jumps_used(fighter);
         }
         break;
     case PHASE_DROPPED:
     case PHASE_JUMPED:
-        if (a->phase == PHASE_DROPPED && fp->x1968_jumpsUsed > a->jumps) {
+        if (a->phase == PHASE_DROPPED && tgg_fighter_jumps_used(fighter) > a->jumps) {
             a->phase = PHASE_JUMPED;
             a->jump = st.tick;
         }
-        if (msid == ftCo_MS_EscapeAir) {
+        if (msid == TGG_ACTION_ESCAPE_AIR) {
             a->phase = PHASE_DODGED;
             a->dodge = st.tick;
-        } else if (fp->ground_or_air == GA_Ground) {
+        } else if (tgg_fighter_grounded(fighter)) {
             a->phase = PHASE_NONE; /* landed some other way */
         }
         break;
     case PHASE_DODGED:
-        if (msid == ftCo_MS_LandingFallSpecial) {
+        if (msid == TGG_ACTION_LANDING_FALL_SPECIAL) {
             a->phase = PHASE_LANDED;
-        } else if (msid != ftCo_MS_EscapeAir) {
+        } else if (msid != TGG_ACTION_ESCAPE_AIR) {
             decide(port, (Result) { .kind = RESULT_NO_STAGE });
         }
         break;
     case PHASE_LANDED:
-        if (msid != ftCo_MS_LandingFallSpecial) {
+        if (msid != TGG_ACTION_LANDING_FALL_SPECIAL) {
             /* the first frame the fighter can act */
             Result r = { .kind = RESULT_DASH };
             r.ledge = a->drop - a->grab;
             r.to_jump = a->jump != 0 ? a->jump - a->drop : -1;
             r.to_dodge = a->dodge - (a->jump != 0 ? a->jump : a->drop);
-            r.left = fp->x1990 > 0 ? fp->x1990 : -(st.tick - a->gone);
+            r.left = tgg_fighter_intangible(fighter) > 0 ? tgg_fighter_intangible(fighter) : -(st.tick - a->gone);
             decide(port, r);
         }
         break;
@@ -200,10 +190,7 @@ TGG_ON(fighter_update, on_fighter_update);
 #define SHOW 150
 #define FADE 20
 
-/* The HUD camera to the screen (measured, as in tgg.lcancel-trainer) */
-#define HUD_CENTER_X 355.0f
-#define HUD_SCALE_X 10.8f
-#define HUD_SCALE_Y 10.0f
+/* How far above the HUD the panel sits */
 #define HUD_ABOVE 95.0f
 
 static struct {
@@ -216,7 +203,7 @@ static struct {
 static int showing(void)
 {
     return tgg_in_match() &&
-           (where == WHERE_EVERY_MATCH || gm_GetCurrentGameMode() == GM_TRAINING);
+           (where == WHERE_EVERY_MATCH || tgg_mode() == TGG_MODE_TRAINING);
 }
 
 static void on_advance(tgg_advance* adv)
@@ -262,17 +249,9 @@ TGG_ON(frame, on_frame);
  * 640 by 480 screen; 0 when the port has no HUD */
 static int hud_anchor(int port, float* x, float* y)
 {
-    const IfDamageState* hud = &ifStatus_GetHUDInfo()->players[port];
-    if (hud->HUD_parent_entity == NULL) {
-        return 0;
-    }
-    HSD_JObj* jobj = HSD_GObjGetHSDObj(hud->HUD_parent_entity);
-    if (jobj == NULL) {
-        return 0;
-    }
-    *x = HUD_CENTER_X + HSD_JObjGetTranslationX(jobj) * HUD_SCALE_X;
-    *y = 240.0f - HSD_JObjGetTranslationY(jobj) * HUD_SCALE_Y;
-    return 1;
+    *x = tgg_player_hud_x(port);
+    *y = tgg_player_hud_y(port);
+    return *x >= 0.0f;
 }
 
 static void describe(char* line1, char* line2, size_t cap, const Result* r)
@@ -304,7 +283,7 @@ static void on_hud(void)
     }
     const tgg_rect bounds = tgg_draw_bounds();
     for (int p = 0; p < 4; p++) {
-        if (view.age[p] >= SHOW || Player_GetPlayerSlotType(p) != Gm_PKind_Human) {
+        if (view.age[p] >= SHOW || tgg_player_kind(p) != TGG_PLAYER_HUMAN) {
             continue;
         }
         float x, y;

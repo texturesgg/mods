@@ -19,14 +19,11 @@
  */
 #include "practice_stage.h"
 
+#include "tgg/action.h"
 #include "tgg/events.h"
+#include "tgg/fighter.h"
 #include "tgg/input.h"
 #include "tgg/menu.h"
-
-#include <melee/ft/forward.h>
-#include <melee/ft/kinds/ftCommon/forward.h>
-#include <melee/ft/types.h>
-#include <melee/pl/player.h>
 
 #include <stddef.h>
 #include <string.h>
@@ -38,7 +35,7 @@
 
 static void start(void)
 {
-    static const practice_how how = { .drill = ID, .stage = 32 /* Final Destination */ };
+    static const practice_how how = { .drill = ID, .stage = "melee/final-destination" };
     practice_start(&how);
 }
 
@@ -58,19 +55,20 @@ static struct {
 
 static int on_ledge(int msid)
 {
-    return msid == ftCo_MS_CliffCatch || msid == ftCo_MS_CliffWait;
+    return msid == TGG_ACTION_CLIFF_CATCH || msid == TGG_ACTION_CLIFF_WAIT;
 }
 
 static int ko(int msid)
 {
-    return msid >= ftCo_MS_DeadDown && msid <= ftCo_MS_Rebirth;
+    return msid >= TGG_ACTION_DEAD_DOWN && msid <= TGG_ACTION_REBIRTH;
 }
 
 /* Standing on the stage, past any landing lag */
-static int standing(const Fighter* fp)
+static int standing(tgg_fighter fighter)
 {
-    return fp->ground_or_air == GA_Ground && fp->motion_id != ftCo_MS_LandingFallSpecial &&
-           fp->motion_id != ftCo_MS_Landing && !on_ledge(fp->motion_id);
+    const int action = tgg_fighter_action(fighter);
+    return tgg_fighter_grounded(fighter) && action != TGG_ACTION_LANDING_FALL_SPECIAL &&
+           action != TGG_ACTION_LANDING && !on_ledge(action);
 }
 
 static uint32_t pressed(void)
@@ -88,13 +86,12 @@ static uint32_t pressed(void)
 static void on_frame(void)
 {
     const char* drill = practice_drill();
-    HSD_GObj* gobj = tgg_in_match() ? Player_GetEntity(0) : NULL;
-    if (drill == NULL || strcmp(drill, ID) != 0 || gobj == NULL) {
+    const tgg_fighter fighter = tgg_in_match() ? tgg_fighter_at(0, 0) : TGG_NO_FIGHTER;
+    if (drill == NULL || strcmp(drill, ID) != 0 || fighter == TGG_NO_FIGHTER) {
         memset(&view, 0, sizeof view);
         return;
     }
-    const Fighter* fp = gobj->user_data;
-    const int msid = fp->motion_id;
+    const int msid = tgg_fighter_action(fighter);
     const uint32_t in = pressed();
     view.frames++;
     switch (view.phase) {
@@ -108,7 +105,7 @@ static void on_frame(void)
         break;
     case HANGING:
         if (on_ledge(msid)) {
-            if ((in & TGG_BUTTON_LEFT) && msid == ftCo_MS_CliffWait) {
+            if ((in & TGG_BUTTON_LEFT) && msid == TGG_ACTION_CLIFF_WAIT) {
                 practice_reset_here();
             }
         } else {
@@ -117,7 +114,7 @@ static void on_frame(void)
         }
         break;
     case TRYING:
-        if (standing(fp) || ko(msid) || view.frames >= TRY_MAX) {
+        if (standing(fighter) || ko(msid) || view.frames >= TRY_MAX) {
             view.phase = DONE;
             view.frames = 0;
         }
