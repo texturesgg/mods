@@ -3,9 +3,11 @@
  * the Slippi rules its console ran. */
 #include "player.h"
 
+#include "tgg/content.h"
 #include "tgg/control.h"
 
 #include <melee/mn/types.h>
+#include <melee/pl/forward.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -18,10 +20,63 @@ static int online_pauser(void)
     return -1;
 }
 
+/* Fighters mods add are numbered from here; a replay with one names it in its
+ * metadata */
+#define FIRST_ADDED 0x22
+
+const char* player_content(const Slp* slp)
+{
+    static char why[512];
+    for (int port = 0; port < 4; port++) {
+        const uint8_t* p = slp->info + 0x60 + 0x24 * port;
+        const int ckind = p[0];
+        if (p[1] == Gm_PKind_NA || ckind < FIRST_ADDED) {
+            continue;
+        }
+        const char* id = NULL;
+        for (int i = 0; i < slp->n_fighters; i++) {
+            if (slp->fighters[i].number == ckind) {
+                id = slp->fighters[i].id;
+            }
+        }
+        if (id == NULL) {
+            snprintf(why, sizeof why,
+                     "player %d plays a fighter from a mod (number %d) and the replay doesn't "
+                     "say which",
+                     port + 1, ckind);
+            return why;
+        }
+        const int here = tgg_fighter_kind(id);
+        if (here < 0) {
+            snprintf(why, sizeof why, "player %d plays %s, which this game doesn't have", port + 1,
+                     id);
+            return why;
+        }
+        if (here != ckind) {
+            snprintf(why, sizeof why,
+                     "player %d plays %s, number %d in the replay and %d in this game: its mods "
+                     "load in another order",
+                     port + 1, id, ckind, here);
+            return why;
+        }
+    }
+    return NULL;
+}
+
 void player_match(const Slp* slp, StartMeleeData* start)
 {
     /* The Game Info block is the console's StartMeleeData */
     tgg_match_from_console(start, slp->info);
+    /* Added costumes: the replay has their like numbers; the file is this
+     * game's if it has the costume */
+    for (int port = 0; port < 4; port++) {
+        const char* costume = slp->costumes[port][0] != '\0' ? slp->costumes[port] : NULL;
+        if (tgg_costume_pick(port, costume) < 0 && costume != NULL) {
+            tgg_log("player %d played the costume %s, which this game doesn't have: it shows "
+                    "the costume it stands on",
+                    port + 1, costume);
+        }
+    }
     /* An online game never pauses: unranked games record pausing as on, but
      * Slippi's online code replaces the game's pause with one only that
      * player's screen shows */

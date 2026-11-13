@@ -11,8 +11,12 @@
 
 typedef struct StartMeleeData StartMeleeData;
 
-/* The match `slp` recorded, as the game sets one up. */
+/* The match `slp` recorded, as the game sets one up, its players on the
+ * added costumes they played if this game has them. */
 void player_match(const Slp* slp, StartMeleeData* start);
+/* Whether this game has the fighters mods added that the replay played,
+ * under the same numbers: NULL, or why not. */
+const char* player_content(const Slp* slp);
 /* Logs the replay and the Slippi rules its console ran. */
 void player_log_rules(const Slp* slp);
 

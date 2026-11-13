@@ -85,6 +85,9 @@ static const char* load(const char* path)
     memset(&st, 0, sizeof st);
     memset(&view, 0, sizeof view);
     const char* why = slp_read(path, &slp);
+    if (why == NULL) {
+        why = player_content(&slp);
+    }
     if (why != NULL) {
         tgg_log("%s: %s", path, why);
         return why;

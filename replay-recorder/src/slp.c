@@ -19,6 +19,10 @@ struct SlpFile {
     int port_used[4];
     /* Post-frame updates by port and internal character, for metadata */
     int characters[4][256];
+    /* Added content by port (RecMatch), and each port's character */
+    uint8_t ckind[4];
+    char fighters[4][200];
+    char costumes[4][200];
 };
 
 static void be16(uint8_t* p, uint32_t v)
@@ -56,6 +60,11 @@ SlpFile* slp_create(const char* path, const RecMatch* m)
     }
     SlpFile* f = calloc(1, sizeof *f);
     f->file = file;
+    for (int port = 0; port < 4; port++) {
+        f->ckind[port] = m->info[0x60 + 0x24 * port];
+        memcpy(f->fighters[port], m->fighters[port], sizeof f->fighters[port]);
+        memcpy(f->costumes[port], m->costumes[port], sizeof f->costumes[port]);
+    }
     f->last_frame = REC_FIRST_FRAME - 1;
 
     /* {U\3raw[$U#l<length> */
@@ -227,6 +236,42 @@ int slp_finish(SlpFile* f, const RecEnd* end, const char* start_at)
      * back with (core's docs/mod-profiles.md) */
     key(out, "profile");
     string(out, tgg_mod_set_profile());
+    /* Fighters and costumes mods add: the numbers in the replay are this
+     * game's, and these say what they stand for. A player checks them. */
+    int added = 0;
+    for (int port = 0; port < 4; port++) {
+        added |= f->fighters[port][0] != '\0' || f->costumes[port][0] != '\0';
+    }
+    if (added) {
+        key(out, "content");
+        fputc('{', out);
+        key(out, "fighters");
+        fputc('{', out);
+        for (int port = 0; port < 4; port++) {
+            int seen = 0;
+            for (int q = 0; q < port; q++) {
+                seen |= f->ckind[q] == f->ckind[port] && f->fighters[q][0] != '\0';
+            }
+            if (f->fighters[port][0] != '\0' && !seen) {
+                char number[4];
+                snprintf(number, sizeof number, "%d", f->ckind[port]);
+                key(out, number);
+                string(out, f->fighters[port]);
+            }
+        }
+        fputc('}', out);
+        key(out, "costumes");
+        fputc('{', out);
+        for (int port = 0; port < 4; port++) {
+            if (f->costumes[port][0] != '\0') {
+                const char name[2] = { (char) ('0' + port), '\0' };
+                key(out, name);
+                string(out, f->costumes[port]);
+            }
+        }
+        fputc('}', out);
+        fputc('}', out);
+    }
     fputc('}', out);
     fputc('}', out);
     fputc('}', out);

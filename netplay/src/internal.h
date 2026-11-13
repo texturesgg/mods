@@ -154,7 +154,7 @@ int wire_same(const WireInput* a, const WireInput* b);
 #define SIDES (NET_PEERS + 1)
 
 #define WIRE_MAGIC 0x4e474754u /* "TGGN" */
-#define WIRE_VERSION 7
+#define WIRE_VERSION 8
 enum {
     WIRE_HELLO = 1,
     WIRE_INPUT = 2,
@@ -193,6 +193,7 @@ typedef struct WireHello {
     uint8_t strict;   /* the host wants every mod to match, display mods too */
     uint64_t token;   /* a session the meeting point set up: both games have it; 0 for none */
     uint32_t game;    /* a random number this game picked when the session opened */
+    uint64_t content; /* tgg_content_hash: the fighters, by number */
 } WireHello;
 
 /* A run of one side's inputs, from frame `first` */

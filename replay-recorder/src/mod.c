@@ -17,6 +17,7 @@
  */
 #include "recorder.h"
 
+#include "tgg/content.h"
 #include "tgg/control.h"
 #include "tgg/events.h"
 #include "tgg/files.h"
@@ -118,6 +119,18 @@ static void on_setup(const StartMeleeData* data)
             }
         }
         m.ucf[i] = tgg_mod_loaded("tgg.ucf") != NULL;
+        /* Added content: the replay keeps the numbers, the metadata says
+         * what they are */
+        if (pl->slot_type != Gm_PKind_NA) {
+            const char* id = tgg_fighter_id(p[0]);
+            if (id != NULL && strncmp(id, "melee/", 6) != 0) {
+                snprintf(m.fighters[i], sizeof m.fighters[i], "%s", id);
+            }
+            const char* costume = tgg_costume_id(i);
+            if (costume != NULL) {
+                snprintf(m.costumes[i], sizeof m.costumes[i], "%s", costume);
+            }
+        }
     }
     m.seed = *HSD_RandSeedPtr;
     m.frozen_stadium = tgg_mod_loaded("tgg.frozen-stadium") != NULL;

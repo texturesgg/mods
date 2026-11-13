@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0
+
+- A match with fighters or costumes from mods says which in the replay's metadata (`tgg.content`), so the replay player can check it has them. Needs tgg-melee API 0.6.
+
 ## 0.1.5
 
 - Built again for the registry's display class: it only changes what you see, so it doesn't count for netplay. Nothing changes in the game.

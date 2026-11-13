@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.0
+
+- Games that number their fighters differently say so when they meet, instead of playing the wrong fighter. Needs tgg-melee API 0.6; doesn't play with 0.6.x.
+
 ## 0.6.1
 
 - A rematch after a boot match no longer hangs: both games count it as match 2.

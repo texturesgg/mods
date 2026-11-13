@@ -33,6 +33,7 @@
 #include "internal.h"
 #include "netplay.h"
 
+#include "tgg/content.h"
 #include "tgg/control.h"
 #include "tgg/events.h"
 #include "tgg/net.h"
@@ -198,6 +199,7 @@ static void hello_packet(WirePacket* p)
     snprintf(p->u.hello.all, sizeof p->u.hello.all, "%s", tgg_mod_set_all());
     snprintf(p->u.hello.display, sizeof p->u.hello.display, "%s", tgg_mod_set_display());
     p->u.hello.strict = (uint8_t) (hosting() && setting_strict == 1);
+    p->u.hello.content = tgg_content_hash();
     p->u.hello.token = ss.token;
     p->u.hello.game = ss.game;
 }
@@ -631,6 +633,12 @@ static int differs(const WireHello* h, char* why, size_t cap)
     if (strcmp(other, mine) != 0) {
         snprintf(why, cap, "The other game has other mods (mod set %s here, %s there).",
                  mine[0] != '\0' ? mine : "none", other[0] != '\0' ? other : "none");
+        return 1;
+    }
+    /* The same mods number the same fighters; this catches a game that
+     * doesn't anyway */
+    if (h->content != tgg_content_hash()) {
+        snprintf(why, cap, "The other game numbers its fighters differently, with the same mods.");
         return 1;
     }
     return 0;

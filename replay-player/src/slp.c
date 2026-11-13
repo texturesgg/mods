@@ -75,6 +75,103 @@ static void read_pre(Slp* slp, const uint8_t* e, uint16_t size)
     }
 }
 
+/* ---- The metadata's content map: {"fighters": {"34": id}, "costumes": {"0": id}}
+ * inside "tgg", in UBJSON */
+
+typedef struct Ubj {
+    const uint8_t* p;
+    const uint8_t* end;
+} Ubj;
+
+/* A key or a string's text (after its 'S'): a length, then the bytes */
+static int ubj_text(Ubj* u, char* out, size_t cap)
+{
+    if (u->p >= u->end) {
+        return -1;
+    }
+    size_t n;
+    const uint8_t type = *u->p++;
+    if (type == 'U' && u->p < u->end) {
+        n = *u->p++;
+    } else if (type == 'l' && u->p + 4 <= u->end) {
+        n = slp_be32(u->p);
+        u->p += 4;
+    } else {
+        return -1;
+    }
+    if (u->p + n > u->end) {
+        return -1;
+    }
+    const size_t copy = n < cap ? n : cap - 1;
+    memcpy(out, u->p, copy);
+    out[copy] = '\0';
+    u->p += n;
+    return 0;
+}
+
+/* An object of strings: calls fn with each key and value */
+static int ubj_strings(Ubj* u, void (*fn)(const char* key, const char* value, Slp* slp), Slp* slp)
+{
+    if (u->p >= u->end || *u->p++ != '{') {
+        return -1;
+    }
+    while (u->p < u->end && *u->p != '}') {
+        char key[16], value[200];
+        if (ubj_text(u, key, sizeof key) != 0 || u->p >= u->end || *u->p++ != 'S' ||
+            ubj_text(u, value, sizeof value) != 0)
+        {
+            return -1;
+        }
+        fn(key, value, slp);
+    }
+    if (u->p >= u->end) {
+        return -1;
+    }
+    u->p++;
+    return 0;
+}
+
+static void content_fighter(const char* key, const char* value, Slp* slp)
+{
+    if (slp->n_fighters < 4) {
+        slp->fighters[slp->n_fighters].number = atoi(key);
+        snprintf(slp->fighters[slp->n_fighters].id, sizeof slp->fighters[0].id, "%s", value);
+        slp->n_fighters++;
+    }
+}
+
+static void content_costume(const char* key, const char* value, Slp* slp)
+{
+    const int port = atoi(key);
+    if (port >= 0 && port < 4) {
+        snprintf(slp->costumes[port], sizeof slp->costumes[port], "%s", value);
+    }
+}
+
+static void read_content(const uint8_t* meta, size_t len, Slp* slp)
+{
+    static const uint8_t key[] = { 'U', 7, 'c', 'o', 'n', 't', 'e', 'n', 't', '{' };
+    for (size_t i = 0; i + sizeof key <= len; i++) {
+        if (memcmp(meta + i, key, sizeof key) != 0) {
+            continue;
+        }
+        Ubj u = { meta + i + sizeof key, meta + len };
+        while (u.p < u.end && *u.p != '}') {
+            char name[16];
+            if (ubj_text(&u, name, sizeof name) != 0) {
+                return;
+            }
+            const int r = strcmp(name, "fighters") == 0 ? ubj_strings(&u, content_fighter, slp)
+                          : strcmp(name, "costumes") == 0 ? ubj_strings(&u, content_costume, slp)
+                                                          : -1;
+            if (r != 0) {
+                return;
+            }
+        }
+        return;
+    }
+}
+
 const char* slp_read(const char* path, Slp* slp)
 {
     memset(slp, 0, sizeof *slp);
@@ -164,6 +261,9 @@ const char* slp_read(const char* path, Slp* slp)
             break;
         }
         at += 1 + size;
+    }
+    if (end < (size_t) len) {
+        read_content(data + end, (size_t) len - end, slp);
     }
     free(data);
     if (!have_start) {

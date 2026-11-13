@@ -68,6 +68,10 @@ typedef struct RecMatch {
     uint8_t frozen_stadium;
     uint8_t major_scene, minor_scene;
     uint8_t language;
+    /* What a mod added, by port: the fighter's content id when it's one a mod
+     * adds, and the added costume's; "" for none */
+    char fighters[4][200];
+    char costumes[4][200];
 } RecMatch;
 
 /* How it ended */

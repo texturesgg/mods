@@ -220,6 +220,7 @@ size_t wire_encode(const WirePacket* p, uint8_t* buf)
         put(&c, h->strict, 1);
         put(&c, h->token, 8);
         put(&c, h->game, 4);
+        put(&c, h->content, 8);
     } else if (p->type == WIRE_INPUT) {
         const WireInputs* in = &p->u.inputs;
         put(&c, in->number, 4);
@@ -321,6 +322,7 @@ int wire_decode(const uint8_t* buf, size_t len, WirePacket* p, int* version)
         h->strict = (uint8_t) get(&c, 1);
         h->token = get(&c, 8);
         h->game = (uint32_t) get(&c, 4);
+        h->content = get(&c, 8);
     } else if (p->type == WIRE_INPUT) {
         WireInputs* in = &p->u.inputs;
         in->number = (uint32_t) get(&c, 4);
