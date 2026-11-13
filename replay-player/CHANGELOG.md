@@ -1,9 +1,9 @@
 # Changelog
 
-
 ## 0.5.0
 
 - A replay on a stage from a mod plays only if this game has it under the same number; otherwise it says the stage is missing or numbered differently. Needs tgg-melee API 0.7.
+
 ## 0.4.0
 
 - A replay with fighters from mods plays only if this game has them under the same numbers; otherwise it says which fighter is missing or numbered differently. Players on added costumes show them if this game has them, else the costume it's based on. Needs tgg-melee API 0.6.
