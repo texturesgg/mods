@@ -23,6 +23,8 @@ struct SlpFile {
     uint8_t ckind[4];
     char fighters[4][200];
     char costumes[4][200];
+    unsigned stkind;
+    char stage[200];
 };
 
 static void be16(uint8_t* p, uint32_t v)
@@ -65,6 +67,8 @@ SlpFile* slp_create(const char* path, const RecMatch* m)
         memcpy(f->fighters[port], m->fighters[port], sizeof f->fighters[port]);
         memcpy(f->costumes[port], m->costumes[port], sizeof f->costumes[port]);
     }
+    f->stkind = (unsigned) (m->info[0xE] << 8 | m->info[0xF]);
+    memcpy(f->stage, m->stage, sizeof f->stage);
     f->last_frame = REC_FIRST_FRAME - 1;
 
     /* {U\3raw[$U#l<length> */
@@ -236,9 +240,9 @@ int slp_finish(SlpFile* f, const RecEnd* end, const char* start_at)
      * back with (core's docs/mod-profiles.md) */
     key(out, "profile");
     string(out, tgg_mod_set_profile());
-    /* Fighters and costumes mods add: the numbers in the replay are this
-     * game's, and these say what they stand for. A player checks them. */
-    int added = 0;
+    /* Fighters, costumes and stages mods add: the numbers in the replay are
+     * this game's, and these say what they stand for. A player checks them. */
+    int added = f->stage[0] != '\0';
     for (int port = 0; port < 4; port++) {
         added |= f->fighters[port][0] != '\0' || f->costumes[port][0] != '\0';
     }
@@ -268,6 +272,15 @@ int slp_finish(SlpFile* f, const RecEnd* end, const char* start_at)
                 key(out, name);
                 string(out, f->costumes[port]);
             }
+        }
+        fputc('}', out);
+        key(out, "stages");
+        fputc('{', out);
+        if (f->stage[0] != '\0') {
+            char number[8];
+            snprintf(number, sizeof number, "%u", f->stkind);
+            key(out, number);
+            string(out, f->stage);
         }
         fputc('}', out);
         fputc('}', out);

@@ -2,7 +2,7 @@
   "api": "tgg-melee/0",
   "id": "tgg.replay-player",
   "name": "Replay player",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Watch Slippi replays: pause, step frame by frame, speed up or slow down.",
   "icon": "icon.png",
   "tags": [

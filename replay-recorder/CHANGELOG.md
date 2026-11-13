@@ -1,5 +1,9 @@
 # Changelog
 
+
+## 0.3.0
+
+- A match on a stage from a mod says which in the replay's metadata too. Needs tgg-melee API 0.7.
 ## 0.2.0
 
 - A match with fighters or costumes from mods says which in the replay's metadata (`tgg.content`), so the replay player can check it has them. Needs tgg-melee API 0.6.

@@ -75,7 +75,8 @@ static void read_pre(Slp* slp, const uint8_t* e, uint16_t size)
     }
 }
 
-/* ---- The metadata's content map: {"fighters": {"34": id}, "costumes": {"0": id}}
+/* ---- The metadata's content map: {"fighters": {"34": id}, "costumes": {"0": id},
+ * "stages": {"329": id}}
  * inside "tgg", in UBJSON */
 
 typedef struct Ubj {
@@ -148,6 +149,12 @@ static void content_costume(const char* key, const char* value, Slp* slp)
     }
 }
 
+static void content_stage(const char* key, const char* value, Slp* slp)
+{
+    (void) key; /* the replay's own stage number, which the Game Info block has */
+    snprintf(slp->stage, sizeof slp->stage, "%s", value);
+}
+
 static void read_content(const uint8_t* meta, size_t len, Slp* slp)
 {
     static const uint8_t key[] = { 'U', 7, 'c', 'o', 'n', 't', 'e', 'n', 't', '{' };
@@ -163,6 +170,7 @@ static void read_content(const uint8_t* meta, size_t len, Slp* slp)
             }
             const int r = strcmp(name, "fighters") == 0 ? ubj_strings(&u, content_fighter, slp)
                           : strcmp(name, "costumes") == 0 ? ubj_strings(&u, content_costume, slp)
+                          : strcmp(name, "stages") == 0   ? ubj_strings(&u, content_stage, slp)
                                                           : -1;
             if (r != 0) {
                 return;

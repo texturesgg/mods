@@ -132,6 +132,11 @@ static void on_setup(const StartMeleeData* data)
             }
         }
     }
+    /* An added stage, by the number the Game Info block holds */
+    const char* stage = tgg_stage_id((m.info[0xE] << 8) | m.info[0xF]);
+    if (stage != NULL && strncmp(stage, "melee/", 6) != 0) {
+        snprintf(m.stage, sizeof m.stage, "%s", stage);
+    }
     m.seed = *HSD_RandSeedPtr;
     m.frozen_stadium = tgg_mod_loaded("tgg.frozen-stadium") != NULL;
     m.major_scene = (uint8_t) gm_GetCurrentGameMode();

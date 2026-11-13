@@ -72,6 +72,8 @@ typedef struct RecMatch {
      * adds, and the added costume's; "" for none */
     char fighters[4][200];
     char costumes[4][200];
+    /* The stage's content id when a mod adds it; "" for the game's own */
+    char stage[200];
 } RecMatch;
 
 /* How it ended */

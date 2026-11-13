@@ -23,6 +23,8 @@ static int online_pauser(void)
 /* Fighters mods add are numbered from here; a replay with one names it in its
  * metadata */
 #define FIRST_ADDED 0x22
+/* and stages from here (past 0x148, "no stage") */
+#define FIRST_ADDED_STAGE 0x149
 
 const char* player_content(const Slp* slp)
 {
@@ -57,6 +59,29 @@ const char* player_content(const Slp* slp)
                      "player %d plays %s, number %d in the replay and %d in this game: its mods "
                      "load in another order",
                      port + 1, id, ckind, here);
+            return why;
+        }
+    }
+    /* A stage a mod adds: the same checks, by the number the Game Info block
+     * holds */
+    const int stkind = slp_be16(slp->info + 0xE);
+    if (stkind >= FIRST_ADDED_STAGE) {
+        if (slp->stage[0] == '\0') {
+            snprintf(why, sizeof why,
+                     "it's on a stage from a mod (number %d) and the replay doesn't say which",
+                     stkind);
+            return why;
+        }
+        const int here = tgg_stage_kind(slp->stage);
+        if (here < 0) {
+            snprintf(why, sizeof why, "it's on %s, which this game doesn't have", slp->stage);
+            return why;
+        }
+        if (here != stkind) {
+            snprintf(why, sizeof why,
+                     "it's on %s, number %d in the replay and %d in this game: its mods load in "
+                     "another order",
+                     slp->stage, stkind, here);
             return why;
         }
     }

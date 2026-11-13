@@ -40,13 +40,14 @@ typedef struct Slp {
     uint8_t* gecko;      /* the gecko code list the console ran */
     size_t gecko_len;
     /* The metadata's content map (the port's recorder): the fighter a number
-     * stands for, and each port's added costume; "" for none */
+     * stands for, each port's added costume, and the added stage; "" for none */
     struct {
         int number;
         char id[200];
     } fighters[4];
     int n_fighters;
     char costumes[4][200];
+    char stage[200];
 } Slp;
 
 /* Reads `path` into `slp`. Returns NULL, or what's wrong with the file. */
