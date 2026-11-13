@@ -6,6 +6,7 @@
 #ifndef NETPLAY_INTERNAL_H
 #define NETPLAY_INTERNAL_H
 
+#include "tgg/match.h"
 #include "tgg/mod.h"
 
 #include <stddef.h>
@@ -13,7 +14,6 @@
 
 typedef struct HSD_PadStatus HSD_PadStatus;
 typedef struct PADStatus PADStatus;
-typedef struct StartMeleeData StartMeleeData;
 typedef struct tgg_socket tgg_socket;
 typedef struct tgg_net_addr tgg_net_addr;
 
@@ -181,7 +181,7 @@ typedef struct WireHello {
     char build[96];
     char mod_set[17];
     char versions[17]; /* tgg_mod_set_versions */
-    char target[32];   /* the platform, TGG_GAME_TARGET */
+    char target[32];   /* the platform, TGG_TARGET */
     uint8_t host;      /* the sender hosts */
     uint8_t assign;    /* the host's: the receiver's side, from 1; WIRE_NO_ROOM */
     uint8_t delay;
@@ -361,13 +361,13 @@ double session_silence_ms(void);
 
 /* Starts match `number` from `data` (already as every game has it) with
  * `seed`; from a screen, the screen leaves for it. Returns 0 or -1. */
-int match_begin(uint32_t number, uint32_t seed, const StartMeleeData* data);
+int match_begin(uint32_t number, uint32_t seed, const tgg_match* data);
 /* The env session's match, the one the boot sets up: number 1, the hello's
  * seed */
 void match_expect_boot(void);
 /* A match the game's own menus start (VS mode), `data` as every game has it:
  * its number and seed */
-void match_expect(uint32_t number, uint32_t seed, const StartMeleeData* data);
+void match_expect(uint32_t number, uint32_t seed, const tgg_match* data);
 void match_got_inputs(int link, const WireInputs* in);
 /* Link `link`'s acks of each side's inputs in match `number` */
 void match_got_ack(int link, uint32_t number, const int32_t ack[SIDES]);
@@ -387,7 +387,7 @@ void match_linger_until_done(void);
 /* The session ended during a match: stop holding, leave it */
 void match_abandon(void);
 /* A match's human ports, in port order: how many, or -1 for none */
-int match_ports(const StartMeleeData* data, int ports[SIDES]);
+int match_ports(const tgg_match* data, int ports[SIDES]);
 
 /* ---- replaytest.c: TGG_NETPLAY_REPLAY=<file.slp>, two games play a Slippi
  * replay against each other: each boots its match, plays one side's recorded

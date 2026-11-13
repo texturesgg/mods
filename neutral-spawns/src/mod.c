@@ -8,7 +8,7 @@
  * it sets up the match's players (fn_8016E2BC). This changes that position,
  * and turns the player to face the middle of the stage.
  */
-#include "tgg/mod.h"
+#include "tgg/game/hooks.h"
 
 #include <melee/gm/forward.h>
 #include <melee/gm/gm_1A3F.h>

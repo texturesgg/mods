@@ -27,6 +27,8 @@
  */
 #include "recorder.h"
 
+#include "tgg/game/bridge.h"
+#include "tgg/game/hooks.h"
 #include "tgg/events.h"
 #include "tgg/rollback.h"
 
@@ -206,8 +208,9 @@ static const PADStatus* report(int port)
     return &lib->queue[newest].stat[port];
 }
 
-static void on_input(Fighter_GObj* gobj, tgg_input* in)
+static void on_input(tgg_fighter fighter, tgg_input* in)
 {
+    Fighter_GObj* gobj = tgg_fighter_gobj(fighter);
     (void) in;
     if (!capturing()) {
         return;

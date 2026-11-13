@@ -14,7 +14,7 @@
  * port's built-in tgg.unlocks does.
  */
 #include "tgg/events.h"
-#include "tgg/mod.h"
+#include "tgg/game/hooks.h"
 
 #include <melee/gm/gmmain_lib.h>
 #include <melee/gm/types.h>
@@ -59,7 +59,7 @@ TGG_AFTER(gmMainLib_8015FA34, after_save_load);
 /* The stage select shows only the legal stages */
 static void on_stage_offered(tgg_stage_offered* stage)
 {
-    switch (stage->stkind) {
+    switch (stage->stage) {
     case 31: /* Battlefield */
     case 32: /* Final Destination */
     case 28: /* Dream Land */

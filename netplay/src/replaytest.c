@@ -26,13 +26,6 @@ static Slp slp;
 static int ports[2];
 static uint32_t hash;
 
-/* Slippi Online's pauser check (Online/Core/InitPause.asm): the match itself
- * never pauses */
-static int online_pauser(void)
-{
-    return -1;
-}
-
 int replaytest_open(const char* path)
 {
     const char* why = slp_read(path, &slp);
@@ -61,11 +54,13 @@ int replaytest_open(const char* path)
     }
     hash = (hash ^ (uint32_t) slp.frame_count) * 0x01000193u;
 
-    static StartMeleeData match;
-    tgg_match_from_console(&match, slp.info);
+    static tgg_match match;
+    memset(&match, 0, sizeof match);
+    memcpy(match.console, slp.info, TGG_CONSOLE_MATCH_SIZE);
+    /* Slippi Online's pauser check (Online/Core/InitPause.asm): the match
+     * itself never pauses */
     if (slp.major_scene == 8) {
-        match.rules.disable_pausing = 1;
-        match.rules.check_for_pauser_override = online_pauser;
+        match.flags |= TGG_MATCH_NO_PAUSE;
     }
     tgg_boot_match(&match);
     if (slp.major_scene != 8) {

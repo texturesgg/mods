@@ -85,7 +85,7 @@ static void forget_ring(void)
     last_kept = -1000000;
 }
 
-void takeover_reset(const StartMeleeData* match)
+void takeover_reset(const tgg_match* match)
 {
     forget_ring();
     tgg_snapshot_free(take_point);
@@ -94,8 +94,8 @@ void takeover_reset(const StartMeleeData* match)
     panel = 0;
     for (int p = 0; p < 4; p++) {
         source[p] = TAKE_RECORDING;
-        players[p].present = match != NULL && match->players[p].slot_type != Gm_PKind_NA;
-        players[p].ckind = match != NULL ? match->players[p].ckind : -1;
+        players[p].present = match != NULL && tgg_match_player(match, p) != TGG_PLAYER_NONE;
+        players[p].ckind = match != NULL ? tgg_match_character_kind(match, p) : -1;
     }
 }
 

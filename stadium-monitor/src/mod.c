@@ -11,7 +11,7 @@
  * screen; the close-up still goes where the game puts it, and the answer comes
  * from the bounds.
  */
-#include "tgg/mod.h"
+#include "tgg/game/hooks.h"
 
 #include <melee/ft/types.h>
 #include <melee/gr/grpstadium.h>

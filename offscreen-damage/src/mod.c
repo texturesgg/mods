@@ -9,7 +9,7 @@
  * in a bubble. This answers that one question from the camera bounds instead;
  * the bubbles on screen still come from the game's own answer.
  */
-#include "tgg/mod.h"
+#include "tgg/game/hooks.h"
 
 #include <melee/ft/fighter.h>
 #include <melee/ft/kinds/ftCommon/forward.h>

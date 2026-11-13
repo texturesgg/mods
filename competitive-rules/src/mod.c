@@ -8,7 +8,7 @@
  * item switch is in the save, so a change there stays: the mod only turns
  * items off on a save whose item switch the player never touched.
  */
-#include "tgg/mod.h"
+#include "tgg/game/hooks.h"
 
 #include <melee/gm/gmmain_lib.h>
 #include <melee/gm/types.h>

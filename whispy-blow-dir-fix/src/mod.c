@@ -10,7 +10,7 @@
  * The rest is the game's own function: the sum of the sides the other awake
  * fighters (not teammates in a team game) are on, and a coin flip on a tie.
  */
-#include "tgg/mod.h"
+#include "tgg/game/hooks.h"
 
 #include <melee/ft/ftlib.h>
 #include <melee/ft/types.h>

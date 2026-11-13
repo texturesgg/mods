@@ -13,6 +13,7 @@
  * Only plain VS mode skips it. Tournament mode and the special melees keep
  * their results screen.
  */
+#include "tgg/game/hooks.h"
 #include "tgg/events.h"
 
 #include <melee/gm/forward.h>

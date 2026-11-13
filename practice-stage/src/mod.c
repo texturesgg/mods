@@ -17,6 +17,7 @@
  */
 #include "practice_stage.h"
 
+#include "tgg/game/hooks.h"
 #include "tgg/draw.h"
 #include "tgg/events.h"
 #include "tgg/settings.h"
@@ -238,9 +239,9 @@ TGG_GAME_SYMBOL(stage_icons, "mnstagesel.c:mnStageSel_803F06D0");
 static int sss_frames;
 static Vec3 sss_start;
 
-static void on_match_start_placed(const StartMeleeData* data)
+static void on_match_start_placed(const tgg_match* match)
 {
-    (void) data;
+    (void) match;
     sss_frames = 0; /* the next stage select starts on it again */
 }
 TGG_ON(match_start, on_match_start_placed);

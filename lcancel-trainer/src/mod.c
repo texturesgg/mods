@@ -15,6 +15,8 @@
  * rollback; the rate is counted from presentation code once a landing's frame
  * is final, so a frame run again is never counted twice.
  */
+#include "tgg/game/bridge.h"
+#include "tgg/game/hooks.h"
 #include "tgg/draw.h"
 #include "tgg/events.h"
 #include "tgg/rollback.h"
@@ -79,9 +81,9 @@ static void decide(int port, int result, int frames)
     }
 }
 
-static void on_match_start(const StartMeleeData* data)
+static void on_match_start(const tgg_match* match)
 {
-    (void) data;
+    (void) match;
     memset(&st, 0, sizeof st);
 }
 TGG_ON(match_start, on_match_start);
@@ -129,9 +131,9 @@ static void before_landing(Fighter_GObj* gobj)
 TGG_BEFORE(ftCo_LandingAir_EnterWithLag, before_landing);
 
 /* While a missed landing's lag lasts, a press is late */
-static void on_fighter_update(Fighter_GObj* gobj)
+static void on_fighter_update(tgg_fighter fighter)
 {
-    const Fighter* fp = GET_FIGHTER(gobj);
+    const Fighter* fp = GET_FIGHTER(tgg_fighter_gobj(fighter));
     const int port = fp->player_idx;
     if (port < 0 || port >= 4 || fp->is_sub_fighter || !st.port[port].waiting) {
         return;

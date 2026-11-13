@@ -9,7 +9,7 @@
  * loaded save gained something. It touches only save data. To unlock things
  * by playing, turn it off.
  */
-#include "tgg/mod.h"
+#include "tgg/game/hooks.h"
 
 #include <melee/gm/gm_1601.h>
 #include <melee/gm/gm_16F1.h>

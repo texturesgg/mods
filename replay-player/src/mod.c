@@ -31,6 +31,7 @@
 #include "tgg/control.h"
 #include "tgg/draw.h"
 #include "tgg/events.h"
+#include "tgg/game/events.h"
 #include "tgg/input.h"
 #include "tgg/restart.h"
 #include "tgg/screen.h"
@@ -107,7 +108,7 @@ static void init(void)
     if (load(path) != NULL) {
         return;
     }
-    static StartMeleeData match;
+    static tgg_match match;
     player_match(&slp, &match);
     takeover_reset(&match);
     tgg_boot_match(&match);
@@ -126,7 +127,7 @@ int replay_play(const char* path, const char** why)
     if (*why != NULL) {
         return -1;
     }
-    static StartMeleeData match;
+    static tgg_match match;
     player_match(&slp, &match);
     takeover_reset(&match);
     if (tgg_screen_play_match(&match) != 0) {
@@ -144,9 +145,9 @@ int replay_playing(void)
 }
 
 /* The match's setup, before the stage and the players draw from the RNG */
-static void on_setup(const StartMeleeData* data)
+static void on_setup(const tgg_match* match)
 {
-    (void) data;
+    (void) match;
     unlocks_follow(loaded); /* before the setup reads the save */
     if (loaded && !st.set_up) {
         st.set_up = 1;

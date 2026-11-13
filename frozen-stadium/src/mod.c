@@ -8,7 +8,7 @@
  * gm_8018841C whether this is Training Mode. This answers yes to that one
  * question; everywhere else the game gets its own answer.
  */
-#include "tgg/mod.h"
+#include "tgg/game/hooks.h"
 
 #include <melee/gm/gm_1879.h>
 #include <melee/gr/grpstadium.h>

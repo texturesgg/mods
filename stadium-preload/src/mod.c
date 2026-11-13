@@ -17,7 +17,7 @@
  * - back on the neutral stage (step 6 of a return to it), the next one isn't
  *   picked yet.
  */
-#include "tgg/mod.h"
+#include "tgg/game/hooks.h"
 
 #include <melee/gr/ground.h>
 #include <melee/gr/grpstadium.h>

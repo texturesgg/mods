@@ -33,6 +33,7 @@
 
 #include "tgg/draw.h"
 #include "tgg/events.h"
+#include "tgg/game/events.h"
 #include "tgg/rollback.h"
 #include "tgg/screen.h"
 
@@ -147,18 +148,18 @@ static void put(Slot* ring, int frame, const WireInput* in)
     s->in = *in;
 }
 
-int match_ports(const StartMeleeData* data, int ports[SIDES])
+int match_ports(const tgg_match* data, int ports[SIDES])
 {
     int n = 0;
     for (int i = 0; i < 4; i++) {
-        if (data->players[i].slot_type == Gm_PKind_Human && n < SIDES) {
+        if (tgg_match_player(data, i) == TGG_PLAYER_HUMAN && n < SIDES) {
             ports[n++] = i;
         }
     }
     return n > 0 ? n : -1;
 }
 
-int match_begin(uint32_t number, uint32_t seed, const StartMeleeData* data)
+int match_begin(uint32_t number, uint32_t seed, const tgg_match* data)
 {
     reset(number, seed);
     mt.players = match_ports(data, mt.ports);
@@ -180,7 +181,7 @@ void match_expect_boot(void)
     reset(1, 0);
 }
 
-void match_expect(uint32_t number, uint32_t seed, const StartMeleeData* data)
+void match_expect(uint32_t number, uint32_t seed, const tgg_match* data)
 {
     reset(number, seed);
     mt.players = match_ports(data, mt.ports);
@@ -566,7 +567,7 @@ TGG_ON(advance, on_advance);
 
 /* The match's setup: its seed, and a hash of the setup to check the other
  * games have the same one */
-static void on_setup(const StartMeleeData* data)
+static void on_setup(const tgg_match* data)
 {
     if (!mt.pending || (ss.state != NETPLAY_PLAYING && !ss.env)) {
         return;
@@ -577,14 +578,12 @@ static void on_setup(const StartMeleeData* data)
      * too, whatever the setup drew from this game's save */
     mt.seed = ss.env ? ss.seed : mt.seed;
     *HSD_RandSeedPtr = mt.seed;
-    const uint8_t* p = (const uint8_t*) data;
     uint32_t h = 0x811c9dc5u;
-    /* The rules' callbacks are addresses, which differ between games; the
-     * players and the stage are what matter */
-    for (size_t i = offsetof(StartMeleeData, players); i < sizeof *data; i++) {
-        h = (h ^ p[i]) * 0x01000193u;
+    /* The players (from console offset 0x60) and the stage are what matter */
+    for (size_t i = 0x60; i < TGG_CONSOLE_MATCH_SIZE; i++) {
+        h = (h ^ data->console[i]) * 0x01000193u;
     }
-    h = (h ^ (uint32_t) data->rules.stkind) * 0x01000193u;
+    h = (h ^ (uint32_t) tgg_match_stage_kind(data)) * 0x01000193u;
     mt.hash = h != 0 ? h : 1;
 }
 TGG_ON(match_setup, on_setup);

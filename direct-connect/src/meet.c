@@ -227,7 +227,7 @@ static void send_hello(void)
 {
     char game[200], target[80], versions[80], msg[512];
     quote(game, sizeof game, tgg_game_build());
-    quote(target, sizeof target, TGG_GAME_TARGET);
+    quote(target, sizeof target, TGG_TARGET);
     quote(versions, sizeof versions, tgg_mod_set_versions());
     snprintf(msg, sizeof msg, "{\"type\":\"hello\",\"game\":%s,\"target\":%s,\"versions\":%s}",
              game, target, versions);

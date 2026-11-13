@@ -17,7 +17,8 @@
  * TGG_STATE, so it rolls back.
  */
 #include "tgg/events.h"
-#include "tgg/mod.h"
+#include "tgg/game/bridge.h"
+#include "tgg/game/hooks.h"
 
 #include <melee/ft/fighter.h>
 #include <melee/ft/forward.h>
@@ -67,8 +68,9 @@ static int flick_x(int port)
  * units in two frames, makes it a smash turn. Popo's Nana is given a stick
  * all the way the new way, so she dashes back too.
  */
-static void on_turn(Fighter_GObj* gobj, tgg_turn* turn)
+static void on_turn(tgg_fighter fighter, tgg_turn* turn)
 {
+    Fighter_GObj* gobj = tgg_fighter_gobj(fighter);
     Fighter* fp = GET_FIGHTER(gobj);
     if (fp->cur_anim_frame != 2.0f) {
         return;
@@ -99,8 +101,9 @@ TGG_ON(fighter_turn, on_turn);
  * threshold the frame before and its raw x moved more than 75 units in two
  * frames.
  */
-static void on_check(Fighter_GObj* gobj, tgg_check* check)
+static void on_check(tgg_fighter fighter, tgg_check* check)
 {
+    Fighter_GObj* gobj = tgg_fighter_gobj(fighter);
     if (check->kind != TGG_CHECK_TUMBLE_FALL) {
         return;
     }

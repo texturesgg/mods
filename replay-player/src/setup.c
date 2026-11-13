@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* The match a replay recorded, as the game sets one up (StartMeleeData), and
+/* The match a replay recorded, as the game sets one up (a tgg_match), and
  * the Slippi rules its console ran. */
 #include "player.h"
 
@@ -11,14 +11,6 @@
 
 #include <stdio.h>
 #include <string.h>
-
-/* Slippi Online pauses on the client only (Online/Core/InitPause.asm): its
- * pauser check shows the pause screen to the local player and always returns
- * -1, so the match itself never pauses. */
-static int online_pauser(void)
-{
-    return -1;
-}
 
 /* Fighters mods add are numbered from here; a replay with one names it in its
  * metadata */
@@ -48,7 +40,7 @@ const char* player_content(const Slp* slp)
                      port + 1, ckind);
             return why;
         }
-        const int here = tgg_fighter_kind(id);
+        const int here = tgg_character_kind(id);
         if (here < 0) {
             snprintf(why, sizeof why, "player %d plays %s, which this game doesn't have", port + 1,
                      id);
@@ -88,10 +80,11 @@ const char* player_content(const Slp* slp)
     return NULL;
 }
 
-void player_match(const Slp* slp, StartMeleeData* start)
+void player_match(const Slp* slp, tgg_match* start)
 {
-    /* The Game Info block is the console's StartMeleeData */
-    tgg_match_from_console(start, slp->info);
+    /* The Game Info block is the console's match */
+    memset(start, 0, sizeof *start);
+    memcpy(start->console, slp->info, TGG_CONSOLE_MATCH_SIZE);
     /* Added costumes: the replay has their like numbers; the file is this
      * game's if it has the costume */
     for (int port = 0; port < 4; port++) {
@@ -104,10 +97,9 @@ void player_match(const Slp* slp, StartMeleeData* start)
     }
     /* An online game never pauses: unranked games record pausing as on, but
      * Slippi's online code replaces the game's pause with one only that
-     * player's screen shows */
+     * player's screen shows (Online/Core/InitPause.asm) */
     if (slp->major_scene == 8) {
-        start->rules.disable_pausing = 1;
-        start->rules.check_for_pauser_override = online_pauser;
+        start->flags |= TGG_MATCH_NO_PAUSE;
     }
 }
 

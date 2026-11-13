@@ -17,7 +17,8 @@
  * the port's menus yet.
  */
 #include "tgg/events.h"
-#include "tgg/mod.h"
+#include "tgg/game/bridge.h"
+#include "tgg/game/hooks.h"
 
 #include <melee/ft/fighter.h>
 #include <melee/ft/ft_0DF1.h>
@@ -100,8 +101,9 @@ static void snap_cardinal(s8 raw_x, s8 raw_y, float* x, float* y)
  * start excepted), and counts the frames a stick flicked down stays down. A
  * computer-controlled fighter (Nana) has no controller and none of it.
  */
-static void on_input(Fighter_GObj* gobj, tgg_input* input)
+static void on_input(tgg_fighter fighter, tgg_input* input)
 {
+    Fighter_GObj* gobj = tgg_fighter_gobj(fighter);
     Fighter* fp = GET_FIGHTER(gobj);
     if (ftCo_IsCpuControlled(fp) || fp->pad_port >= 4) {
         return;
@@ -148,8 +150,9 @@ TGG_ON(fighter_input, on_input);
  * makes it a smash turn. Nana's pending input is rewritten so she dashes back
  * as well.
  */
-static void on_turn(Fighter_GObj* gobj, tgg_turn* turn)
+static void on_turn(tgg_fighter fighter, tgg_turn* turn)
 {
+    Fighter_GObj* gobj = tgg_fighter_gobj(fighter);
     Fighter* fp = GET_FIGHTER(gobj);
     if (fp->is_sub_fighter || fp->cur_anim_frame != 2.0f) {
         return;
@@ -228,8 +231,9 @@ TGG_REPLACE(ftCo_8009980C, spot_dodge_from_shield);
  *   for dropping through a platform with the shield held when it was flicked
  *   down and held for more than a frame.
  */
-static void on_check(Fighter_GObj* gobj, tgg_check* check)
+static void on_check(tgg_fighter fighter, tgg_check* check)
 {
+    Fighter_GObj* gobj = tgg_fighter_gobj(fighter);
     Fighter* fp = GET_FIGHTER(gobj);
     const int port = fp->pad_port;
     const bool have_pad = port < 4;

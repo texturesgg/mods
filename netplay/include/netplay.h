@@ -31,12 +31,11 @@
 #ifndef NETPLAY_H_API
 #define NETPLAY_H_API
 
+#include "tgg/match.h"
 #include "tgg/mod.h"
 
 #define NETPLAY TGG_PROVIDER(tgg_netplay, "tgg.netplay", 1)
 
-/* As the game declares it (melee/mn/forward.h). */
-typedef struct StartMeleeData StartMeleeData;
 
 /* The most games in a session: the host and three joiners. */
 #define NETPLAY_MAX_PLAYERS 4
@@ -127,7 +126,7 @@ TGG_API(NETPLAY, int, netplay_receive, (void* buf, int cap, int* from));
  * NETPLAY_CONNECTED for the next one. A mod with shared screens calls
  * tgg_play_match instead, which comes here. Returns 0, or -1 when the session
  * isn't connected or `data` doesn't have a human player for each game. */
-TGG_API(NETPLAY, int, netplay_play, (const StartMeleeData* data));
+TGG_API(NETPLAY, int, netplay_play, (const tgg_match* data));
 
 /* ---- Through the meeting point (a connect mod that uses textures.gg's)
  *

@@ -15,7 +15,7 @@
  * - drawing puts the fighter's position back after the game writes it, so
  *   only the model moves.
  */
-#include "tgg/mod.h"
+#include "tgg/game/hooks.h"
 
 #include <melee/ft/fighter.h>
 #include <melee/ft/ft_0D31.h>

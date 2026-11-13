@@ -17,6 +17,8 @@
  */
 #include "recorder.h"
 
+#include "tgg/game/bridge.h"
+#include "tgg/game/hooks.h"
 #include "tgg/content.h"
 #include "tgg/control.h"
 #include "tgg/events.h"
@@ -82,7 +84,7 @@ TGG_INIT(init);
 
 /* What the console records of a match's setup, at the point Slippi does: the
  * start of the VS scene's setup, before anything draws from the RNG */
-static void on_setup(const StartMeleeData* data)
+static void on_setup(const tgg_match* setup)
 {
     const int busy = file != NULL;
     if (!busy) {
@@ -100,7 +102,10 @@ static void on_setup(const StartMeleeData* data)
     }
     RecMatch m;
     memset(&m, 0, sizeof m);
-    tgg_match_to_console(data, m.info);
+    memcpy(m.info, setup->console, TGG_CONSOLE_MATCH_SIZE);
+    StartMeleeData start;
+    tgg_match_to_game(setup, &start);
+    const StartMeleeData* data = &start;
     for (int i = 0; i < 4; i++) {
         uint8_t* p = m.info + 0x60 + 0x24 * i;
         const PlayerInitData* pl = &data->players[i];
@@ -122,7 +127,7 @@ static void on_setup(const StartMeleeData* data)
         /* Added content: the replay keeps the numbers, the metadata says
          * what they are */
         if (pl->slot_type != Gm_PKind_NA) {
-            const char* id = tgg_fighter_id(p[0]);
+            const char* id = tgg_character_id(p[0]);
             if (id != NULL && strncmp(id, "melee/", 6) != 0) {
                 snprintf(m.fighters[i], sizeof m.fighters[i], "%s", id);
             }

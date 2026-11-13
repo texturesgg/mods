@@ -9,11 +9,11 @@
 
 #include "slp.h"
 
-typedef struct StartMeleeData StartMeleeData;
+#include "tgg/match.h"
 
 /* The match `slp` recorded, as the game sets one up, its players on the
  * added costumes they played if this game has them. */
-void player_match(const Slp* slp, StartMeleeData* start);
+void player_match(const Slp* slp, tgg_match* start);
 /* Whether this game has the fighters and the stage mods added that the
  * replay played, under the same numbers: NULL, or why not. */
 const char* player_content(const Slp* slp);
@@ -37,7 +37,7 @@ typedef struct Keys {
 /* takeover.c: rewinding, skipping ahead, and taking over from a replay */
 enum { TAKE_RECORDING = -1, TAKE_STILL = -2 }; /* else a controller, 0 to 3 */
 /* A new replay's match */
-void takeover_reset(const StartMeleeData* match);
+void takeover_reset(const tgg_match* match);
 /* Its match ended: snapshots and takeover go */
 void takeover_match_end(void);
 /* Someone took over */

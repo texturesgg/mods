@@ -23,7 +23,7 @@
  *   - Messages are numbered on each link; a receiver takes them in order and
  *     says which it has, and the sender sends the rest again until it does.
  *   - A match: the host's netplay_play sends it to every joiner (its number,
- *     seed and setup, as the console lays a StartMeleeData out); each
+ *     seed and setup, as the console lays it out: a tgg_match's bytes); each
  *     joiner's says it's ready. A joiner starts once it has the match, the
  *     host once every joiner is ready.
  *
@@ -194,7 +194,7 @@ static void hello_packet(WirePacket* p)
     snprintf(p->u.hello.build, sizeof p->u.hello.build, "%s", tgg_game_build());
     snprintf(p->u.hello.mod_set, sizeof p->u.hello.mod_set, "%s", tgg_mod_set_id());
     snprintf(p->u.hello.versions, sizeof p->u.hello.versions, "%s", tgg_mod_set_versions());
-    snprintf(p->u.hello.target, sizeof p->u.hello.target, "%s", TGG_GAME_TARGET);
+    snprintf(p->u.hello.target, sizeof p->u.hello.target, "%s", TGG_TARGET);
     p->u.hello.host = (uint8_t) hosting();
     snprintf(p->u.hello.all, sizeof p->u.hello.all, "%s", tgg_mod_set_all());
     snprintf(p->u.hello.display, sizeof p->u.hello.display, "%s", tgg_mod_set_display());
@@ -427,7 +427,7 @@ static int provider_inputs(uint32_t tick, uint32_t* out)
     return 1;
 }
 
-static int provider_play_match(const StartMeleeData* data)
+static int provider_play_match(const tgg_match* data)
 {
     /* Every game calls it with the same match: the host sends it, the
      * joiners take it */
@@ -454,7 +454,7 @@ static uint32_t fresh_seed(void)
 }
 
 /* The host: its game's menus set up a match, which every game plays */
-static int provider_offer_match(const StartMeleeData* data)
+static int provider_offer_match(const tgg_match* data)
 {
     int ports[SIDES];
     const int humans = match_ports(data, ports);
@@ -470,7 +470,7 @@ static int provider_offer_match(const StartMeleeData* data)
     sn.seed = fresh_seed();
     put_be32(msg, sn.number);
     put_be32(msg + 4, sn.seed);
-    tgg_match_to_console(data, msg + 8);
+    memcpy(msg + 8, data->console, TGG_CONSOLE_MATCH_SIZE);
     /* From the game's VS mode, in simulation code */
     queue_later = 1;
     const int queued = queue_all(MSG_OFFER, 0, msg, (int) sizeof msg, -1);
@@ -553,9 +553,9 @@ static void got_msg(int link, const WireMsg* m)
         tgg_session_posted(from, m->data, m->len);
     } else if (m->kind == MSG_OFFER && !hosting() && m->len == 8 + TGG_CONSOLE_MATCH_SIZE &&
                ss.state == NETPLAY_CONNECTED) {
-        static StartMeleeData data;
+        static tgg_match data;
         memset(&data, 0, sizeof data);
-        tgg_match_from_console(&data, m->data + 8);
+        memcpy(data.console, m->data + 8, TGG_CONSOLE_MATCH_SIZE);
         sn.last_number = get_be32(m->data);
         match_expect(sn.last_number, get_be32(m->data + 4), &data);
         tgg_session_match_offered(&data);
@@ -619,7 +619,7 @@ static int differs(const WireHello* h, char* why, size_t cap)
     /* On one platform the builds and the mods' libraries must be the same. Across
      * platforms they can't be: the game's version and the mods' versions must
      * be, and the checksums show if they play differently anyway */
-    const int same_target = strcmp(h->target, TGG_GAME_TARGET) == 0;
+    const int same_target = strcmp(h->target, TGG_TARGET) == 0;
     char ours[96], theirs[96];
     game_version(tgg_game_build(), ours, sizeof ours);
     game_version(h->build, theirs, sizeof theirs);
@@ -815,7 +815,7 @@ static int host_got_hello(int link, const WireHello* h)
         tgg_log("%s said hello: same build and mods (%s: %s); it plays side %d",
                 net_peer_name(link), tgg_mod_set_id()[0] != '\0' ? tgg_mod_set_id() : "none",
                 tgg_mod_set_names(), link_side(link));
-        if (strcmp(h->target, TGG_GAME_TARGET) != 0) {
+        if (strcmp(h->target, TGG_TARGET) != 0) {
             tgg_log("it runs on %s: its mods are compared by version, not by build", h->target);
         }
         send_hello(link);
@@ -881,7 +881,7 @@ static int join_got_hello(int link, const WireHello* h)
         tgg_log("%s said hello: same build and mods (%s: %s); this game plays side %d",
                 net_peer_name(0), tgg_mod_set_id()[0] != '\0' ? tgg_mod_set_id() : "none",
                 tgg_mod_set_names(), ss.side);
-        if (strcmp(h->target, TGG_GAME_TARGET) != 0) {
+        if (strcmp(h->target, TGG_TARGET) != 0) {
             tgg_log("the host runs on %s: its mods are compared by version, not by build",
                     h->target);
         }
@@ -1013,9 +1013,9 @@ static void maybe_start(void)
     } else if (!sn.have_match) {
         return;
     }
-    static StartMeleeData data;
+    static tgg_match data;
     memset(&data, 0, sizeof data);
-    tgg_match_from_console(&data, sn.console);
+    memcpy(data.console, sn.console, TGG_CONSOLE_MATCH_SIZE);
     memset(sn.ready, 0, sizeof sn.ready);
     sn.have_match = 0;
     sn.last_number = sn.number;
@@ -1279,7 +1279,7 @@ int netplay_receive(void* buf, int cap, int* from)
     return n;
 }
 
-int netplay_play(const StartMeleeData* data)
+int netplay_play(const tgg_match* data)
 {
     if (ss.state != NETPLAY_CONNECTED) {
         return -1;
@@ -1292,7 +1292,7 @@ int netplay_play(const StartMeleeData* data)
         uint8_t msg[8 + TGG_CONSOLE_MATCH_SIZE];
         sn.number = sn.last_number + 1;
         sn.seed = fresh_seed();
-        tgg_match_to_console(data, sn.console);
+        memcpy(sn.console, data->console, TGG_CONSOLE_MATCH_SIZE);
         put_be32(msg, sn.number);
         put_be32(msg + 4, sn.seed);
         memcpy(msg + 8, sn.console, TGG_CONSOLE_MATCH_SIZE);

@@ -16,6 +16,7 @@
  * each result live in TGG_STATE, so they're right through a rollback, and a
  * result is counted once its frame is final, as the L-cancel trainer does.
  */
+#include "tgg/game/bridge.h"
 #include "tgg/draw.h"
 #include "tgg/events.h"
 #include "tgg/rollback.h"
@@ -83,9 +84,9 @@ TGG_STATE(st);
 static int showing(void);
 static void describe(char* line1, char* line2, size_t cap, const Result* r);
 
-static void on_match_start(const StartMeleeData* data)
+static void on_match_start(const tgg_match* match)
 {
-    (void) data;
+    (void) match;
     memset(&st, 0, sizeof st);
 }
 TGG_ON(match_start, on_match_start);
@@ -122,9 +123,9 @@ static int ledge_option(int msid)
     return msid >= ftCo_MS_CliffClimbSlow && msid <= ftCo_MS_CliffJumpQuick2;
 }
 
-static void on_fighter_update(Fighter_GObj* gobj)
+static void on_fighter_update(tgg_fighter fighter)
 {
-    const Fighter* fp = GET_FIGHTER(gobj);
+    const Fighter* fp = GET_FIGHTER(tgg_fighter_gobj(fighter));
     const int port = fp->player_idx;
     if (port < 0 || port >= 4 || fp->is_sub_fighter) {
         return;
