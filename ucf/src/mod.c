@@ -9,29 +9,25 @@
  * points in the game's own code, through the public API.
  *
  * Everything it reads is the raw stick history of each controller port, which
- * it keeps in TGG_STATE, and fighter fields: it is deterministic and rolls
- * back. It uses the fighter_input, fighter_turn and fighter_check events and
- * two replacements.
+ * it keeps in TGG_STATE, and the curated layer's fighter and pad reads: it is
+ * deterministic and rolls back. It uses the fighter_input, fighter_turn and
+ * fighter_check events, on the stable tier.
  *
  * Not here: the CSS indicator text (Indicator/), which has no counterpart in
  * the port's menus yet.
  */
+#include "tgg/action.h"
 #include "tgg/events.h"
-#include "tgg/game/bridge.h"
-#include "tgg/game/hooks.h"
-
-#include <melee/ft/fighter.h>
-#include <melee/ft/ft_0DF1.h>
-#include <melee/ft/ftcommon.h>
-#include <melee/ft/kinds/ftCommon/ftCo_0A01.h>
-#include <melee/ft/kinds/ftCommon/ftCo_Escape.h>
-#include <melee/ft/kinds/ftZelda/forward.h>
-#include <melee/ft/types.h>
-#include <melee/mp/forward.h>
-#include <melee/pl/player.h>
-#include <sysdolphin/baselib/controller.h>
+#include "tgg/fighter.h"
+#include "tgg/pad.h"
 
 #include <math.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <string.h>
+
+/* Zelda's Farore's Wind start, the eighth of her own action states */
+#define ZELDA_SPECIAL_HI_START (TGG_ACTION_FIGHTER_FIRST + 8)
 
 /*
  * UCF Pad Buffer + 1.0 Cardinals.asm keeps the last four raw stick values of
@@ -40,20 +36,20 @@
  */
 #define UCF_BUFFER 4
 static struct {
-    s8 x[UCF_BUFFER];
-    s8 y[UCF_BUFFER];
-    u8 index;
-    u8 down;
+    int8_t x[UCF_BUFFER];
+    int8_t y[UCF_BUFFER];
+    uint8_t index;
+    uint8_t down;
 } s_pad[4];
 TGG_STATE(s_pad);
 
 /* The raw stick value `back` entries before the newest. */
-static s8 raw_x(int port, int back)
+static int8_t raw_x(int port, int back)
 {
     return s_pad[port].x[(s_pad[port].index - back) & (UCF_BUFFER - 1)];
 }
 
-static s8 raw_y(int port, int back)
+static int8_t raw_y(int port, int back)
 {
     return s_pad[port].y[(s_pad[port].index - back) & (UCF_BUFFER - 1)];
 }
@@ -82,7 +78,7 @@ static int rim_squared(float x, float y)
 }
 
 /* A cardinal: one axis at the rim and the other within 6 of center. */
-static void snap_cardinal(s8 raw_x, s8 raw_y, float* x, float* y)
+static void snap_cardinal(int raw_x, int raw_y, float* x, float* y)
 {
     const int snap = 6;
     if ((raw_x <= -80 || raw_x >= 80) && raw_y >= -snap && raw_y <= snap) {
@@ -103,38 +99,35 @@ static void snap_cardinal(s8 raw_x, s8 raw_y, float* x, float* y)
  */
 static void on_input(tgg_fighter fighter, tgg_input* input)
 {
-    Fighter_GObj* gobj = tgg_fighter_gobj(fighter);
-    Fighter* fp = GET_FIGHTER(gobj);
-    if (ftCo_IsCpuControlled(fp) || fp->pad_port >= 4) {
+    const int port = tgg_fighter_controller(fighter);
+    if (tgg_fighter_cpu(fighter) || port < 0) {
         return;
     }
-    const int port = fp->pad_port;
-    /* The newest queue entry: the code reads the one before qread, of 5 */
-    const PadLibData* lib = &HSD_PadLibData;
-    const int newest = lib->qread == 0 ? 4 : lib->qread - 1;
-    const PADStatus* raw = &lib->queue[newest].stat[port];
-
     s_pad[port].index = (s_pad[port].index + 1) & (UCF_BUFFER - 1);
-    s_pad[port].x[s_pad[port].index] = raw->stickX;
-    s_pad[port].y[s_pad[port].index] = raw->stickY;
+    s_pad[port].x[s_pad[port].index] = (int8_t) tgg_pad_stick_x(port);
+    s_pad[port].y[s_pad[port].index] = (int8_t) tgg_pad_stick_y(port);
 
     /* Farore's Wind aims with the stick's exact value */
-    _Static_assert(ftZd_MS_SpecialHiStart_0 == 349, "UCF's Farore's Wind start state");
-    if (!(FT_CODE(fp->kind) == Ft_Kind_Zelda && fp->motion_id == ftZd_MS_SpecialHiStart_0)) {
-        snap_cardinal(raw->stickX, raw->stickY, &input->stick_x, &input->stick_y);
-        snap_cardinal(raw->substickX, raw->substickY, &input->cstick_x, &input->cstick_y);
+    const char* as = tgg_fighter_behaves_as(fighter);
+    if (!(as != NULL && strcmp(as, "melee/zelda") == 0 &&
+          tgg_fighter_action(fighter) == ZELDA_SPECIAL_HI_START))
+    {
+        snap_cardinal(tgg_pad_stick_x(port), tgg_pad_stick_y(port), &input->stick_x,
+                      &input->stick_y);
+        snap_cardinal(tgg_pad_cstick_x(port), tgg_pad_cstick_y(port), &input->cstick_x,
+                      &input->cstick_y);
     }
 
     /* The count starts on a flick down (the stick moved more than 44 raw
      * units in two frames, within a frame of crossing the smash threshold),
      * grows while the stick stays down on the rim past -0.609375, and goes
      * back to zero when it doesn't. It wraps with its byte. */
-    u8 down = 0;
+    uint8_t down = 0;
     if (input->stick_y <= -0.609375f && rim_squared(input->stick_x, input->stick_y) > 80 * 80) {
         down = s_pad[port].down;
         if (down != 0) {
             down++;
-        } else if (fp->active_timer.lstick.y <= 1 && flick_y(port) > 44 * 44) {
+        } else if (tgg_fighter_stick_y_age(fighter) <= 1 && flick_y(port) > 44 * 44) {
             down = 1;
         }
     }
@@ -147,31 +140,22 @@ TGG_ON(fighter_input, on_input);
  * the second frame of a tilt turn of a controlled fighter, a stick that
  * crossed the smash threshold in the last two frames (the raw x moved more
  * than 75 units in two frames) while meeting the game's own smash conditions
- * makes it a smash turn. Nana's pending input is rewritten so she dashes back
- * as well.
+ * makes it a smash turn, and Nana dashes back as well.
  */
 static void on_turn(tgg_fighter fighter, tgg_turn* turn)
 {
-    Fighter_GObj* gobj = tgg_fighter_gobj(fighter);
-    Fighter* fp = GET_FIGHTER(gobj);
-    if (fp->is_sub_fighter || fp->cur_anim_frame != 2.0f) {
+    if (tgg_fighter_follower(fighter) || tgg_fighter_action_frame(fighter) != 2.0f) {
         return;
     }
     /* The game's smash conditions, as its own check reads them */
-    if (fp->input.lstick[0].x * fp->facing_dir < p_ftCommonData->dash_smash_stick_threshold ||
-        fp->active_timer.lstick.x > 1 || fp->pad_port >= 4 || flick_x(fp->pad_port) <= 75 * 75)
+    const int port = tgg_fighter_controller(fighter);
+    if (tgg_fighter_stick_x(fighter) * tgg_fighter_facing(fighter) < tgg_pad_dash_threshold() ||
+        tgg_fighter_stick_x_age(fighter) > 1 || port < 0 || flick_x(port) <= 75 * 75)
     {
         return;
     }
     turn->smash = 1;
-
-    /* Nana replays Popo's input a few frames late: make her dash back too */
-    Fighter_GObj* nana = Player_GetEntityAtIndex(fp->player_idx, 1);
-    struct Fighter_x1A88_xFC_t* pending = nana != NULL ? GET_FIGHTER(nana)->cpu.x444 : NULL;
-    if (pending != NULL) {
-        pending->facing_dir = fp->facing_dir;
-        pending->lstick.x = fp->facing_dir < 0 ? -128 : 127;
-    }
+    turn->follower_too = 1;
 }
 TGG_ON(fighter_turn, on_turn);
 
@@ -182,42 +166,30 @@ TGG_ON(fighter_turn, on_turn);
  * the stick held sideways for the roll window, no C-stick spot dodge, the
  * stick on the rim and not yet at -0.8.
  */
-static bool blocks_spot_dodge(Fighter* fp)
+static bool blocks_spot_dodge(tgg_fighter fighter)
 {
-    if (fp->input.cstick[0].y <= p_ftCommonData->x314 ||
-        fp->active_timer.lstick.x < p_ftCommonData->x320)
+    if (tgg_fighter_cstick_y(fighter) <= tgg_pad_spot_dodge_threshold() ||
+        tgg_fighter_stick_x_age(fighter) < tgg_pad_roll_frames())
     {
         return false;
     }
-    if (fp->input.lstick[0].y <= -0.8f) {
+    if (tgg_fighter_stick_y(fighter) <= -0.8f) {
         return false;
     }
-    if (fp->coll_data.floor.index == -1 || !(fp->coll_data.floor.flags & LINE_FLAG_PLATFORM)) {
+    if (!tgg_fighter_on_platform(fighter)) {
         return false;
     }
-    return rim_squared(fp->input.lstick[0].x, fp->input.lstick[0].y) > 80 * 80;
+    return rim_squared(tgg_fighter_stick_x(fighter), tgg_fighter_stick_y(fighter)) > 80 * 80;
 }
-
-/* The two checks that start a spot dodge: from a standing state with the
- * shield button down, and from the shield. The code returns from the one
- * function both reach, which makes either check fail; here each check fails
- * instead. */
-static bool spot_dodge_from_state(Fighter_GObj* gobj)
-{
-    return !blocks_spot_dodge(GET_FIGHTER(gobj)) && TGG_ORIGINAL(ftCo_80099794)(gobj);
-}
-TGG_REPLACE(ftCo_80099794, spot_dodge_from_state);
-
-static bool spot_dodge_from_shield(Fighter_GObj* gobj)
-{
-    return !blocks_spot_dodge(GET_FIGHTER(gobj)) && TGG_ORIGINAL(ftCo_8009980C)(gobj);
-}
-TGG_REPLACE(ftCo_8009980C, spot_dodge_from_shield);
 
 /*
- * The game's input checks the other codes change, each at the point of its
- * own injection:
+ * The game's input checks the codes change, each at the point of its own
+ * injection:
  *
+ * - UCF Shield Drop.asm: the two checks that start a spot dodge (from a
+ *   standing state with the shield button down, and from the shield) fail
+ *   while blocks_spot_dodge holds. The code returns from the one function
+ *   both reach, which makes either check fail.
  * - UCF SDI.asm (ftCo_Damage_OnEveryHitlag) and UCF Shield SDI.asm
  *   (ftCo_80093240): smash DI that the window test refuses (the stick was
  *   already past the threshold) is allowed for a stick that was just flicked.
@@ -233,26 +205,31 @@ TGG_REPLACE(ftCo_8009980C, spot_dodge_from_shield);
  */
 static void on_check(tgg_fighter fighter, tgg_check* check)
 {
-    Fighter_GObj* gobj = tgg_fighter_gobj(fighter);
-    Fighter* fp = GET_FIGHTER(gobj);
-    const int port = fp->pad_port;
-    const bool have_pad = port < 4;
-    const Vec2* prev = &fp->input.lstick[1];
+    const int port = tgg_fighter_controller(fighter);
+    const bool have_pad = port >= 0;
+    const float prev_x = tgg_fighter_stick_prev_x(fighter);
+    const float prev_y = tgg_fighter_stick_prev_y(fighter);
 
     switch (check->kind) {
+    case TGG_CHECK_SPOT_DODGE:
+    case TGG_CHECK_SPOT_DODGE_SHIELD:
+        if (check->pass && blocks_spot_dodge(fighter)) {
+            check->pass = 0;
+        }
+        break;
     case TGG_CHECK_SDI:
         /* An axis crossed in the last frame, the stick before it inside the
          * threshold, and it moved at least 62 raw units in two frames. */
         if (check->pass) {
             return;
         }
-        if (fp->active_sticky.lstick.x > 1 && fp->active_sticky.lstick.y > 1) {
+        if (tgg_fighter_stick_x_age_kept(fighter) > 1 && tgg_fighter_stick_y_age_kept(fighter) > 1) {
             return;
         }
         {
-            const float yy = prev->y * prev->y;
-            const float prev_squared = fmaf(prev->x, prev->x, yy);
-            const float min = p_ftCommonData->sdi_min_stick_mag;
+            const float yy = prev_y * prev_y;
+            const float prev_squared = fmaf(prev_x, prev_x, yy);
+            const float min = tgg_pad_sdi_threshold();
             if (min * min <= prev_squared || !have_pad) {
                 return;
             }
@@ -261,25 +238,26 @@ static void on_check(tgg_fighter fighter, tgg_check* check)
         break;
     case TGG_CHECK_SHIELD_SDI:
         /* The same from the x axis alone, which isn't compared by magnitude */
-        if (check->pass || fp->active_sticky.lstick.x > 1 ||
-            prev->x >= p_ftCommonData->sdi_min_stick_mag || !have_pad)
+        if (check->pass || tgg_fighter_stick_x_age_kept(fighter) > 1 ||
+            prev_x >= tgg_pad_sdi_threshold() || !have_pad)
         {
             return;
         }
         check->pass = flick_x(port) > 62 * 62;
         break;
     case TGG_CHECK_TUMBLE_FALL:
-        if (fp->active_timer.lstick.x != 1) {
-            check->pass = fp->active_timer.lstick.x < 1;
+        if (tgg_fighter_stick_x_age(fighter) != 1) {
+            check->pass = tgg_fighter_stick_x_age(fighter) < 1;
         } else {
-            check->pass = have_pad && fabsf(prev->x) < p_ftCommonData->x210 && flick_x(port) > 75 * 75;
+            check->pass =
+                have_pad && fabsf(prev_x) < tgg_pad_tumble_threshold() && flick_x(port) > 75 * 75;
         }
         break;
     case TGG_CHECK_SQUAT_RELEASE:
-        if (fp->active_timer.lstick.x < 1 &&
-            rim_squared(fp->input.lstick[0].x, fp->input.lstick[0].y) > 80 * 80)
+        if (tgg_fighter_stick_x_age(fighter) < 1 &&
+            rim_squared(tgg_fighter_stick_x(fighter), tgg_fighter_stick_y(fighter)) > 80 * 80)
         {
-            check->pass = fp->input.lstick[0].y > -0.59f;
+            check->pass = tgg_fighter_stick_y(fighter) > -0.59f;
         }
         break;
     case TGG_CHECK_PLATFORM_DROP:

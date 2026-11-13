@@ -14,10 +14,10 @@ and shield SDI, tumble wiggle and the crouch release fix.
 
 ## For mod makers
 
-It replaces the spot dodge checks `ftCo_80099794` and `ftCo_8009980C`, so another mod that
-replaces them can't load beside it. Everything it reads is the raw stick history of each
-port, which it keeps in `TGG_STATE`, and fighter fields, so it rolls back. It uses the
-`fighter_input`, `fighter_turn` and `fighter_check` events (`src/mod.c`).
+It's a stable-tier mod: the `fighter_input`, `fighter_turn` and `fighter_check` events
+(the spot dodge checks among them), the curated fighter reads and the raw controllers of
+`tgg/pad.h` (`src/mod.c`). It keeps each port's raw stick history in `TGG_STATE`, so it
+rolls back.
 
 Not here: UCF's character select screen indicator text.
 
