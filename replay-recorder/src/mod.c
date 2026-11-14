@@ -27,7 +27,11 @@
 #include "tgg/settings.h"
 
 #include <melee/gm/forward.h>
+#include <melee/gm/gm_1601.h>
+#include <melee/gm/gm_16F1.h>
 #include <melee/gm/gm_1A3F.h>
+#include <melee/gm/gmmain_lib.h>
+#include <melee/gm/types.h>
 #include <melee/lb/lblanguage.h>
 #include <melee/mn/mnname.h>
 #include <melee/mn/types.h>
@@ -82,6 +86,33 @@ static void init(void)
 }
 TGG_INIT(init);
 
+/* The save's unlocks, as the bytes unlocking everything would change (the
+ * game's own unlock-everything calls, as tgg.unlocks makes them), with their
+ * values. The save is put back as it was. */
+static void read_unlocks(RecMatch* m)
+{
+    GmSaveData* save = &gmMainLib_GetCardData()->save_data;
+    static GmSaveData before;
+    _Static_assert(sizeof before == REC_SAVE_SIZE, "the save's size");
+    memcpy(&before, save, sizeof before);
+    save->x186C = 0xFF; /* unlocked features */
+    gm_80164F18();      /* characters */
+    gm_8016468C();      /* stages */
+    gm_8017297C();      /* unlockables */
+    gm_801741FC();      /* trophies */
+    const uint8_t* now = (const uint8_t*) save;
+    const uint8_t* was = (const uint8_t*) &before;
+    m->n_unlocks = 0;
+    for (int i = 0; i < REC_SAVE_SIZE; i++) {
+        if (now[i] != was[i]) {
+            m->unlock_at[m->n_unlocks] = (uint16_t) i;
+            m->unlock_value[m->n_unlocks] = was[i];
+            m->n_unlocks++;
+        }
+    }
+    memcpy(save, &before, sizeof before);
+}
+
 /* What the console records of a match's setup, at the point Slippi does: the
  * start of the VS scene's setup, before anything draws from the RNG */
 static void on_setup(const tgg_match* setup)
@@ -100,8 +131,9 @@ static void on_setup(const tgg_match* setup)
         }
         return;
     }
-    RecMatch m;
+    static RecMatch m;
     memset(&m, 0, sizeof m);
+    read_unlocks(&m);
     memcpy(m.info, setup->console, TGG_CONSOLE_MATCH_SIZE);
     StartMeleeData start;
     tgg_match_to_game(setup, &start);

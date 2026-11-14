@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /*
- * While a replay plays, everything is unlocked, as it is in netplay, whatever
- * this game's save holds: a match's setup reads the save's unlocks (a
+ * While a replay plays, the save's unlocks are the ones it was recorded with,
+ * whatever this game's save holds: a match's setup reads the save's unlocks (a
  * stage's alternate music is rolled for only where it's unlocked), so the
- * replay would play differently on another save.
+ * replay would play differently on another save. The port's recorder writes
+ * them (tgg.unlocks in the metadata); a replay that doesn't say plays with
+ * everything unlocked, as netplay does.
  *
  * This game's save isn't changed by it: the game's saves to the memory card
  * wait while the replay plays (tgg_save_hold), and afterwards the save gets
@@ -22,6 +24,8 @@
 #include <stdint.h>
 #include <string.h>
 
+_Static_assert(sizeof(GmSaveData) == SLP_SAVE_SIZE, "the save's size");
+
 static struct {
     int on;
     GmSaveData before; /* the save as the replay found it */
@@ -38,7 +42,7 @@ static void unlock_everything(void)
     gm_801741FC();                                   /* trophies */
 }
 
-void unlocks_follow(int playing)
+void unlocks_follow(int playing, const Slp* slp)
 {
     if (playing == ul.on) {
         return;
@@ -51,14 +55,19 @@ void unlocks_follow(int playing)
         tgg_save_hold(1); /* and a save being written finishes with this game's own */
         memcpy(&ul.before, save, sizeof *save);
         unlock_everything();
+        const int recorded = slp->has_unlocks && slp->n_unlocks > 0;
+        for (int i = 0; slp->has_unlocks && i < slp->n_unlocks; i++) {
+            now[slp->unlock_at[i]] = slp->unlock_value[i];
+        }
         size_t changed = 0;
         for (size_t i = 0; i < sizeof *save; i++) {
             mask[i] = now[i] ^ before[i];
             changed += mask[i] != 0;
         }
         ul.on = 1;
-        tgg_log("everything unlocked while the replay plays%s",
-                changed == 0 ? " (this save has it all)" : "; this game's save keeps its own");
+        tgg_log("%s while the replay plays%s",
+                recorded ? "the recording's unlocks" : "everything unlocked",
+                changed == 0 ? " (this save has the same)" : "; this game's save keeps its own");
         return;
     }
     for (size_t i = 0; i < sizeof *save; i++) {

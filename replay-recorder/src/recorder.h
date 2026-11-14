@@ -30,6 +30,8 @@ typedef struct StartMeleeData StartMeleeData;
 #define REC_FOD_SIZE 9
 #define REC_WHISPY_SIZE 5
 #define REC_STADIUM_SIZE 8
+/* The size of the save the setup reads its unlocks from (GmSaveData) */
+#define REC_SAVE_SIZE 0x1790
 /* Slippi records at most this many items a frame */
 #define REC_MAX_ITEMS 15
 
@@ -74,6 +76,13 @@ typedef struct RecMatch {
     char costumes[4][200];
     /* The stage's content id when a mod adds it; "" for the game's own */
     char stage[200];
+    /* The save's unlocks, which the setup reads (a stage's alternate music is
+     * rolled for only where it's unlocked): each byte of the save that
+     * unlocking everything would change, and its value. None when the save
+     * has everything. */
+    int n_unlocks;
+    uint16_t unlock_at[REC_SAVE_SIZE];
+    uint8_t unlock_value[REC_SAVE_SIZE];
 } RecMatch;
 
 /* How it ended */

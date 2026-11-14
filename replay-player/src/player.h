@@ -21,7 +21,7 @@ const char* player_content(const Slp* slp);
 void player_log_rules(const Slp* slp);
 
 /* unlocks.c: everything unlocked while `playing`, this game's save kept */
-void unlocks_follow(int playing);
+void unlocks_follow(int playing, const Slp* slp);
 /* The Slippi rule mods a console's gecko list (and its Stadium
  * transformations, -1 when unknown) call for, ", "-separated into `out`;
  * with `missing_only`, only those that aren't loaded. Returns how many. */

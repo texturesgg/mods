@@ -25,6 +25,9 @@ struct SlpFile {
     char costumes[4][200];
     unsigned stkind;
     char stage[200];
+    int n_unlocks;
+    uint16_t unlock_at[REC_SAVE_SIZE];
+    uint8_t unlock_value[REC_SAVE_SIZE];
 };
 
 static void be16(uint8_t* p, uint32_t v)
@@ -69,6 +72,9 @@ SlpFile* slp_create(const char* path, const RecMatch* m)
     }
     f->stkind = (unsigned) (m->info[0xE] << 8 | m->info[0xF]);
     memcpy(f->stage, m->stage, sizeof f->stage);
+    f->n_unlocks = m->n_unlocks;
+    memcpy(f->unlock_at, m->unlock_at, sizeof f->unlock_at);
+    memcpy(f->unlock_value, m->unlock_value, sizeof f->unlock_value);
     f->last_frame = REC_FIRST_FRAME - 1;
 
     /* {U\3raw[$U#l<length> */
@@ -240,6 +246,19 @@ int slp_finish(SlpFile* f, const RecEnd* end, const char* start_at)
      * back with (core's docs/mod-profiles.md) */
     key(out, "profile");
     string(out, tgg_mod_set_profile());
+    /* The save's unlocks: four hex digits of offset and two of value for
+     * each byte that unlocking everything would change; "" when the save has
+     * everything */
+    char* unlocks = malloc((size_t) f->n_unlocks * 6 + 1);
+    if (unlocks != NULL) {
+        for (int i = 0; i < f->n_unlocks; i++) {
+            snprintf(unlocks + 6 * i, 7, "%04x%02x", f->unlock_at[i], f->unlock_value[i]);
+        }
+        unlocks[6 * f->n_unlocks] = '\0';
+        key(out, "unlocks");
+        string(out, unlocks);
+        free(unlocks);
+    }
     /* Fighters, costumes and stages mods add: the numbers in the replay are
      * this game's, and these say what they stand for. A player checks them. */
     int added = f->stage[0] != '\0';

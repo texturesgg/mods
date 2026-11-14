@@ -180,6 +180,36 @@ static void read_content(const uint8_t* meta, size_t len, Slp* slp)
     }
 }
 
+/* "unlocks" inside "tgg": four hex digits of offset and two of value for
+ * each byte */
+static void read_unlocks(const uint8_t* meta, size_t len, Slp* slp)
+{
+    static const uint8_t key[] = { 'U', 7, 'u', 'n', 'l', 'o', 'c', 'k', 's', 'S' };
+    static char text[SLP_SAVE_SIZE * 6 + 1];
+    for (size_t i = 0; i + sizeof key <= len; i++) {
+        if (memcmp(meta + i, key, sizeof key) != 0) {
+            continue;
+        }
+        Ubj u = { meta + i + sizeof key, meta + len };
+        if (ubj_text(&u, text, sizeof text) != 0 || strlen(text) % 6 != 0) {
+            return;
+        }
+        int n = 0;
+        for (const char* p = text; *p != '\0' && n < SLP_SAVE_SIZE; p += 6) {
+            unsigned at, value;
+            if (sscanf(p, "%4x%2x", &at, &value) != 2 || at >= SLP_SAVE_SIZE) {
+                return;
+            }
+            slp->unlock_at[n] = (uint16_t) at;
+            slp->unlock_value[n] = (uint8_t) value;
+            n++;
+        }
+        slp->n_unlocks = n;
+        slp->has_unlocks = 1;
+        return;
+    }
+}
+
 const char* slp_read(const char* path, Slp* slp)
 {
     memset(slp, 0, sizeof *slp);
@@ -272,6 +302,7 @@ const char* slp_read(const char* path, Slp* slp)
     }
     if (end < (size_t) len) {
         read_content(data + end, (size_t) len - end, slp);
+        read_unlocks(data + end, (size_t) len - end, slp);
     }
     free(data);
     if (!have_start) {

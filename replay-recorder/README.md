@@ -51,8 +51,11 @@ lays them out:
   placement. A match left any other way (the window closed) has none.
 - **metadata**: `startAt`, `lastFrame`, each port's characters by frame count, `playedOn`
   `"tgg-melee"`, and `tgg` (ignored by Slippi's tools): the game build, the mod-set id and
-  each mod that counts toward it, as `"id version"`, and `profile`: the exact mods and their
-  settings, as JSON text.
+  each mod that counts toward it, as `"id version"`, `profile`: the exact mods and their
+  settings, as JSON text, and `unlocks`: the save's unlocks the match was set up with (a stage's
+  alternate music is rolled for only where it's unlocked), as four hex digits of offset into
+  the save and two of value for each byte that unlocking everything would change; empty when the
+  save has everything.
 
 There's no gecko code list, since the port runs mods, not codes. `tgg.profile` in the
 metadata says which ran, with their settings, so a replay player can get the same mods to

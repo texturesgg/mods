@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0
+
+- A replay says which unlocks the save had (`tgg.unlocks` in the metadata), since a match's setup reads them, so the replay player can play it back on the same.
+
 ## 0.3.0
 
 - A match on a stage from a mod says which in the replay's metadata too. Needs tgg-melee API 0.7.

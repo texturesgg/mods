@@ -12,6 +12,9 @@
  * frame 0 is the first one players can act on. */
 #define SLP_FIRST_FRAME (-123)
 
+/* The size of the save a match's setup reads its unlocks from (GmSaveData) */
+#define SLP_SAVE_SIZE 0x1790
+
 /* One port's pre-frame update: the inputs the game used that frame. */
 typedef struct SlpInput {
     uint8_t have;
@@ -48,6 +51,13 @@ typedef struct Slp {
     int n_fighters;
     char costumes[4][200];
     char stage[200];
+    /* The save's unlocks the match was recorded with (the port's recorder):
+     * each byte of the save that unlocking everything would change, and its
+     * value. has_unlocks is 0 for a replay that doesn't say. */
+    int has_unlocks;
+    int n_unlocks;
+    uint16_t unlock_at[SLP_SAVE_SIZE];
+    uint8_t unlock_value[SLP_SAVE_SIZE];
 } Slp;
 
 /* Reads `path` into `slp`. Returns NULL, or what's wrong with the file. */

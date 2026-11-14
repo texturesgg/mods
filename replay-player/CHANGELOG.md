@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.0
+
+- A replay from the port's recorder plays with the unlocks it was recorded with, instead of everything unlocked, so a match recorded on a partly unlocked save plays back the same. Other replays still play with everything unlocked.
+
 ## 0.5.1
 
 - Scripts can ask whether a replay is playing: `tgg.mod("tgg.replay-player").playing()`.
