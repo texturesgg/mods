@@ -1,0 +1,11 @@
+{
+  "functions": [
+    {
+      "name": "playing",
+      "export": "replay_playing@1",
+      "returns": "bool",
+      "params": [],
+      "doc": "True while the player has a replay to play: from its start until its match ends."
+    }
+  ]
+}

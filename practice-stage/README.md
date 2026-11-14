@@ -38,6 +38,10 @@ Off in netplay: an offline mod, switched off by the game for a netplay session.
 Put your drill's entry in the Practice submenu with `TGG_MENU_ADD("practice/<name>", ...)`;
 `tgg.practice-menu` opens it from 1-P Mode.
 
+A script drill gets the same through `tgg.mod("tgg.practice-stage")` (`assets/script-api.json`):
+`start(drill, stage, keep_cpu, keep_screen)` (`""` for no stage), `drill()`, `reset_here()`,
+`reset(say)` and `has_reset()`. List `"tgg.practice-stage": "^0.1.4"` in `depends`.
+
 ## How it works
 
 `src/mod.c`, in one file.
