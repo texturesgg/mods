@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4
+
+- Scripts can start a drill and use its reset point: `tgg.mod("tgg.practice-stage")` offers `start`, `drill`, `reset_here`, `reset` and `has_reset`. The stage a drill asks for is copied, so it needn't outlive the call.
+
 ## 0.1.3
 
 - Built again so the registry keeps it an offline mod: off in netplay, never counted. Nothing changes in the game.

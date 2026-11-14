@@ -52,6 +52,7 @@ static struct {
     int pending; /* asked for, Training Mode not reached yet */
     int on;
     char drill[65];
+    char stage[65];
     practice_how how;
 } drill;
 
@@ -131,14 +132,27 @@ void practice_start(const practice_how* how)
         if (how->drill != NULL) {
             strncpy(drill.drill, how->drill, sizeof drill.drill - 1);
         }
+        if (how->stage != NULL) {
+            strncpy(drill.stage, how->stage, sizeof drill.stage - 1);
+        }
     }
     drill.how.drill = drill.drill;
+    drill.how.stage = drill.stage[0] != '\0' ? drill.stage : NULL;
     drill.pending = 1;
     tgg_log("practice: %s", drill.drill[0] != '\0' ? drill.drill : "Training");
     /* as the 1-P menu leaves for Training Mode: the menu scene's exit data
      * names the mode, and the scene ends */
     mn_80229860(GM_TRAINING);
 }
+
+/* practice_start for scripts (assets/script-api.json), in plain arguments: "" for no stage */
+static void start_for_script(const char* drill_id, const char* stage, int keep_cpu, int keep_screen)
+{
+    const practice_how how = {
+        .drill = drill_id, .keep_cpu = keep_cpu, .keep_screen = keep_screen, .stage = stage};
+    practice_start(&how);
+}
+TGG_EXPORT(practice_start_drill, start_for_script);
 
 const char* practice_drill(void)
 {

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1
+
+- Scripts can ask whether a replay is playing: `tgg.mod("tgg.replay-player").playing()`.
+
 ## 0.5.0
 
 - A replay on a stage from a mod plays only if this game has it under the same number; otherwise it says the stage is missing or numbered differently. Needs tgg-melee API 0.7.

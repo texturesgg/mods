@@ -73,7 +73,8 @@ manifest's `depends` and copy the header (or add this mod's `include/` to your i
 - `replay_playing()` is nonzero while a replay is playing, so a recording mod can skip it.
   A mod that only needs this can look it up with
   `tgg_mod_export("tgg.replay-player", "replay_playing@1")` instead of depending on the
-  player.
+  player. A script asks `tgg.mod("tgg.replay-player")`, which is nil without the player, and
+  calls `playing()` (`assets/script-api.json`).
 
 ### How it works
 
