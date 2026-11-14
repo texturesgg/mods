@@ -8,6 +8,7 @@
 
 #include "tgg/match.h"
 #include "tgg/mod.h"
+#include "tgg/rollback.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -154,7 +155,7 @@ int wire_same(const WireInput* a, const WireInput* b);
 #define SIDES (NET_PEERS + 1)
 
 #define WIRE_MAGIC 0x4e474754u /* "TGGN" */
-#define WIRE_VERSION 8
+#define WIRE_VERSION 9
 enum {
     WIRE_HELLO = 1,
     WIRE_INPUT = 2,
@@ -164,6 +165,10 @@ enum {
     WIRE_PROFILE = 6,     /* a piece of it */
 };
 #define WIRE_MAX_INPUTS 40
+#define WIRE_INPUT_BYTES 43
+/* A desync's details: the most mods named, and the bytes they take */
+#define WIRE_BLAME_MODS TGG_FRAME_PARTS_MODS
+#define WIRE_BLAME_BYTES(mods) (4 + 8 * TGG_FRAME_PARTS + 1 + 12 * (mods))
 #define WIRE_MAX_RUNS NET_PEERS
 #define WIRE_MSG_MAX 400
 #define WIRE_MAX_MSGS 32
@@ -216,6 +221,15 @@ typedef struct WireInputs {
     uint8_t runs;
     WireRun run[WIRE_MAX_RUNS];
     WireInput inputs[WIRE_MAX_INPUTS]; /* the runs' inputs, one after another */
+    /* After a desync, the sender's checksum parts for its first frame
+     * (tgg_frame_checksum_parts), each mod by a hash of its id; frame -1 before */
+    struct {
+        int32_t frame;
+        uint64_t part[TGG_FRAME_PARTS];
+        uint8_t mods;
+        uint32_t mod_id[WIRE_BLAME_MODS];
+        uint64_t mod_sum[WIRE_BLAME_MODS];
+    } blame;
 } WireInputs;
 
 /* A message: what netplay_send sends, and netplay's own about the session */
