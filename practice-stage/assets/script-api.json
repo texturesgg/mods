@@ -1,0 +1,39 @@
+{
+  "functions": [
+    {
+      "name": "start",
+      "export": "practice_start_drill",
+      "returns": "void",
+      "params": [["drill", "string"], ["stage", "string"], ["keep_cpu", "bool"], ["keep_screen", "bool"]],
+      "doc": "From a menu entry's action: opens Training Mode's character select, and the Training match after it is the drill's. `drill` is the drill's mod id, what drill() answers; `stage` the stage the stage select starts on, as a content id (\"melee/final-destination\"), or \"\"; `keep_cpu` leaves Training's CPU in; `keep_screen` leaves Training's readouts on screen."
+    },
+    {
+      "name": "drill",
+      "export": "practice_drill@1",
+      "returns": "string",
+      "params": [],
+      "doc": "The drill this Training Mode was started for (its mod id), or nil."
+    },
+    {
+      "name": "reset_here",
+      "export": "practice_reset_here@1",
+      "returns": "void",
+      "params": [],
+      "doc": "Keeps this moment as the reset point, replacing the last; \"Ready\" shows. In a match only."
+    },
+    {
+      "name": "reset",
+      "export": "practice_reset@1",
+      "returns": "bool",
+      "params": [["say", "bool"]],
+      "doc": "Puts the match back to the reset point, with \"Reset\" on screen when `say` is true (a reset the player asked for; a drill's own resets after every try are quiet). True if there was one."
+    },
+    {
+      "name": "has_reset",
+      "export": "practice_has_reset@1",
+      "returns": "bool",
+      "params": [],
+      "doc": "True once a reset point is kept in this match."
+    }
+  ]
+}
