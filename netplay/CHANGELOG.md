@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.0
+
+- Games with different rules (stocks, time, items, damage ratio, speed) refuse to play together with a clear message instead of desyncing. Doesn't play with 0.8.x.
+
 ## 0.8.0
 
 - A desync says what differed: the fighters, the items, the RNG, or a mod's state by its id. Needs tgg-melee API 0.9 (`tgg_frame_checksum_parts`); doesn't play with 0.7.x.
