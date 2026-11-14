@@ -249,6 +249,18 @@ size_t wire_encode(const WirePacket* p, uint8_t* buf)
         for (int i = 0; i < total && fits; i++) {
             put_input(&c, &in->inputs[i]);
         }
+        put(&c, (uint32_t) in->blame.frame, 4);
+        if (in->blame.frame >= 0) {
+            for (int i = 0; i < TGG_FRAME_PARTS; i++) {
+                put(&c, in->blame.part[i], 8);
+            }
+            const int mods = in->blame.mods <= WIRE_BLAME_MODS ? in->blame.mods : WIRE_BLAME_MODS;
+            put(&c, mods, 1);
+            for (int i = 0; i < mods; i++) {
+                put(&c, in->blame.mod_id[i], 4);
+                put(&c, in->blame.mod_sum[i], 8);
+            }
+        }
     } else if (p->type == WIRE_LOBBY) {
         const WireLobby* l = &p->u.lobby;
         put(&c, l->ping, 4);
@@ -352,6 +364,20 @@ int wire_decode(const uint8_t* buf, size_t len, WirePacket* p, int* version)
         }
         for (int i = 0; i < total; i++) {
             get_input(&c, &in->inputs[i]);
+        }
+        in->blame.frame = (int32_t) get(&c, 4);
+        if (in->blame.frame >= 0) {
+            for (int i = 0; i < TGG_FRAME_PARTS; i++) {
+                in->blame.part[i] = get(&c, 8);
+            }
+            in->blame.mods = (uint8_t) get(&c, 1);
+            if (in->blame.mods > WIRE_BLAME_MODS) {
+                return 0;
+            }
+            for (int i = 0; i < in->blame.mods; i++) {
+                in->blame.mod_id[i] = (uint32_t) get(&c, 4);
+                in->blame.mod_sum[i] = get(&c, 8);
+            }
         }
     } else if (p->type == WIRE_LOBBY) {
         WireLobby* l = &p->u.lobby;

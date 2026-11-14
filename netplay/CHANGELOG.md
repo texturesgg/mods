@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0
+
+- A desync says what differed: the fighters, the items, the RNG, or a mod's state by its id. Needs tgg-melee API 0.9 (`tgg_frame_checksum_parts`); doesn't play with 0.7.x.
+
 ## 0.7.0
 
 - Games that number their fighters differently say so when they meet, instead of playing the wrong fighter. Needs tgg-melee API 0.6; doesn't play with 0.6.x.

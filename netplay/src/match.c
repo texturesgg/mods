@@ -97,6 +97,9 @@ static struct {
 
     /* What happened, for the log */
     int desync_frame;
+    tgg_frame_parts blame;  /* this game's parts for desync_frame, sent on */
+    int blame_ready;
+    int blamed[NET_PEERS];  /* the link's parts were compared */
     unsigned desyncs, sums_compared, rollbacks, rolled_frames, max_depth, holds;
 } mt;
 
@@ -241,6 +244,72 @@ static int link_needs(int link, int side)
     return ss.side == 0 || side == ss.side;
 }
 
+/* ---- Desyncs */
+
+static uint32_t id_hash(const char* id)
+{
+    uint32_t h = 0x811c9dc5u;
+    for (; *id != '\0'; id++) {
+        h = (h ^ (uint8_t) *id) * 0x01000193u;
+    }
+    return h;
+}
+
+/* A link's checksum parts for the frame its game first differed on, against
+ * this game's: says what differs, a mod by its id */
+static void blame(int link, const WireInputs* in)
+{
+    static const char* const parts[TGG_FRAME_PARTS - 1] = { "the frame counter", "the RNG",
+                                                            "the fighters", "the items" };
+    tgg_frame_parts ours;
+    if (tgg_frame_checksum_parts(in->blame.frame, &ours) != 0) {
+        return;
+    }
+    mt.blamed[link] = 1;
+    char what[200] = "";
+    size_t n = 0;
+#define ADD(...)                                                                                   \
+    do {                                                                                           \
+        if (n < sizeof what) {                                                                     \
+            n += (size_t) snprintf(what + n, sizeof what - n, "%s", n > 0 ? ", " : "");            \
+        }                                                                                          \
+        if (n < sizeof what) {                                                                     \
+            n += (size_t) snprintf(what + n, sizeof what - n, __VA_ARGS__);                        \
+        }                                                                                          \
+    } while (0)
+    for (int i = 0; i < TGG_FRAME_PARTS - 1; i++) {
+        if (ours.part[i] != in->blame.part[i]) {
+            ADD("%s", parts[i]);
+        }
+    }
+    for (int i = 0; i < ours.mods; i++) {
+        const uint32_t id = id_hash(ours.mod_id[i]);
+        int j = 0;
+        while (j < in->blame.mods && in->blame.mod_id[j] != id) {
+            j++;
+        }
+        if (j == in->blame.mods) {
+            ADD("%s's state (only here)", ours.mod_id[i]);
+        } else if (in->blame.mod_sum[j] != ours.mod_sum[i]) {
+            ADD("%s's state", ours.mod_id[i]);
+        }
+    }
+    if (n == 0 && ours.part[TGG_FRAME_PARTS - 1] != in->blame.part[TGG_FRAME_PARTS - 1]) {
+        ADD("a mod's state");
+    }
+#undef ADD
+    if (n == 0) {
+        return;
+    }
+    tgg_log("desync: frame %d differs from side %d in %s", in->blame.frame, link_side(link),
+            what);
+    char diff[200];
+    session_display_difference(link, diff, sizeof diff);
+    if (diff[0] == '\0') {
+        snprintf(ss.desync, sizeof ss.desync, "The games stopped matching: %s differed.", what);
+    }
+}
+
 /* ---- Sending */
 
 static void send_inputs(int link)
@@ -260,6 +329,20 @@ static void send_inputs(int link)
         in->sum_frame = mt.sum_ready;
         in->sum = sum;
     }
+    /* After a desync, this game's parts of its first frame, in place of some
+     * of the inputs */
+    int budget = WIRE_MAX_INPUTS;
+    in->blame.frame = -1;
+    if (mt.blame_ready) {
+        in->blame.frame = mt.desync_frame;
+        memcpy(in->blame.part, mt.blame.part, sizeof in->blame.part);
+        in->blame.mods = (uint8_t) mt.blame.mods;
+        for (int i = 0; i < mt.blame.mods; i++) {
+            in->blame.mod_id[i] = id_hash(mt.blame.mod_id[i]);
+            in->blame.mod_sum[i] = mt.blame.mod_sum[i];
+        }
+        budget -= (WIRE_BLAME_BYTES(mt.blame.mods) + WIRE_INPUT_BYTES - 1) / WIRE_INPUT_BYTES;
+    }
     in->ping = session_clock();
     in->pong = ss.link[link].peer_ping;
     in->pong_age = session_pong_age(link);
@@ -270,7 +353,7 @@ static void send_inputs(int link)
     for (int s = 0; s < mt.players; s++) {
         sides += link_needs(link, s);
     }
-    const int share = sides > 0 ? WIRE_MAX_INPUTS / sides : 0;
+    const int share = sides > 0 ? budget / sides : 0;
     int total = 0;
     for (int s = 0; s < mt.players && in->runs < WIRE_MAX_RUNS; s++) {
         if (!link_needs(link, s)) {
@@ -363,6 +446,9 @@ void match_got_inputs(int link, const WireInputs* in)
             mt.last[s]++;
         }
     }
+    if (in->blame.frame >= 0 && !mt.blamed[link]) {
+        blame(link, in);
+    }
     if (in->sum_frame >= 0) {
         mt.sums[link][(unsigned) in->sum_frame % SUMS].frame = in->sum_frame;
         mt.sums[link][(unsigned) in->sum_frame % SUMS].sum = in->sum;
@@ -398,6 +484,7 @@ static void compare_sums(int confirmed)
                 continue;
             }
             mt.desync_frame = f;
+            mt.blame_ready = tgg_frame_checksum_parts(f, &mt.blame) == 0;
             tgg_log("desync: frame %d's checksum is %016llx here, %016llx on side %d", f,
                     (unsigned long long) ours, (unsigned long long) mt.sums[l][i].sum,
                     link_side(l));

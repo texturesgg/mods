@@ -117,7 +117,9 @@ src/slp.c         reading a Slippi replay
 - **Confirming.** A frame is confirmed once every input is known and it has run on them
   (`tgg_rollback_confirm`). Packets carry a confirmed frame's `tgg_frame_checksum`: joiners
   compare with the host's and the host with each joiner's, and the first frame that differs
-  is logged as a desync.
+  is logged as a desync. From then on each game's packets also carry that frame's checksum
+  in its parts (`tgg_frame_checksum_parts`), so the other game can say what differed: the
+  fighters, the items, the RNG, or a mod's state by its id.
 - **Pacing.** A frame is held when running it would guess further ahead than a rollback
   reaches, and once in ten frames when this game is more than a frame ahead of the slowest
   game it talks to.
