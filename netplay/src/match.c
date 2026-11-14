@@ -666,7 +666,12 @@ static void on_setup(const tgg_match* data)
     mt.seed = ss.env ? ss.seed : mt.seed;
     *HSD_RandSeedPtr = mt.seed;
     uint32_t h = 0x811c9dc5u;
-    /* The players (from console offset 0x60) and the stage are what matter */
+    /* The rules (console offsets 0x00-0x37: kind, timer, stocks, items,
+     * damage ratio, speed; from 0x38 they are this game's callbacks), the
+     * players (from 0x60) and the stage are what matter */
+    for (size_t i = 0; i < 0x38; i++) {
+        h = (h ^ data->console[i]) * 0x01000193u;
+    }
     for (size_t i = 0x60; i < TGG_CONSOLE_MATCH_SIZE; i++) {
         h = (h ^ data->console[i]) * 0x01000193u;
     }
