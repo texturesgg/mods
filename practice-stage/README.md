@@ -10,8 +10,8 @@ On its own, two settings on the Mods page (Y on the main menu) change plain Trai
 
 | Setting | Does |
 |---|---|
-| Training: nobody else | takes Training's CPU out, so it's just you on the stage |
-| Training: clean screen | hides Training's readouts (speed, enemy, damage, combo panels); they come back with its pause menu |
+| Empty stage in Training | takes Training's CPU out, so it's just you on the stage |
+| Clean screen in Training | hides Training's readouts (speed, enemy, damage, combo panels) until you pause |
 
 Both are off by default. Training's own pause menu still works for speed, camera and the
 rest, and its "No. of CPs" row says 0 while nobody else is on.

@@ -1,52 +1,44 @@
 # Direct connect
 
-Play someone over the internet: one of you hosts, the other types the host's address.
+Play with up to three friends online. One of you makes a room and the others join with its
+code, or join by address on the same network.
 
 ## For players
 
-It's a screen on the Mods page (Y on the main menu, then Direct connect). The network side is
-`tgg.netplay`: rollback, input delay, and checking the two games agree.
+It's Online on the main menu. `tgg.netplay` does the netplay itself: rollback, input delay, and
+checking everyone's games agree.
 
-1. Both games need the same game version and the same mods. The simplest way is to install
-   only `tgg.netplay` and `tgg.direct-connect`, on both sides.
-2. The host picks **Host**. The screen shows the host's addresses, a Tailscale address first
-   (in gold) when there is one. The host's port (51000 unless changed) must be reachable: let
-   UDP 51000 through the firewall (Windows asks the first time you host: allow it), or have the
-   other player host.
-3. The other player picks **Join**, types the address with the on-screen keyboard (or a real
-   keyboard) and presses Start. The port is added if you leave it out. Next time,
-   **Join &lt;last address&gt;** is right there: press A.
-4. The lobby: the character grid on top, both players below, the stage in the middle.
-   - A picks the character under the cursor, X and Y change its color.
-   - The host changes the stage with L and R.
-   - Start says you're ready. It can't be taken back; B leaves instead.
-   - When both are ready, the match starts on both games.
-5. After GAME! you're both back in the lobby. Press Start again for a rematch.
+- **Make a room** gets a 4-letter code. Give your friends the code.
+- **Join a room** asks for the code. Type it with the on-screen keyboard or a real keyboard.
+- **Host by address** and **Join by address** skip textures.gg and connect by IP, for games on
+  the same network (or Tailscale). The host's port is 51000 unless you change it, and it has to
+  get through the firewall. Windows asks the first time you host, so allow it.
 
-Nobody can pause a match over the network, as on Slippi. B in the lobby leaves, and the other
-player sees that you left. If the screen says the other game has other mods, compare the two
-mods folders; the log lists each side's mods.
+Rooms need you signed in to textures.gg. The first time, the screen shows a link and a code to
+confirm on your phone or computer.
 
-Your controller plays your side's port whichever port it's plugged into: the host is port 1
-(red), the other player port 2 (blue). With more than one controller plugged in, the first
-connected one is used, or pick one with netplay's "Your controller" setting.
+Everyone needs the same game version and the same gameplay mods. If the host has mods you
+don't, the game offers to download them and restart into the room.
+
+Once connected, everyone picks on the game's own character select and the host picks the stage.
+Nobody can pause a match over the network, same as Slippi. If two games can't reach each other
+directly, they go through a relay and the screen says so.
+
+Your controller plays your side whichever port it's plugged into. With more than one plugged in
+it uses the first one, or you can pick one with netplay's "Your controller" setting.
 
 ### Settings
 
-All of these are your own and don't need to match the other player's.
+These are your own and don't need to match anyone else's.
 
 | Setting | Default | Does |
 |---|---|---|
-| Last address joined | empty | what **Join &lt;address&gt;** connects to |
-| Port to host on | 51000 | the UDP port the host listens on |
-| Stocks (host) | 4 | the match's stocks, when you host |
-| Time limit, minutes (host) | 8 | the match's time limit when you host, 0 for none |
-| Stage (host) | Battlefield | the stage the lobby starts on, when you host |
-| Character, Color | Fox, 0 | your last pick |
+| Last address joined | empty | what Join by address offers first |
+| Port to host on | 51000 | the UDP port you host on |
 
 To skip the menus, start the game with `TGG_DIRECT_CONNECT=host`,
 `TGG_DIRECT_CONNECT=join:<address>`, `TGG_DIRECT_CONNECT=room` (make a room) or
-`TGG_DIRECT_CONNECT=room:<code>` (join one): it opens this screen and does that at once.
+`TGG_DIRECT_CONNECT=room:<code>` (join one). It opens Online and does that right away.
 
 ## For mod makers
 

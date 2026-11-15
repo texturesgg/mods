@@ -1,7 +1,7 @@
 # Legal stages
 
 The stage select shows the other stages faded, where the game puts them, and they can't be
-picked; random picks only pick the legal ones: Battlefield,
+picked. Random only picks the legal ones: Battlefield,
 Final Destination, Dream Land, Yoshi's Story, Fountain of Dreams and Pokémon Stadium.
 
 ## For players

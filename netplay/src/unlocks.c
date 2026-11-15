@@ -58,7 +58,7 @@ void unlocks_follow(int in_session)
         }
         ul.on = 1;
         tgg_log("everything unlocked for the session%s",
-                changed == 0 ? " (this save has it all)" : "; this game's save keeps its own");
+                changed == 0 ? " (this save has it all)" : ", and this game's save keeps its own");
         return;
     }
     for (size_t i = 0; i < sizeof *save; i++) {

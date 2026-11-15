@@ -253,7 +253,7 @@ static void start(void)
     fclose(f);
     json j = { text, text + size };
     if (!each_key(&j, top_field, NULL)) {
-        tgg_log("%s isn't a skins file this version reads; no skins loaded", path);
+        tgg_log("%s isn't a skins file this version can read, so no skins were loaded", path);
         slot_count = 0;
         return;
     }

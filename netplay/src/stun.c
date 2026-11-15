@@ -68,7 +68,7 @@ void stun_pump(void)
     const double now = net_now_ms();
     if (now - st.started_ms > GIVE_UP_MS) {
         st.state = -1;
-        tgg_log("%s didn't answer: this game's internet address is unknown", STUN_SERVER);
+        tgg_log("%s didn't answer, so this game's internet address is unknown", STUN_SERVER);
     } else if (now - st.sent_ms > RESEND_MS) {
         send_request();
     }

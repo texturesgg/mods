@@ -1,7 +1,7 @@
 # HTTP
 
-HTTPS requests and WebSockets for other tgg-melee mods: API calls to a web service, a live
-connection to a server. TLS is checked against the computer's own root certificates.
+Lets other tgg-melee mods make HTTPS requests and open WebSockets, for things like calling a
+web API or keeping a live connection to a server. TLS is checked against the computer's own root certificates.
 
 ## For players
 

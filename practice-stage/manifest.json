@@ -3,7 +3,7 @@
   "id": "tgg.practice-stage",
   "name": "Practice stage",
   "version": "0.1.4",
-  "description": "Training Mode with nobody else on the stage and a clean screen, for practice drills.",
+  "description": "Training Mode on an empty stage with a clean screen. The practice drills use it.",
   "icon": "icon.png",
   "class": "offline",
   "tags": [

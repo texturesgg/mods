@@ -42,9 +42,9 @@
 #include <string.h>
 
 static int setting_alone;
-TGG_SETTING_BOOL(setting_alone, "alone", "Training: nobody else", 0);
+TGG_SETTING_BOOL(setting_alone, "alone", "Empty stage in Training", 0);
 static int setting_clean;
-TGG_SETTING_BOOL(setting_clean, "clean", "Training: clean screen", 0);
+TGG_SETTING_BOOL(setting_clean, "clean", "Clean screen in Training", 0);
 
 /* The drill Training Mode was started for, from practice_start until the
  * game leaves Training Mode */

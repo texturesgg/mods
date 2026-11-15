@@ -64,7 +64,7 @@ int replaytest_open(const char* path)
     }
     tgg_boot_match(&match);
     if (slp.major_scene != 8) {
-        tgg_log("an offline replay: if its match paused, the frames after the pause won't line up");
+        tgg_log("an offline replay. If its match paused, the frames after the pause won't line up.");
     }
     tgg_log("replay test: %s, Slippi %u.%u.%u, stage %u, %d frames, ports %d and %d", path,
             slp.version[0], slp.version[1], slp.version[2], slp_be16(slp.info + 0xE),

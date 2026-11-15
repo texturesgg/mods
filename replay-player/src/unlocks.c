@@ -67,7 +67,7 @@ void unlocks_follow(int playing, const Slp* slp)
         ul.on = 1;
         tgg_log("%s while the replay plays%s",
                 recorded ? "the recording's unlocks" : "everything unlocked",
-                changed == 0 ? " (this save has the same)" : "; this game's save keeps its own");
+                changed == 0 ? " (this save has the same)" : ", and this game's save keeps its own");
         return;
     }
     for (size_t i = 0; i < sizeof *save; i++) {

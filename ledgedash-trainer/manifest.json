@@ -3,7 +3,7 @@
   "id": "tgg.ledgedash-trainer",
   "name": "Ledge dash trainer",
   "version": "1.0.0",
-  "description": "Breaks down each ledge dash: your timing, and how much intangibility you had left.",
+  "description": "Shows your timing on each ledge dash and how much intangibility you had left.",
   "icon": "icon.png",
   "tags": [
     "training"

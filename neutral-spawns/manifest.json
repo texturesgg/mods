@@ -3,7 +3,7 @@
   "id": "tgg.neutral-spawns",
   "name": "Neutral spawns",
   "version": "1.0.0",
-  "description": "Players start at the neutral spawn points on legal stages, as on Slippi online.",
+  "description": "Players start at the neutral spawn points on legal stages, like Slippi online.",
   "icon": "icon.png",
   "tags": [
     "competitive",

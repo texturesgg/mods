@@ -311,7 +311,7 @@ static void got_meet(const char* msg)
     const char* why = NULL;
     if (m.st.side < 0 || peers.n == 0) {
         char text_why[200];
-        snprintf(text_why, sizeof text_why, "%s's game sent no address to reach it at.",
+        snprintf(text_why, sizeof text_why, "%s's game didn't send an address to reach it.",
                  peers.name[0] != '\0' ? peers.name : "The other player");
         fail(text_why);
         return;
@@ -443,7 +443,7 @@ static void relay_step(void)
         now - m.met_ms > 3000)
     {
         m.relay_asked = 1;
-        tgg_log("meet: no direct way through yet; asking for a relay");
+        tgg_log("meet: no direct way through yet, asking for a relay");
         send_json("{\"type\":\"relay.request\"}");
     }
     char addr[64];
@@ -465,8 +465,8 @@ static void could_not_connect(const char* netplay_why)
         snprintf(why, sizeof why, "Couldn't reach %s, even through the relay.", who);
     } else if (m.relay_missing) {
         snprintf(why, sizeof why,
-                 "Couldn't reach %s, and there's no relay. Forwarding UDP port %d to the host "
-                 "fixes it.",
+                 "Couldn't reach %s. Forward UDP port %d to the host and try "
+                 "again.",
                  who, UDP_PORT);
     } else {
         snprintf(why, sizeof why, "Couldn't reach %s.", who);
@@ -617,7 +617,7 @@ static int start(int joining, const char* code)
         tgg_account_status a;
         tgg_account_poll(&a);
         fail(a.message[0] != '\0' ? a.message
-                                  : "Online needs the tgg that comes with the game beside it.");
+                                  : "Online needs tgg in the game's folder.");
         return -1;
     }
     m.step = STEP_TICKET;

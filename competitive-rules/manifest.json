@@ -3,7 +3,7 @@
   "id": "tgg.competitive-rules",
   "name": "Competitive rules",
   "version": "1.0.0",
-  "description": "Tournament rules by default: 4 stocks, 8 minutes, no items.",
+  "description": "Sets tournament rules by default: 4 stocks, 8 minutes, no items.",
   "icon": "icon.png",
   "tags": [
     "competitive",

@@ -3,7 +3,7 @@
   "id": "tgg.quick-start",
   "name": "Quick start",
   "version": "1.0.0",
-  "description": "Skip the opening and title screen; start at the main menu or a character select.",
+  "description": "Skips the opening and title screen, and starts at the main menu or a character select.",
   "icon": "icon.png",
   "tags": [
     "quality-of-life"

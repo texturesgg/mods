@@ -334,7 +334,7 @@ static void on_state_loaded(void)
     if (!pending) {
         return;
     }
-    tgg_log("a state was loaded: this match's replay stops here");
+    tgg_log("a state was loaded, so this match's replay stops here");
     if (file != NULL) {
         finish();
     } else {

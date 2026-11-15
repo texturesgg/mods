@@ -189,7 +189,7 @@ static void restart_frame(uint32_t in)
         br.restarting = 0;
         tgg_menu_sound(TGG_SOUND_ERROR);
         char text[300];
-        snprintf(text, sizeof text, "Can't get what it needs: %s.", br.restart.message);
+        snprintf(text, sizeof text, "Can't download what it needs: %s.", br.restart.message);
         say(text);
         tgg_restart_cancel();
         break;
@@ -281,7 +281,7 @@ static void on_frame(void)
         if (folder[0] != '\0') {
             snprintf(br.folder, sizeof br.folder, "%s", folder);
         }
-        tgg_log("back from the replay: open again in %s", folder);
+        tgg_log("back from the replay, opening %s again", folder);
     }
 }
 TGG_ON(frame, on_frame);

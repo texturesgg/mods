@@ -1,7 +1,7 @@
 # Netplay
 
-Rollback netplay for tgg-melee: two to four games play matches together over UDP, on Linux,
-macOS and Windows, and games on different ones play each other.
+Rollback netplay for tgg-melee. Two to four players play matches together over UDP, on Linux,
+macOS and Windows, and they can be on different systems.
 
 ## For players
 
@@ -18,7 +18,7 @@ Settings, on the Mods page. They're your own and don't have to match the other p
 |---|---|---|
 | Input delay (frames) | 2 | frames between pressing a button and it happening, 0 to 15. More delay means fewer rollbacks |
 | Your controller | Any | the controller you play with: Any (the first one plugged in) or Port 1 to 4. It plays your side's port wherever it's plugged in |
-| When hosting, mods that must match | Gameplay mods | Gameplay mods: display mods (skins, HUDs, the replay recorder) can differ. All mods: every mod has to match, display mods too, for tournaments and the like. The host's choice counts |
+| Mods to match when hosting | Gameplay mods | With Gameplay mods, display mods (skins, HUDs, the replay recorder) can differ. With All mods, every mod has to match, even display mods, for tournaments and such. The host's choice is the one that counts |
 
 All the games need the same game and the same gameplay mods. They check when they meet, and the
 session ends if they differ. On one platform that's the same build and mod-set id. Between

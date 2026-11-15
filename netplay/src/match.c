@@ -306,7 +306,7 @@ static void blame(int link, const WireInputs* in)
     char diff[200];
     session_display_difference(link, diff, sizeof diff);
     if (diff[0] == '\0') {
-        snprintf(ss.desync, sizeof ss.desync, "The games stopped matching: %s differed.", what);
+        snprintf(ss.desync, sizeof ss.desync, "The games stopped matching because %s differed.", what);
     }
 }
 
@@ -531,7 +531,7 @@ static void hold(tgg_advance* adv, int frame)
     mt.holds++;
     if (session_silence_ms() > SILENCE_MS) {
         char why[120];
-        snprintf(why, sizeof why, "Nothing from another game for 10 seconds (frame %d).", frame);
+        snprintf(why, sizeof why, "Nothing from another player for 10 seconds (frame %d).", frame);
         session_fail(why);
         adv->hold = 0;
     }

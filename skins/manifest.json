@@ -3,7 +3,7 @@
   "id": "tgg.skins",
   "name": "Skins",
   "version": "0.1.1",
-  "description": "Loads the skins you picked in tgg-studio. Online, a skin that changes more than looks shows the normal costume instead.",
+  "description": "Loads the skins you picked in tgg-studio. Online, skins that change more than looks show the normal costume.",
   "icon": "icon.png",
   "tags": [
     "visual",

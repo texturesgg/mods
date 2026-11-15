@@ -226,11 +226,11 @@ static void draw_restart(void)
         tgg_draw_text(x + 14, y + 14, 19, WHITE, TGG_ALIGN_LEFT, "It was played with mods by");
         tgg_text_fit(text, sizeof text, 19, w - 28, r->trust);
         tgg_draw_text(x + 14, y + 40, 19, GOLD, TGG_ALIGN_LEFT, text);
-        tgg_draw_text(x + 14, y + 72, 16, DIM, TGG_ALIGN_LEFT, "Get them to play it back?");
+        tgg_draw_text(x + 14, y + 72, 16, DIM, TGG_ALIGN_LEFT, "Download them to watch it?");
         tgg_draw_text(x + 14, y + h - 30, 16, DIM, TGG_ALIGN_LEFT, "A: Yes, always    B: No");
         return;
     }
-    tgg_draw_text(x + 14, y + 14, 19, WHITE, TGG_ALIGN_LEFT, "Getting what it was played with");
+    tgg_draw_text(x + 14, y + 14, 19, WHITE, TGG_ALIGN_LEFT, "Downloading what it was played with");
     tgg_text_fit(text, sizeof text, 16, w - 28, r->label);
     tgg_draw_text(x + 14, y + 48, 16, DIM, TGG_ALIGN_LEFT, text);
     /* This step's bytes, when tgg knows the size */

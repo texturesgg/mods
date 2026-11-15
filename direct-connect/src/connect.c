@@ -83,7 +83,7 @@ static void fail_view(const char* why)
 /* In a game restarted with the host's mods: the player's own game again */
 static void go_back(void)
 {
-    tgg_log("leaving netplay: back to this player's own game");
+    tgg_log("leaving netplay, back to your own game");
     if (tgg_restart_back() != 0) {
         dc.for_netplay = 0;
         say("Can't go back to your own game.");
@@ -204,11 +204,11 @@ static void say_compare(void)
 {
     char why[160];
     if (dc.have_diff && strcmp(dc.diff.game_there, dc.diff.game_here) != 0) {
-        snprintf(why, sizeof why, "The host runs tgg-melee %s and this game %s.",
+        snprintf(why, sizeof why, "The host has tgg-melee %s and you have %s.",
                  dc.diff.game_there, dc.diff.game_here);
     } else {
         snprintf(why, sizeof why,
-                 "The host has other mods. Compare the two mods folders; the log lists both.");
+                 "You and the host have different mods. The log lists both.");
     }
     fail_view(why);
 }
@@ -257,7 +257,7 @@ static void different_frame(uint32_t in)
     }
     if (tgg_restart_with("tgg.direct-connect", path, dc.joined) != 0) {
         tgg_menu_sound(TGG_SOUND_ERROR);
-        tgg_log("tgg can't get the host's mods: it isn't beside the game");
+        tgg_log("can't get the host's mods, tgg has to be in the game's folder");
         say_compare();
         return;
     }
@@ -298,7 +298,7 @@ static void restarting_frame(uint32_t in)
         tgg_restart_cancel();
         tgg_menu_sound(TGG_SOUND_ERROR);
         tgg_log("tgg says this game already has the host's mods, but the mod sets differ");
-        fail_view("This game has the host's mods, but they still differ. The log lists both.");
+        fail_view("You have the host's mods, but they still differ. The log lists both.");
         break;
     case TGG_RESTART_FAILED: {
         char why[160];
@@ -634,7 +634,7 @@ static void online_leave(void)
 
 static const tgg_menu_entry online = {
     .label = "Online",
-    .description = "Play people over the internet.",
+    .description = "Play with friends online.",
     .after = "main/vs",
     .submenu = "online",
     .leave = online_leave,
@@ -679,7 +679,7 @@ static void init(void)
         dc.for_netplay = 1;
         snprintf(rejoin, sizeof rejoin, "join:%s", then);
         autostart = rejoin;
-        tgg_log("restarted with the host's mods: joining %s", then);
+        tgg_log("restarted with the host's mods, joining %s", then);
         tgg_boot_mode(TGG_MODE_MENU);
         return;
     }

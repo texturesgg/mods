@@ -1,6 +1,6 @@
 # UCF
 
-The Universal Controller Fix, version 0.84, as Slippi 3.17 and later run it: the eight codes
+The Universal Controller Fix, version 0.84, the same as Slippi 3.17 and later: the eight codes
 of slippi-ssbm-asm's `External/UCF 0.84/UCF/`. Dashback, shield drop, the 1.0 cardinals, SDI
 and shield SDI, tumble wiggle and the crouch release fix.
 

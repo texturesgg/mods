@@ -55,7 +55,7 @@ int setting_controller;
 TGG_SETTING_CHOICE_LOCAL(setting_controller, "controller", "Your controller", 0, "Any", "Port 1",
                    "Port 2", "Port 3", "Port 4");
 int setting_strict;
-TGG_SETTING_CHOICE_LOCAL(setting_strict, "match", "When hosting, mods that must match", 0,
+TGG_SETTING_CHOICE_LOCAL(setting_strict, "match", "Mods to match when hosting", 0,
                          "Gameplay mods", "All mods");
 
 /* Messages waiting to be acknowledged, per link: a shared screen sends one
@@ -409,7 +409,7 @@ static void provider_send_input(uint32_t tick, uint32_t menu)
     put_be32(msg + 4, menu);
     got_input(ss.side, msg);
     if (queue_all(MSG_INPUT, ss.side, msg, (int) sizeof msg, -1) != 0) {
-        session_fail("Too much to send to the other games.");
+        session_fail("Too much to send to the other players.");
     }
 }
 
@@ -525,7 +525,7 @@ static void got_msg(int link, const WireMsg* m)
     }
     if (hosting() && (m->kind == MSG_USER || m->kind == MSG_INPUT || m->kind == MSG_POST)) {
         if (queue_all(m->kind, from, m->data, m->len, link) != 0) {
-            session_fail("Too much to send to the other games.");
+            session_fail("Too much to send to the other players.");
             return;
         }
     }
@@ -624,21 +624,21 @@ static int differs(const WireHello* h, char* why, size_t cap)
     game_version(tgg_game_build(), ours, sizeof ours);
     game_version(h->build, theirs, sizeof theirs);
     if (same_target ? strcmp(h->build, tgg_game_build()) != 0 : strcmp(ours, theirs) != 0) {
-        snprintf(why, cap, "The other game is another version: %s here, %s there.",
+        snprintf(why, cap, "Different game versions (you have %s, they have %s).",
                  same_target ? tgg_game_build() : ours, same_target ? h->build : theirs);
         return 1;
     }
     const char* mine = same_target ? tgg_mod_set_id() : tgg_mod_set_versions();
     const char* other = same_target ? h->mod_set : h->versions;
     if (strcmp(other, mine) != 0) {
-        snprintf(why, cap, "The other game has other mods (mod set %s here, %s there).",
+        snprintf(why, cap, "You have different mods (mod set %s, theirs %s).",
                  mine[0] != '\0' ? mine : "none", other[0] != '\0' ? other : "none");
         return 1;
     }
     /* The same mods number the same fighters; this catches a game that
      * doesn't anyway */
     if (h->content != tgg_content_hash()) {
-        snprintf(why, cap, "The other game numbers its fighters differently, with the same mods.");
+        snprintf(why, cap, "Same mods, but your fighter lists don't line up.");
         return 1;
     }
     return 0;
@@ -668,14 +668,14 @@ static void start_mismatch(const WireHello* h, const char* why)
     tgg_log("%s", why);
     tgg_session_provide(NULL);
     tgg_log("this game's mods: %s", tgg_mod_set_names()[0] != '\0' ? tgg_mod_set_names() : "none");
-    tgg_log("the host runs %s; asking for its profile", h->build);
+    tgg_log("the host runs %s, asking for its profile", h->build);
     ss.state = NETPLAY_MISMATCH;
     char ours[96], theirs[96];
     game_version(tgg_game_build(), ours, sizeof ours);
     game_version(h->build, theirs, sizeof theirs);
     snprintf(ss.why, sizeof ss.why, "%s",
-             strcmp(ours, theirs) != 0 ? "The host runs another game version."
-                                       : "The host has other mods.");
+             strcmp(ours, theirs) != 0 ? "The host has a different game version."
+                                       : "The host has different mods.");
     memset(&pf, 0, sizeof pf);
     pf.last_got_ms = net_now_ms();
     send_profile_ask();
@@ -692,7 +692,7 @@ static void turn_away(const char* why, int no_room)
         snprintf(logged, sizeof logged, "%s", from);
         logged_ms = now;
         tgg_log("%s said hello: %s%s", from, why,
-                no_room ? "" : " Sending it this game's profile if it asks; still waiting");
+                no_room ? "" : " Sending it this game's profile if it asks. Still waiting");
     }
     WirePacket p;
     hello_packet(&p);
@@ -767,7 +767,7 @@ static int host_got_hello(int link, const WireHello* h)
         return -1; /* not from a game the meeting point sent here */
     }
     if (h->host) {
-        session_fail("Both games host: one hosts, the others join.");
+        session_fail("You're both hosting. Only one of you should.");
         return -1;
     }
     for (int l = 0; link < 0 && l < net_peers(); l++) {
@@ -791,13 +791,13 @@ static int host_got_hello(int link, const WireHello* h)
     if (setting_strict == 1 && strcmp(h->all, tgg_mod_set_all()) != 0) {
         char diff[200];
         display_difference(h->display, diff, sizeof diff);
-        snprintf(why, sizeof why, "The host wants every mod to match, display mods too%s%s.",
+        snprintf(why, sizeof why, "The host wants all mods to match, even display mods%s%s.",
                  diff[0] != '\0' ? ": " : "", diff);
         turn_away(why, 0);
         return -1;
     }
     if (h->replay != (ss.replay ? replaytest_hash() : 0)) {
-        session_fail("The games play different replays.");
+        session_fail("You're playing different replays.");
         return -1;
     }
     if (link < 0) {
@@ -816,7 +816,7 @@ static int host_got_hello(int link, const WireHello* h)
                 net_peer_name(link), tgg_mod_set_id()[0] != '\0' ? tgg_mod_set_id() : "none",
                 tgg_mod_set_names(), link_side(link));
         if (strcmp(h->target, TGG_TARGET) != 0) {
-            tgg_log("it runs on %s: its mods are compared by version, not by build", h->target);
+            tgg_log("it runs on %s, so its mods are compared by version, not by build", h->target);
         }
         send_hello(link);
         ss.players = 1 + links_greeted();
@@ -840,7 +840,7 @@ static int join_got_hello(int link, const WireHello* h)
     }
     link = 0;
     if (!h->host) {
-        session_fail("The other game joins too: one game hosts, the others join it.");
+        session_fail("You're both joining. One of you has to host.");
         return -1;
     }
     if (h->assign == WIRE_NO_ROOM) {
@@ -861,13 +861,13 @@ static int join_got_hello(int link, const WireHello* h)
     if (h->strict && strcmp(h->all, tgg_mod_set_all()) != 0) {
         char diff[200];
         session_display_difference(0, diff, sizeof diff);
-        snprintf(why, sizeof why, "The host wants every mod to match, display mods too%s%s.",
+        snprintf(why, sizeof why, "The host wants all mods to match, even display mods%s%s.",
                  diff[0] != '\0' ? ": " : "", diff);
         session_fail(why);
         return -1;
     }
     if (h->replay != (ss.replay ? replaytest_hash() : 0)) {
-        session_fail("The games play different replays.");
+        session_fail("You're playing different replays.");
         return -1;
     }
     if (h->assign == 0 || h->assign >= SIDES) {
@@ -882,7 +882,7 @@ static int join_got_hello(int link, const WireHello* h)
                 net_peer_name(0), tgg_mod_set_id()[0] != '\0' ? tgg_mod_set_id() : "none",
                 tgg_mod_set_names(), ss.side);
         if (strcmp(h->target, TGG_TARGET) != 0) {
-            tgg_log("the host runs on %s: its mods are compared by version, not by build",
+            tgg_log("the host runs on %s, so its mods are compared by version, not by build",
                     h->target);
         }
         send_hello(0);
@@ -899,7 +899,7 @@ static void other_wire(int version)
 {
     char why[160];
     snprintf(why, sizeof why,
-             "The other game has another version of netplay (wire %d here, %d there).",
+             "Different netplay versions (wire %d, theirs %d).",
              WIRE_VERSION, version);
     if (hosting() && net_last_peer() < 0) {
         static double logged_ms = -1e9;
@@ -1088,7 +1088,7 @@ static void on_frame(void)
         punch(now);
         if (net_punch_age_ms() > PUNCH_MS && !ss.link[0].greeted) {
             net_punch_report();
-            session_fail("Couldn't reach the other game through the routers.");
+            session_fail("Couldn't connect to the other player through the routers.");
             return;
         }
     }
@@ -1096,7 +1096,7 @@ static void on_frame(void)
         return;
     }
     if (session_silence_ms() > SILENCE_MS) {
-        session_fail(hosting() ? "Lost the connection to another game."
+        session_fail(hosting() ? "Lost the connection to another player."
                                : "Lost the connection to the host.");
         return;
     }
@@ -1482,7 +1482,7 @@ int netplay_open_meet(int side, const char* const* addrs, const char* const* kin
     }
     ss.token = t;
     if (net_punch(side != 0, addrs, kinds, n) == 0) {
-        session_fail("The other game sent no address this one can reach.");
+        session_fail("The other player sent no address you can reach.");
         if (why != NULL) {
             *why = ss.why;
         }

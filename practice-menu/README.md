@@ -1,10 +1,10 @@
 # Practice
 
 Adds Practice to 1-P Mode, after Training. It opens a menu with every practice drill you have
-installed: install `tgg.ledgedash-drill` and Ledge dash shows up there, and so on. It has no
+installed. Install `tgg.ledgedash-drill` and Ledge dash shows up there, and so on. It has no
 practice of its own.
 
-Off in netplay: an offline mod, switched off by the game for a netplay session.
+It's an offline mod, so the game switches it off for netplay.
 
 ## How it works
 

@@ -1,19 +1,19 @@
 # Save states
 
-For practice. D-pad left saves the match as it is right now; D-pad right puts it back. Both
-fighters where they were, their percents and stocks, the CPU mid-action, items, the stage,
-everything. "Saved" and "Loaded" show near the top for a second.
+Save states for practice. D-pad left saves the match as it is right now and D-pad right puts it
+back: both fighters where they were, their percents and stocks, the CPU mid-action, items, the
+stage, everything. "Saved" and "Loaded" show near the top for a second.
 
 There's one state, and it lasts until the match ends. Save again to replace it. Any controller
 works.
 
 With the Practice set (`tgg.practice-menu` and `tgg.practice-stage`), it's also Practice > Free
 practice in 1-P Mode: Training Mode with nobody else on the stage and a clean screen, and save
-states on. In another drill's match (Ledge dash, say) it stays out of the way: that drill has
-its own resets on the D-pad.
+states on. In another drill's match, like Ledge dash, it stays out of the way, since that drill
+has its own resets on the D-pad.
 
-It's off in netplay: the game switches it off for the whole session, so having it installed
-never stops you playing someone without it. It's also off while a replay plays, since the
+It's off in netplay. The game switches it off for the whole session, so having it installed
+never stops you from playing someone without it. It's also off while a replay plays, since the
 replay player has its own controls on the D-pad.
 
 ## Settings

@@ -3,7 +3,7 @@
   "id": "tgg.save-states",
   "name": "Save states",
   "version": "1.0.0",
-  "description": "Save the moment with D-pad left, go back to it with D-pad right. For practice; off in netplay.",
+  "description": "For practice. D-pad left saves the moment, D-pad right goes back to it. Off in netplay.",
   "icon": "icon.png",
   "class": "offline",
   "tags": [

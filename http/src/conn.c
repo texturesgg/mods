@@ -163,7 +163,7 @@ conn* conn_open(const url* u)
     }
     if (!u->tls && !is_private(&addr)) {
         snprintf(open_error, sizeof open_error,
-                 "%s isn't on the local network: use https or wss", u->host);
+                 "%s isn't on the local network, so use https or wss", u->host);
         return NULL;
     }
     if (u->tls && !tls_ready()) {

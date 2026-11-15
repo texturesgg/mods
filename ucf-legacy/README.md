@@ -5,11 +5,10 @@ slippi-ssbm-asm's `External/UCF 0.8/Logic/`, dashback, shield drop and tumble wi
 from those versions play back with it.
 
 The newer UCF 0.84 (Slippi 3.17 and later) is `tgg.ucf`. Both replace the same spot dodge
-checks, so only one can be on: turn `tgg.ucf` off to use this.
+checks, so only one can be on. Turn `tgg.ucf` off to use this.
 
 - No settings. Turn the mod off to play without it.
-- Netplay: it changes a match, so it counts toward the mod-set. Both players need the same
-  version.
+- Netplay: it changes how matches play, so both players need the same version.
 
 ## For mod makers
 

@@ -83,7 +83,7 @@ static void draw_room(void)
     case MEET_IN_ROOM:
         draw_room_code(110);
         tgg_draw_text(320, 330, 18, DIM, TGG_ALIGN_CENTER,
-                      m->n_members < 2 ? "Tell your friend this code."
+                      m->n_members < 2 ? "Give your friends this code."
                                        : "Waiting for everyone to connect.");
         break;
     case MEET_PUNCHING:
@@ -101,7 +101,7 @@ static void draw_address(void)
 {
     band(dc.typing_code ? "Join a room" : "Join", NULL);
     tgg_draw_text(320, 72, 18, DIM, TGG_ALIGN_CENTER,
-                  dc.typing_code ? "The room's code" : "The host's address");
+                  dc.typing_code ? "Room code" : "Host address");
     keyboard_draw();
     footer("A  Type    X  Delete    Start  Connect    B  Back");
 }
@@ -114,7 +114,7 @@ static void draw_connecting(void)
     char line[128];
     snprintf(line, sizeof line, "Connecting to %s", info.peer[0] != '\0' ? info.peer : "...");
     tgg_draw_text(320, 200, 26, WHITE, TGG_ALIGN_CENTER, line);
-    tgg_draw_text(320, 240, 18, DIM, TGG_ALIGN_CENTER, "The host has to be on its Hosting screen.");
+    tgg_draw_text(320, 240, 18, DIM, TGG_ALIGN_CENTER, "The host needs to be on the Hosting screen.");
     footer("B  Cancel");
 }
 
@@ -178,7 +178,7 @@ static void draw_different(void)
                       "Same versions, but the builds differ.");
     }
     draw_list(40, "The host has", dc.diff.there, d->n_there);
-    draw_list(330, "This game has", dc.diff.here, d->n_here);
+    draw_list(330, "You have", dc.diff.here, d->n_here);
     if (dc.for_netplay) {
         tgg_draw_text(320, 398, 18, DIM, TGG_ALIGN_CENTER,
                       "The host's mods changed. Leave, then join again.");
@@ -200,11 +200,11 @@ static void draw_restarting(void)
         tgg_draw_text(80, 166, 20, WHITE, TGG_ALIGN_LEFT, "The host's mods are by");
         tgg_text_fit(text, sizeof text, 20, 480, r->trust);
         tgg_draw_text(80, 194, 20, GOLD, TGG_ALIGN_LEFT, text);
-        tgg_draw_text(80, 228, 18, DIM, TGG_ALIGN_LEFT, "Get them?");
+        tgg_draw_text(80, 228, 18, DIM, TGG_ALIGN_LEFT, "Download them?");
         footer("A  Yes, always     B  No");
         return;
     }
-    tgg_draw_text(80, 166, 20, WHITE, TGG_ALIGN_LEFT, "Getting the host's mods");
+    tgg_draw_text(80, 166, 20, WHITE, TGG_ALIGN_LEFT, "Downloading the host's mods");
     tgg_text_fit(text, sizeof text, 18, 480, r->label);
     tgg_draw_text(80, 200, 18, DIM, TGG_ALIGN_LEFT, text);
     /* This step's bytes, when tgg knows the size */

@@ -8,8 +8,7 @@ The timing comes from `tgg.lcancel-trainer`: with it installed, every aerial lan
 "L-cancel", "2 frames early" or "3 frames late", with your rate. Without it, the drill says to
 install it.
 
-Needs `tgg.practice-stage`. Off in netplay: an offline mod, switched off by the game for a
-netplay session.
+Needs `tgg.practice-stage`. It's an offline mod, so the game switches it off for netplay.
 
 ## How it works
 

@@ -7,7 +7,7 @@
     "tgg.netplay": "^0.9",
     "tgg.http": "^0.1"
   },
-  "description": "Play up to three people over the internet: host, or join with the host's address.",
+  "description": "Play with up to three friends online. Host a room, or join with a code or address.",
   "icon": "icon.png",
   "tags": [
     "netplay",

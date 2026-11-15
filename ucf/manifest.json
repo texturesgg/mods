@@ -3,7 +3,7 @@
   "id": "tgg.ucf",
   "name": "UCF",
   "version": "1.0.0",
-  "description": "The Universal Controller Fix: dashback, shield drop, 1.0 cardinals, SDI, tumble and crouch release, as Slippi 3.17 and later run it.",
+  "description": "The Universal Controller Fix, the same as Slippi 3.17 and later: dashback, shield drop, 1.0 cardinals, SDI, tumble and crouch release.",
   "icon": "icon.png",
   "tags": [
     "competitive",

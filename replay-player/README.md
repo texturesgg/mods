@@ -16,7 +16,7 @@ TGG_REPLAY_PLAYER_FILE=~/Slippi/Game_20250101T120000.slp tgg mod dev
 | Key | Button | Does |
 |---|---|---|
 | space | Start | pause, play |
-| `.` or right arrow | D-pad right | one frame while paused; skip ahead 10 seconds while playing |
+| `.` or right arrow | D-pad right | one frame while paused, or skip ahead 10 seconds while playing |
 | `,` or left arrow | D-pad left | back about 2 seconds (as far as the last 30 seconds) |
 | `=` or up arrow | D-pad up | twice as fast (up to 4x) |
 | `-` or down arrow | D-pad down | half as fast (down to 1/16x) |
@@ -54,7 +54,7 @@ which aren't loaded:
 ```text
 tgg.replay-player: Slippi 3.18.0, stage 31, 12034 frames, played online
 tgg.replay-player: its console ran Slippi rules these mods reproduce: tgg.neutral-spawns, tgg.offscreen-damage, tgg.ucf
-tgg.replay-player: not loaded: tgg.offscreen-damage; install and turn them on, or the match plays out differently
+tgg.replay-player: not loaded: tgg.offscreen-damage. Install and turn them on, or the match plays out differently.
 ```
 
 ## For mod makers

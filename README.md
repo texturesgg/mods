@@ -1,7 +1,7 @@
 # tgg-melee mods
 
 The official mods for [tgg-melee](https://textures.gg), one folder each. Players install them
-from textures.gg or with `tgg`; this repository is their source.
+from textures.gg or with `tgg`, and this repository is their source.
 
 Most are Luau scripts: a folder with `manifest.json` (`"script": true`), `scripts/` and
 `assets/`, and nothing to compile, so one package runs on every platform and game layout:

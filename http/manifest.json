@@ -3,7 +3,7 @@
   "id": "tgg.http",
   "name": "HTTP",
   "version": "0.1.0",
-  "description": "HTTPS requests and WebSockets for other mods, over the port's networking.",
+  "description": "Lets other mods make HTTPS requests and open WebSockets.",
   "icon": "icon.png",
   "tags": [
     "netplay"

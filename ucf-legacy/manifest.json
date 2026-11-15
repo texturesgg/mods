@@ -3,7 +3,7 @@
   "id": "tgg.ucf-legacy",
   "name": "UCF (Slippi 3.16 and earlier)",
   "version": "1.0.0",
-  "description": "The Universal Controller Fix as Slippi 3.16 and earlier ran it (UCF 0.8): dashback, shield drop and tumble. For old replays.",
+  "description": "UCF 0.8, the version Slippi 3.16 and earlier ran: dashback, shield drop and tumble. For old replays.",
   "icon": "icon.png",
   "tags": [
     "competitive",

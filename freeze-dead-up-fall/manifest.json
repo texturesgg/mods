@@ -3,7 +3,7 @@
   "id": "tgg.freeze-dead-up-fall",
   "name": "Freeze screen KO fall",
   "version": "0.1.4",
-  "description": "Screen KOs no longer depend on the camera, as on Slippi online.",
+  "description": "Screen KOs play out the same wherever the camera is, like Slippi online.",
   "icon": "icon.png",
   "tags": [
     "competitive",

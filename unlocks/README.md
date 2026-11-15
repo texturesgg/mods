@@ -1,6 +1,6 @@
 # Unlock everything
 
-Every character, stage, unlockable and trophy is unlocked, as on Slippi.
+Every character, stage, unlockable and trophy is unlocked, like on Slippi.
 
 ## For players
 

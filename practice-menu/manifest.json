@@ -3,7 +3,7 @@
   "id": "tgg.practice-menu",
   "name": "Practice",
   "version": "1.0.0",
-  "description": "Adds Practice to 1-P Mode: every practice drill you have installed, in one menu.",
+  "description": "Adds Practice to 1-P Mode, with all your installed drills in one menu.",
   "icon": "icon.png",
   "class": "offline",
   "tags": [

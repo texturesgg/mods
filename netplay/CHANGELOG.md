@@ -2,15 +2,15 @@
 
 ## 0.9.0
 
-- Games with different rules (stocks, time, items, damage ratio, speed) refuse to play together with a clear message instead of desyncing. Doesn't play with 0.8.x.
+- Games with different rules (stocks, time, items, damage ratio, speed) won't start a match together, and say why, instead of desyncing. Can't play against 0.8.x.
 
 ## 0.8.0
 
-- A desync says what differed: the fighters, the items, the RNG, or a mod's state by its id. Needs tgg-melee API 0.9 (`tgg_frame_checksum_parts`); doesn't play with 0.7.x.
+- A desync says what differed: the fighters, the items, the RNG, or a mod's state by its id. Needs tgg-melee API 0.9 (`tgg_frame_checksum_parts`). Can't play against 0.7.x.
 
 ## 0.7.0
 
-- Games that number their fighters differently say so when they meet, instead of playing the wrong fighter. Needs tgg-melee API 0.6; doesn't play with 0.6.x.
+- Games that number their fighters differently say so when they meet, instead of playing the wrong fighter. Needs tgg-melee API 0.6. Can't play against 0.6.x.
 
 ## 0.6.1
 
@@ -21,6 +21,6 @@
 - Two to four games in a session.
 - A relay for games that can't punch through to each other.
 - Says on screen when the games stop matching.
-- Every game in a session plays with everything unlocked; your own save keeps what it had.
+- Every game in a session plays with everything unlocked. Your own save keeps what it had.
 - netplay_rtt, the round trip to another game, and the match's seed for the port.
 - TGG_NETPLAY_NO_TAILSCALE leaves Tailscale addresses out.

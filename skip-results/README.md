@@ -1,7 +1,7 @@
 # Skip results
 
 After a VS match the game goes straight back to the character select, without the results
-screen, as Slippi does.
+screen, like Slippi.
 
 ## For players
 

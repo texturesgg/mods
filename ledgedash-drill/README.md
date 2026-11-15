@@ -2,7 +2,7 @@
 
 Practice > Ledge dash (1-P Mode, with `tgg.practice-menu`). Pick your fighter, and the stage
 select starts on Final Destination (pick another if you like). It's Training Mode with nobody
-else on the stage and a clean screen. Hang on a ledge once: that's your reset point. Every try
+else on the stage and a clean screen. Grab a ledge once and that's your reset point. Every try
 (let go, jump, air dodge onto the stage) puts you back on the ledge a moment after it's over,
 so a rep is just the ledge dash.
 
@@ -15,8 +15,7 @@ A try is over when you're standing on the stage and can act, when you're KO'd, o
 2.5 seconds. With `tgg.ledgedash-trainer` installed, its breakdown ("Intangible: 4 frames
 left") shows for every try.
 
-Needs `tgg.practice-stage`. Off in netplay: an offline mod, switched off by the game for a
-netplay session.
+Needs `tgg.practice-stage`. It's an offline mod, so the game switches it off for netplay.
 
 ## How it works
 

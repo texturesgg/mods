@@ -48,7 +48,7 @@ const char* player_content(const Slp* slp)
         }
         if (here != ckind) {
             snprintf(why, sizeof why,
-                     "player %d plays %s, number %d in the replay and %d in this game: its mods "
+                     "player %d plays %s, number %d in the replay and %d in this game, so its mods "
                      "load in another order",
                      port + 1, id, ckind, here);
             return why;
@@ -71,7 +71,7 @@ const char* player_content(const Slp* slp)
         }
         if (here != stkind) {
             snprintf(why, sizeof why,
-                     "it's on %s, number %d in the replay and %d in this game: its mods load in "
+                     "it's on %s, number %d in the replay and %d in this game, so its mods load in "
                      "another order",
                      slp->stage, stkind, here);
             return why;
@@ -90,8 +90,8 @@ void player_match(const Slp* slp, tgg_match* start)
     for (int port = 0; port < 4; port++) {
         const char* costume = slp->costumes[port][0] != '\0' ? slp->costumes[port] : NULL;
         if (tgg_costume_pick(port, costume) < 0 && costume != NULL) {
-            tgg_log("player %d played the costume %s, which this game doesn't have: it shows "
-                    "the costume it stands on",
+            tgg_log("player %d played the costume %s, which this game doesn't have, so it shows "
+                    "the costume it's based on",
                     port + 1, costume);
         }
     }
@@ -195,7 +195,7 @@ void player_log_rules(const Slp* slp)
     if (player_rule_mods(slp->gecko, slp->gecko_len, slp_be16(slp->info + 0xE),
                          slp->transformations, 1, missing, sizeof missing) > 0)
     {
-        tgg_log("not loaded: %s; install and turn them on, or the match plays out differently",
+        tgg_log("not loaded: %s. Install and turn them on, or the match plays out differently.",
                 missing);
     }
     const char* ucf = tgg_mod_loaded("tgg.ucf");
@@ -203,7 +203,7 @@ void player_log_rules(const Slp* slp)
     if (ucf != NULL && (legacy || modern_ucf(slp->gecko, slp->gecko_len)) &&
         (strncmp(ucf, "0.8.", 4) == 0) != legacy)
     {
-        tgg_log("it ran UCF %s, but tgg.ucf %s is loaded: the match may play out differently",
+        tgg_log("it ran UCF %s, but tgg.ucf %s is loaded, so the match may play out differently",
                 legacy ? "0.8" : "0.84", ucf);
     }
 }
