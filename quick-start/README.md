@@ -17,14 +17,15 @@ you answered yes. The unlock checks the title screen runs on Start still run, an
 challenger still shows up first. The menus are the game's own from there: B on the
 character select goes back to the main menu. A reset goes back to the same place.
 
-Works like the Slippi and UnclePunch setups. Netplay: this is a code mod, so it counts
-toward the mod-set. Where it starts is your own setting and doesn't count.
+Works like the Slippi and UnclePunch setups. Netplay: it only
+changes where the game starts, so it doesn't count toward the mod-set.
 
 ## For mod makers
 
-One call does the work: `tgg_boot_mode` (`tgg/control.h`) in `TGG_INIT`, with the mode
-picked by a `TGG_SETTING_CHOICE` (`src/mod.c`). The game goes to that mode the way Start on
-the title takes it to the main menu.
+A display script, `scripts/view.luau`. One call does the work: `tgg.control.boot_mode` in
+`tgg.on.init` (where the mod's settings have been read), with the mode picked by the `start`
+setting the manifest declares. The game goes to that mode the way Start on the title takes it
+to the main menu.
 
 ## Build
 

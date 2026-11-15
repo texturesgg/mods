@@ -24,19 +24,19 @@ Both are yours alone: they don't change the game, so they don't matter for netpl
 
 ## How it works
 
-`src/mod.c`, in one file:
+Three scripts: `sim.luau` decides, `view.luau` draws, and `landings.luau` is what both share.
 
 - The `fighter_land` event comes when an aerial's landing lag is picked, with the frames since
   L, R or Z was pressed (`press_age`) and the game's window (`window`). Inside it: an L-cancel.
   Up to 20 frames before it: early, by that many frames.
 - Otherwise `fighter_update` watches the landing lag for a press
-  (`tgg_fighter_cancel_press_age`): late, by the frames since the landing. Leaving the landing
+  (`fighter.cancel_press_age`): late, by the frames since the landing. Leaving the landing
   with no press: missed.
-- Each result is kept in `TGG_STATE`, so it comes out right through a rollback. The `advance`
-  event counts a result once its frame is final (`tgg_frame_final`), and `hud_draw` draws it
-  above the player's percent (`tgg_player_hud_x` / `tgg_player_hud_y`).
+- Each result is kept in `state`, so it comes out right through a rollback. The `advance`
+  event counts a result once its frame is final (`tgg.frame_final`), and `hud_draw` draws it
+  above the player's percent (`player.hud_x` / `player.hud_y`).
 
-It only reads: stable-tier events and calls, no game symbols and no `pad_read`.
+It only reads, so it's a display script.
 
 ## Build
 

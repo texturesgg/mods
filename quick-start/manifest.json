@@ -2,10 +2,24 @@
   "api": "tgg-melee/0",
   "id": "tgg.quick-start",
   "name": "Quick start",
-  "version": "0.1.4",
+  "version": "1.0.0",
   "description": "Skip the opening and title screen; start at the main menu or a character select.",
   "icon": "icon.png",
   "tags": [
     "quality-of-life"
+  ],
+  "script": true,
+  "settings": [
+    {
+      "key": "start",
+      "label": "Start at",
+      "choices": [
+        "Main menu",
+        "VS mode",
+        "Training mode"
+      ],
+      "default": "Main menu",
+      "local": true
+    }
   ]
 }

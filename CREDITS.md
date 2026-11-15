@@ -5,7 +5,8 @@ These mods stand on other people's work.
 ## Slippi
 
 These mods are GPL-3.0-or-later (`LICENSE`). The rule mods reproduce code from [project-slippi/slippi-ssbm-asm](https://github.com/project-slippi/slippi-ssbm-asm)
-(GPL-3.0): its PowerPC logic and constants, ported to C at the same points in the game. Each
+(GPL-3.0): its PowerPC logic and constants, ported to Luau scripts (and C for the
+few that patch a game function) at the same points in the game. Each
 mod names the code it follows.
 
 - `ucf`, `ucf-legacy` (and `ucf` 0.8.0, tag `tgg.ucf-0.8.0`): `External/UCF 0.84/` and

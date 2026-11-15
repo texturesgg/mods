@@ -20,11 +20,12 @@ netplay session.
 
 ## How it works
 
-`src/mod.c`, in one file, all presentation code. It adds its entry to the Practice submenu
-(`TGG_MENU_ADD("practice/ledgedash", ...)`), whose action is `practice_start`. In its own
-matches (`practice_drill()`), it watches P1's motion state each displayed frame: the first
-ledge catch keeps the reset point (`practice_reset_here`); leaving the ledge starts a try; and
-a beat after the try ends, `practice_reset(0)` puts the match back.
+A display script, `scripts/view.luau`. It adds its entry to the Practice submenu
+(`tgg.menu.add("practice/ledgedash", ...)`), whose action starts a match through
+`tgg.practice-stage` (`tgg.mod("tgg.practice-stage")`, its `start`). In its own matches it
+watches P1's action state each displayed frame: the first ledge catch keeps the reset point
+(`reset_here`); leaving the ledge starts a try; and a beat after the try ends, `reset` puts the
+match back.
 
 ## Build
 

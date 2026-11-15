@@ -14,16 +14,15 @@ Slippi online does it.
   already KO'd.
 - No settings.
 - Matches Slippi's online code (slippi-ssbm-asm `Online/Core/BrawlOffscreenDamage.asm`).
-- Netplay: this is a code mod, so it counts toward the mod-set. Both players need it.
+- Netplay: it changes a match, so it counts toward the mod-set. Both players need it.
 
 ## For mod makers
 
 Each frame the game asks whether a fighter is in a magnifying bubble, and takes the
-off-screen damage when it is. The mod answers that question with the `fighter_check` event,
-kind `TGG_CHECK_OFFSCREEN_DAMAGE` (`src/mod.c`): the fighter is off screen when its position
-(`tgg_fighter_x` / `tgg_fighter_y`) is outside the camera bounds (`tgg_stage_camera_left` and
-the rest). Fighters out of play or on their way out are left out, and so is the Home-Run
-Contest.
+off-screen damage when it is. `scripts/sim.luau` answers that question with
+`tgg.change.fighter_check`, kind `tgg.check.OFFSCREEN_DAMAGE`: the fighter is off screen when
+its position is outside the stage's camera bounds. Fighters out of play or on their way out
+are left out, and so is the Home-Run Contest.
 
 ## Build
 

@@ -13,11 +13,11 @@ netplay session.
 
 ## How it works
 
-`src/mod.c`, in one file. It adds its entry to the Practice submenu
-(`TGG_MENU_ADD("practice/lcancel", ...)`), whose action is `practice_start` with Final
-Destination as the stage. In its own matches (`practice_drill()`) it checks
-`tgg_mod_loaded("tgg.lcancel-trainer")` and shows the hint for a few seconds when the trainer
-isn't there.
+A display script, `scripts/view.luau`. It adds its entry to the Practice submenu
+(`tgg.menu.add("practice/lcancel", ...)`), whose action starts a match through
+`tgg.practice-stage` (`tgg.mod("tgg.practice-stage")`, its `start`) with Final Destination as
+the stage. In its own matches it checks for `tgg.lcancel-trainer` and shows the hint for a few
+seconds when the trainer isn't there.
 
 ## Build
 

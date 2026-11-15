@@ -23,16 +23,17 @@ whose item switch you never changed.
 
 Not covered: the random stage list (see `tgg.legal-stages`).
 
-Netplay: this is a code mod, so it counts toward the mod-set. Every player needs it.
+Netplay: it only sets the rules a match starts from, and netplay agrees on the rules itself, so
+it doesn't count toward the mod-set.
 
 ## For mod makers
 
-`src/mod.c` uses two save events and the save calls (`tgg/save.h`):
+A display script, `scripts/view.luau`, with two save events and the save calls:
 
-- `rules_defaults` (the game resets its rules: at start and on erase) writes the competitive
-  rules with `tgg_save_set_rule`.
-- `save_loaded` turns items off when the item switch is still the game's default
-  (`tgg_save_rule_default`), so a player's own choice stays.
+- `tgg.on.rules_defaults` (the game resets its rules: at start and on erase) writes the
+  competitive rules with `tgg.save.set_rule`.
+- `tgg.on.save_loaded` turns items off when the item switch is still the game's default
+  (`tgg.save.rule_default`), so a player's own choice stays.
 
 ## Build
 

@@ -1,6 +1,8 @@
-# Builds every mod against tgg-melee main's SDK for Linux x86-64, Windows
+# Builds every C mod against tgg-melee main's SDK for Linux x86-64, Windows
 # x86-64 and macOS arm64, on every push and pull request, and every night,
-# so a change on either side that breaks a mod shows. The SDKs are the ones
+# so a change on either side that breaks a mod shows. Script mods are checked
+# and packed with the SDK's tgg-script on Linux and macOS, and type-checked
+# against its tgg.luau on Linux (ci/build-all.sh). The SDKs are the ones
 # tgg-melee's CI puts at dl.textures.gg/tgg-melee/main/ for its latest main:
 # not a release.
 
@@ -35,7 +37,7 @@ jobs:
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build every mod
+      - name: Build every mod, check every script
         run: |
           mkdir sdk
           curl -fsSL --retry 3 "$SDKS/tgg-melee-sdk-x86_64-linux.tar.gz" | tar -xz -C sdk --strip-components=1
@@ -77,12 +79,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install GCC, CMake and Ninja
+      - name: Install GCC, CMake, Ninja and jq
         env:
           HOMEBREW_NO_AUTO_UPDATE: "1"
           HOMEBREW_NO_INSTALL_CLEANUP: "1"
           HOMEBREW_NO_ANALYTICS: "1"
-        run: brew install gcc@15 cmake ninja
+        run: brew install gcc@15 cmake ninja jq
 
       # GCC, as the game is built with, through the SDK's own toolchain file
       - name: Build every mod

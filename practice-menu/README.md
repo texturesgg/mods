@@ -8,9 +8,10 @@ Off in netplay: an offline mod, switched off by the game for a netplay session.
 
 ## How it works
 
-One menu entry, `TGG_MENU_ADD("1p/practice", ...)`, whose `submenu` is `"practice"`. Each
-drill adds its own entry to that submenu (`"practice/<name>"`), so the menu fills itself from
-whatever drills are installed, and no drill depends on this mod.
+A display script, `scripts/view.luau`: one menu entry, `tgg.menu.add("1p/practice", ...)`,
+whose `submenu` is `"practice"`. Each drill adds its own entry to that submenu
+(`"practice/<name>"`), so the menu fills itself from whatever drills are installed, and no
+drill depends on this mod.
 
 ## Build
 

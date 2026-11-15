@@ -13,14 +13,17 @@ Final Destination, Dream Land, Yoshi's Story, Fountain of Dreams and Pokémon St
   changed stays as it is, and you can still change it in the menu.
 - The list only applies once the Random Stage Switch is unlocked. The port unlocks
   everything by default (`tgg.unlocks`).
-- Netplay: this is a code mod, so it counts toward the mod-set. Both players need it.
+- Netplay: it doesn't change a match (the stage select and the save are each player's own),
+  so it doesn't count toward the mod-set.
 
 ## For mod makers
 
-- The `stage_offered` event turns every other stage off (`TGG_STAGE_OFF`): faded, in its place.
-  Stages are content ids (`"melee/battlefield"`), compared with `strcmp`.
-- `save_loaded` writes the Random Stage Switch list with `tgg_save_set_random_stage`, only
-  while `tgg_save_random_stages_untouched()` says the player hasn't changed it.
+A display script, `scripts/view.luau`:
+
+- `tgg.change.stage_offered` turns every other stage off (`tgg.stage.OFF`): faded, in its
+  place. Stages are content ids (`"melee/battlefield"`).
+- `tgg.on.save_loaded` writes the Random Stage Switch list with `tgg.save.set_random_stage`,
+  only while `tgg.save.random_stages_untouched()` says the player hasn't changed it.
 
 ## Build
 

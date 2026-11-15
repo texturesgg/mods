@@ -9,8 +9,8 @@
 # A mod is game tier when it includes a game header (melee/, sysdolphin/,
 # dolphin/), has a hook record, uses TGG_GAME_SYMBOL, TGG_GAME_FN or
 # TGG_ORIGINAL, includes tgg/game/, or has a TGG_FIGHTER or TGG_STAGE record.
-# Otherwise it's stable. It never fails: the report is for people, and the
-# JSON for the next run to compare against.
+# Otherwise it's stable, as every script mod is. It never fails: the report is
+# for people, and the JSON for the next run to compare against.
 set -uo pipefail
 sdk=$(cd "${1:?usage: ci/tier-report.sh <SDK folder> [report.json]}" && pwd)
 json_out=${2:-}

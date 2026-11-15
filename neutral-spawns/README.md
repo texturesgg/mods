@@ -14,17 +14,17 @@ them.
   aren't 2v2.
 - No settings.
 - Matches Slippi's neutral spawns (slippi-ssbm-asm `External/NeutralSpawn`).
-- Netplay: this is a code mod, so it counts toward the mod-set. Both players need it.
+- Netplay: it changes a match, so it counts toward the mod-set. Both players need it.
 
 ## For mod makers
 
-`src/mod.c` is one `player_spawn` event: the game is placing a player at the start of a
-match, and the mod moves `x`, `y` and `facing` before it does.
+`scripts/sim.luau` is one `player_spawn` change: the game is placing a player at the start of
+a match, and the script moves `x`, `y` and `facing` before it does.
 
-- `tgg_stage()` is the stage's content id. The spawn table holds one set of points for singles
+- `tgg.stage.current()` is the stage's content id. The spawn table holds one set of points for singles
   and one for teams per stage.
-- Other stages keep the stage's own points, read with `tgg_stage_spawn_x` / `tgg_stage_spawn_y`.
-- Teams come from `tgg_player_team`, and 1P modes (`tgg_mode_single_player`) are left alone.
+- Other stages keep the stage's own points.
+- Teams come from the players' teams, and 1P modes (`tgg.mode.single_player()`) are left alone.
 
 ## Build
 

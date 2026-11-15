@@ -9,14 +9,14 @@ screen, as Slippi does.
 - Records still count: VS records, KO counts, play time and unlock checks are saved as
   usual. A new challenger or a prize still shows up when one is due.
 - Only plain VS mode skips the screen. Tournament mode and the special melees keep theirs.
-- Netplay: this is a code mod, so it counts toward the mod-set. Both players need it.
+- Netplay: it changes a match, so it counts toward the mod-set. Both players need it.
 
 ## For mod makers
 
 The results screen only shows the match. The records are written when VS mode leaves its
 results step, whatever the screen did. So the mod keeps the step and leaves out the screen
-(`src/mod.c`): the `results_enter` event sets `skip` in VS mode (`tgg_mode() == TGG_MODE_VS`),
-and every other mode shows its results.
+(`scripts/sim.luau`): `tgg.change.results_enter` sets `skip` in VS mode, and every other mode
+shows its results.
 
 ## Build
 

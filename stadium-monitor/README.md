@@ -13,14 +13,14 @@ is, not on the camera.
 - No settings.
 - Matches Slippi, which does this in every game (slippi-ssbm-asm
   `Common/PSCameraIndependentMonitor`).
-- Netplay: this is a code mod, so it counts toward the mod-set. Both players need it.
+- Netplay: it changes a match, so it counts toward the mod-set. Both players need it.
 
 ## For mod makers
 
-The game places the close-up and asks whether it fits on screen. `src/mod.c` answers with
-the `fighter_check` event, kind `TGG_CHECK_STADIUM_CLOSE_UP`, from the fighter's position. The
-close-up is still placed by the game; only the answer changes. It's the shortest example of a
-check.
+The game places the close-up and asks whether it fits on screen. `scripts/sim.luau` answers
+with `tgg.change.fighter_check`, kind `tgg.check.STADIUM_CLOSE_UP`, from the fighter's
+position. The close-up is still placed by the game; only the answer changes. It's the
+shortest example of a check.
 
 ## Build
 

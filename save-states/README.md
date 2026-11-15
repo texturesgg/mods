@@ -26,13 +26,12 @@ On the Mods page (Y on the main menu):
 
 ## How it works
 
-`src/mod.c`, in one file. The `frame` event reads the controllers with `tgg_viewer_pad_read`
-(the person at this machine, never the simulation's input) and calls `tgg_snapshot_save` or
-`tgg_snapshot_load` (`tgg/snapshot.h`); the port does them between two logic frames. The
-`state_loaded` event shows "Loaded". Its Practice entry (`TGG_MENU_ADD("practice/free", ...)`)
-starts Free practice through `tgg.practice-stage`, found with `tgg_mod_export`, so it doesn't
-depend on it. The snapshot is freed when the match ends, since it only
-loads into its own match.
+`scripts/view.luau`. The `frame` event reads the controllers with `tgg.input.pad` (the person
+at this machine, never the simulation's input) and calls `tgg.snapshot.save` or
+`tgg.snapshot.load`; the port does them between two logic frames. The `state_loaded` event
+shows "Loaded". Its Practice entry (`tgg.menu.add("practice/free", ...)`) starts Free practice
+through `tgg.practice-stage`, found with `tgg.mod`, so it doesn't depend on it. The snapshot is
+freed when the match ends, since it only loads into its own match.
 
 The manifest says `"class": "offline"`, which the game enforces: while a netplay session is
 on, the mod's events don't come, and it never counts toward the mod-set id.

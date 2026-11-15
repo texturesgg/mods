@@ -33,14 +33,15 @@ It's yours alone: it doesn't change the game, so it doesn't matter for netplay.
 
 ## How it works
 
-`src/mod.c`, in one file. `fighter_update` follows each fighter's motion state: hanging
-(`CliffCatch`, `CliffWait`), off the ledge, a jump (the fighter's jumps used goes up),
-`EscapeAir`, then `LandingFallSpecial`, the waveland's landing. On the first frame after the
-landing it reads the intangibility timer the ledge grab set (`fp->x1990`), or, if it already
-ran out, how many frames ago. The attempt and each result are in `TGG_STATE`, so they're right
-through a rollback, and a result shows once its frame is final (`tgg_frame_final`).
+Three scripts: `sim.luau` decides, `view.luau` draws, and `ledges.luau` is what both share.
+`fighter_update` follows each fighter's action state: hanging (`CLIFF_CATCH`, `CLIFF_WAIT`),
+off the ledge, a jump (`fighter.jumps_used` goes up), `ESCAPE_AIR`, then
+`LANDING_FALL_SPECIAL`, the waveland's landing. On the first frame after the landing it reads
+the intangibility the ledge grab set (`fighter.intangible`), or, if it already ran out, how
+many frames ago. The attempt and each result are in `state`, so they're right through a
+rollback, and a result shows once its frame is final (`tgg.frame_final`).
 
-It only reads: `fighter_update`, no hooks, no `pad_read`.
+It only reads, so it's a display script.
 
 ## Build
 

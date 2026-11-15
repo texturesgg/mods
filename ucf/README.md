@@ -7,17 +7,18 @@ and shield SDI, tumble wiggle and the crouch release fix.
 ## For players
 
 - No settings. Turn the mod off to play without UCF.
-- Versions follow UCF's own. 0.8.0 is UCF 0.8, which Slippi 3.9 to 3.16 ran; replays from
-  those versions play back with it.
-- Netplay: this is a code mod, so it counts toward the mod-set. Both players need the same
+- Replays from Slippi 3.9 to 3.16, which ran UCF 0.8, play back with `tgg.ucf-legacy`.
+- Netplay: it changes a match, so it counts toward the mod-set. Both players need the same
   version.
 
 ## For mod makers
 
-It's a stable-tier mod: the `fighter_input`, `fighter_turn` and `fighter_check` events
-(the spot dodge checks among them), the curated fighter reads and the raw controllers of
-`tgg/pad.h` (`src/mod.c`). It keeps each port's raw stick history in `TGG_STATE`, so it
-rolls back.
+A sim script, `scripts/sim.luau`: the `fighter_input`, `fighter_turn` and `fighter_check`
+changes (the spot dodge checks among them), the fighter reads and the raw controllers
+(`tgg.pad`). It keeps each port's raw stick history in `state`, so it rolls back. The game's
+floats are 32-bit, so the arithmetic the codes do is rounded with `tgg.f32` at each step.
+tgg-melee's `ucf-compare` test checks it against the C version it replaced on every raw stick
+value and every two-frame flick.
 
 Not here: UCF's character select screen indicator text.
 

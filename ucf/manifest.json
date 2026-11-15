@@ -2,7 +2,7 @@
   "api": "tgg-melee/0",
   "id": "tgg.ucf",
   "name": "UCF",
-  "version": "0.84.1",
+  "version": "1.0.0",
   "description": "The Universal Controller Fix: dashback, shield drop, 1.0 cardinals, SDI, tumble and crouch release, as Slippi 3.17 and later run it.",
   "icon": "icon.png",
   "tags": [
@@ -30,5 +30,6 @@
       "code": "0x800D65EC",
       "name": "UCF 0.84: DBOOC SquatRv Fix"
     }
-  ]
+  ],
+  "script": true
 }

@@ -1,0 +1,12 @@
+// Zed with the Luau extension: luau-lsp as a plain Luau project, not Roblox. The @tgg
+// alias in .luaurc names build/tgg.luau, which tgg mod new and tgg mod dev write.
+{
+  "lsp": {
+    "luau-lsp": {
+      "settings": {
+        "roblox": { "enabled": false },
+        "luau-lsp": { "platform": { "type": "standard" } }
+      }
+    }
+  }
+}
