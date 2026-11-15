@@ -3,7 +3,7 @@
   "id": "tgg.ledgedash-drill",
   "name": "Ledge dash drill",
   "version": "1.0.0",
-  "description": "Adds Practice > Ledge dash. Grab the ledge once and every try puts you back there.",
+  "description": "Adds Practice > Ledge dash. Grab the ledge once. After each try you're put back on it.",
   "icon": "icon.png",
   "class": "offline",
   "depends": {

@@ -21,7 +21,7 @@ local practice = assert(tgg.mod("tgg.practice-stage"))
 
 tgg.menu.add("practice/ledgedash", {
 	label = "Ledge dash",
-	description = "Hang on the ledge once, and every try puts you back there.",
+	description = "Grab the ledge once. After each try you're put back on it.",
 	action = function()
 		practice.start(ID, "melee/final-destination", false, false)
 	end,

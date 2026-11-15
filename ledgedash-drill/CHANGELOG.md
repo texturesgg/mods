@@ -11,4 +11,4 @@
 
 ## 0.1.1
 
-- First release: Practice > Ledge dash. Hang on the ledge once, and every try puts you back there. Starts on Final Destination.
+- First release: Practice > Ledge dash. Grab the ledge once. After each try you're put back on it. Starts on Final Destination.
