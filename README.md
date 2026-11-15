@@ -25,6 +25,8 @@ tgg mod build <folder> -o <mod>.zip
 `ci/build-all.sh <SDK>` builds every C mod and checks every script mod (`tgg-script check` and
 `pack` from the SDK's `tools/`, and a `--!strict` type check against the SDK's `luau/tgg.luau`
 when `luau-lsp` is on the path, as it is in `nix develop`), each into `<folder>/build/mods/<id>/`.
-CI runs it on every push against the SDK of tgg-melee's latest `main`.
+CI runs it on every push against the SDK of tgg-melee's latest `main`, after
+`ci/check-depends.sh`, which fails when a mod's `depends` range doesn't accept the version of
+that mod here: the official set has to load together.
 
 See `CREDITS.md` for the work these mods build on.

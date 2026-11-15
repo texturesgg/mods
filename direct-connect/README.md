@@ -75,8 +75,8 @@ check.
 
 ## Requirements
 
-`tgg.netplay` 0.3 (`"depends": { "tgg.netplay": "^0.3" }`), and tgg-melee 0.1.0-rc.9 or later
-(the first with `tgg/net.h`).
+`tgg.netplay` 0.9 (`"depends": { "tgg.netplay": "^0.9" }`), `tgg.http` 0.1, and tgg-melee
+0.1.0-rc.9 or later (the first with `tgg/net.h`).
 
 ## Build
 

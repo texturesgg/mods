@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0
+
+- Works with tgg.netplay 0.9, the version current games play with. Needs tgg.netplay 0.9 and tgg.http.
+
 ## 0.4.0
 
 - Online is on the main menu, in the game's own look: Make a room, Join a room, Host by address, Join by address.

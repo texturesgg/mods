@@ -37,6 +37,11 @@ jobs:
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
+      # Every dependency range accepts the version in this repository, so the
+      # official set loads together and the port refuses none of it
+      - name: Dependencies
+        run: nix develop --command ci/check-depends.sh
+
       - name: Build every mod, check every script
         run: |
           mkdir sdk
