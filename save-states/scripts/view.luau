@@ -37,7 +37,7 @@ end
 
 tgg.menu.add("practice/free", {
 	label = "Free practice",
-	description = "Just you on the stage. D-pad left saves, D-pad right loads.",
+	description = "An empty stage. D-pad left saves, D-pad right loads.",
 	action = function()
 		if practice then
 			practice.start(ID, "", false, false)

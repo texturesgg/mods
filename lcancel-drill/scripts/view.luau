@@ -13,7 +13,7 @@ local practice = assert(tgg.mod("tgg.practice-stage"))
 
 tgg.menu.add("practice/lcancel", {
 	label = "L-cancel",
-	description = "Just you on the stage, with your L-cancel timing after every aerial.",
+	description = "An empty stage that shows your L-cancel timing after each aerial.",
 	action = function()
 		practice.start(ID, "melee/final-destination", false, false)
 	end,

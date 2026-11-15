@@ -11,4 +11,4 @@
 
 ## 0.1.0
 
-- First release: Practice > L-cancel. Just you on the stage, with your L-cancel timing after every aerial.
+- First release: Practice > L-cancel. An empty stage that shows your L-cancel timing after each aerial.

@@ -3,7 +3,7 @@
   "id": "tgg.lcancel-drill",
   "name": "L-cancel drill",
   "version": "1.0.0",
-  "description": "Adds Practice > L-cancel. Just you on the stage, with your L-cancel timing after every aerial.",
+  "description": "Adds Practice > L-cancel. An empty stage that shows your L-cancel timing after each aerial.",
   "icon": "icon.png",
   "class": "offline",
   "depends": {
