@@ -20,7 +20,7 @@ failed=()
 
 script_mod() { # script_mod <mod folder>: check, pack, lay out and type-check one script mod
     local mod=$1 id out
-    checked=
+    result=checked
     id=$(jq -r .id "$mod/manifest.json")
     out=$mod/build/mods/$id
     rm -rf "$mod/build"
@@ -35,7 +35,7 @@ script_mod() { # script_mod <mod folder>: check, pack, lay out and type-check on
         "$tool" pack "$mod" > "$mod/build/package.json" || return 1
     else
         echo "not checked: this SDK's tools/tgg-script doesn't run here"
-        checked=" by layout only: tgg-script didn't run"
+        result="laid out, not checked"
     fi
     if [ -n "$lsp" ]; then
         (cd "$mod" && "$lsp" analyze --platform standard scripts/*.luau) || return 1
@@ -49,7 +49,7 @@ for manifest in "$root"/*/manifest.json; do
     echo "::group::$name"
     if [ "$(jq -r '.script // false' "$manifest")" = true ]; then
         if script_mod "$mod"; then
-            echo "$name: checked${checked}"
+            echo "$name: $result"
         else
             failed+=("$name")
         fi
