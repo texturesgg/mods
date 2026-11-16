@@ -8,10 +8,11 @@
  *                             "sha256": "9b88…", "name": "Dark Fox"}}}
  *
  * Each slot names its skin's file. A costume is added to the disc with
- * tgg_files_add and handed to the game on costume_file; a menu or trophy file
- * replaces the disc's with tgg_files_replace. In a netplay match the game
- * itself only takes a costume that changes nothing but looks, and loads the
- * normal one otherwise, so a skin never changes who someone can play.
+ * tgg_files_add and handed to the game on costume_file; a menu, trophy, stage,
+ * effect or HUD file replaces the disc's with tgg_files_replace. In a netplay
+ * match the game itself only takes a skin that changes nothing but looks, and
+ * loads the normal file otherwise, so a skin never changes who someone can
+ * play.
  */
 #include "tgg/events.h"
 #include "tgg/files.h"
@@ -227,9 +228,12 @@ static int top_field(json* j, const char* key, void* user)
 
 /* ---- Loading ----------------------------------------------------------------- */
 
-static int is_menu_file(const char* name)
+/* Menus and trophies, stages, effects and the HUD: files tgg_files_replace takes */
+static int is_replaced_file(const char* name)
 {
-    return strncasecmp(name, "Mn", 2) == 0 || strncasecmp(name, "Ty", 2) == 0;
+    return strncasecmp(name, "Mn", 2) == 0 || strncasecmp(name, "Ty", 2) == 0 ||
+           strncasecmp(name, "Gr", 2) == 0 || strncasecmp(name, "Ef", 2) == 0 ||
+           strncasecmp(name, "IfAll.", 6) == 0;
 }
 
 static int is_costume_file(const char* name)
@@ -260,7 +264,7 @@ static void start(void)
     int loaded = 0;
     for (int i = 0; i < slot_count; i++) {
         slot* s = &slots[i];
-        if (is_menu_file(s->file)) {
+        if (is_replaced_file(s->file)) {
             loaded += tgg_files_replace(s->file, s->path) == 0;
         } else if (is_costume_file(s->file)) {
             if (tgg_files_add(s->path, s->file, s->added, sizeof s->added) == 0) {
@@ -269,7 +273,8 @@ static void start(void)
                 s->added[0] = '\0';
             }
         } else {
-            tgg_log("%s: stages, effects and fighter files aren't loaded yet", s->file);
+            tgg_log("%s: only costumes, menus, stages, effects and the HUD load, so this skin "
+                    "didn't", s->file);
         }
     }
     tgg_log("%d of %d skins loaded", loaded, slot_count);

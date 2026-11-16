@@ -2,8 +2,8 @@
   "api": "tgg-melee/0",
   "id": "tgg.skins",
   "name": "Skins",
-  "version": "0.1.1",
-  "description": "Loads the skins you picked in tgg-studio. Online, skins that change more than looks show the normal costume.",
+  "version": "0.2.0",
+  "description": "Loads the skins you picked in tgg-studio. Online, skins that change more than looks show the normal file.",
   "icon": "icon.png",
   "tags": [
     "visual",
