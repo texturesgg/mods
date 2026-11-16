@@ -2,7 +2,7 @@
   "api": "tgg-melee/0",
   "id": "tgg.frozen-stadium",
   "name": "Frozen Stadium",
-  "version": "0.1.4",
+  "version": "1.0.0",
   "description": "Pokémon Stadium never transforms, like Slippi's frozen Stadium toggle.",
   "icon": "icon.png",
   "tags": [
@@ -25,5 +25,6 @@
       "name": "Slippi Online frozen Stadium",
       "versions": "<3.18"
     }
-  ]
+  ],
+  "script": true
 }

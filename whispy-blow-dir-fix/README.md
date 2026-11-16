@@ -11,18 +11,19 @@ A KO'd fighter no longer decides which way Whispy Woods blows on Dream Land.
 - Everything else about the wind is the game's own, including the coin flip on a tie.
 - No settings.
 - Matches Slippi 3.15 and later online (slippi-ssbm-asm `Online/Core/WhispyBlowDirFix`).
-- Netplay: this is a code mod, so it counts toward the mod-set. Both players need it.
+- Netplay: it changes a match, so it counts toward the mod-set. Both players need it.
 
 ## For mod makers
 
-`ftLib_GetOpponentsDir` picks the side Whispy blows toward, and other callers use it to
-aim too. `src/mod.c` replaces the whole function with `TGG_REPLACE`: it's the game's own
-loop over fighters, with one more check that skips a fighter in a Dead action
-(`DeadDown` through `DeadUpFallHitCameraIce`).
+`ftLib_GetOpponentsDir` picks the side Whispy blows toward, and other callers use it to aim
+too. It asks about each fighter it counts: the `fighter_check` event with
+`tgg.check.COUNTS_FOR_SIDE`. `scripts/sim.luau` says no for a fighter in a Dead action
+(`DEAD_DOWN` through `DEAD_UP_FALL_HIT_CAMERA_ICE`) or in `SLEEP` right after, the range
+Slippi's code skips.
 
 ## Build
 
 ```sh
 tgg mod build    # packs build/tgg.whispy-blow-dir-fix-<version>.zip
-tgg mod dev      # build, install and run the game
+tgg mod dev      # install it and run the game
 ```
