@@ -3,8 +3,6 @@
 local tgg = require("@tgg")
 local ledges = require("./ledges")
 
-local state = tgg.state(ledges.defaults())
-
 -- Displayed frames a result stays up, the last FADE of them fading
 local SHOW = 150
 local FADE = 20
@@ -13,7 +11,6 @@ local HUD_ABOVE = 95
 
 local function fresh()
 	return {
-		seen = { 0, 0, 0, 0 }, -- state.res[].seq shown so far
 		age = { SHOW, SHOW, SHOW, SHOW }, -- displayed frames since the last result
 		shown = { ledges.result(), ledges.result(), ledges.result(), ledges.result() },
 	}
@@ -22,27 +19,25 @@ end
 local in_match = false
 local view = fresh()
 
--- Before each logic frame: takes the results whose frame is final
+-- A new match starts over
 tgg.on.advance(function()
 	if not tgg.in_match() then
 		in_match = false
-		return
-	end
-	if not in_match then
+	elseif not in_match then
 		view = fresh()
 		in_match = true
 	end
-	local final = tgg.frame_final()
-	for p = 1, 4 do
-		local r = state.res[p]
-		if r.seq < view.seen[p] then
-			view.seen[p] = r.seq -- the state went back (a rollback past it)
-		end
-		if r.seq > view.seen[p] and r.frame <= final then
-			view.seen[p] = r.seq
-			view.shown[p] = table.clone(r)
-			view.age[p] = 0
-		end
+end)
+
+-- Each attempt's result, once its frame is final
+tgg.on.posted(function(value)
+	local r: ledges.Result = value
+	local p = r.port + 1
+	view.shown[p] = r
+	view.age[p] = 0
+	if ledges.showing() then
+		local a, b = ledges.describe(r)
+		tgg.log(`P{p}: {a}{if b ~= "" then ", " else ""}{b}`)
 	end
 end)
 

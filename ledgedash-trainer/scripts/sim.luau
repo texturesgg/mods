@@ -10,8 +10,9 @@
 -- waveland's landing. The intangibility is the game's own timer (fighter.intangible), which the
 -- ledge grab sets and the fighter's update counts down.
 --
--- This file only reads, so the mod is display. The attempt in progress and each result are in
--- state, so they're right through a rollback; view.luau shows a result once its frame is final.
+-- This file only reads, so the mod is display. The attempt in progress is in state, so it's
+-- right through a rollback, and each result is posted (tgg.post), so view.luau gets it once,
+-- when its frame is final.
 local tgg = require("@tgg")
 local ledges = require("./ledges")
 
@@ -24,7 +25,6 @@ tgg.on.match_start(function()
 	local fresh = ledges.defaults()
 	state.tick = fresh.tick
 	state.at = fresh.at
-	state.res = fresh.res
 end)
 
 tgg.on.tick(function()
@@ -34,14 +34,9 @@ tgg.on.tick(function()
 end)
 
 local function decide(port: number, r: ledges.Result)
-	r.seq = state.res[port + 1].seq + 1
-	r.frame = tgg.frame()
-	state.res[port + 1] = r
+	r.port = port
 	state.at[port + 1].phase = ledges.NONE
-	if ledges.showing() then
-		local a, b = ledges.describe(r)
-		tgg.log(`P{port + 1}: {a}{if b ~= "" then ", " else ""}{b}`) -- dropped during a re-run
-	end
+	tgg.post(r)
 end
 
 local function on_ledge(action: number): boolean

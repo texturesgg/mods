@@ -3,8 +3,6 @@
 local tgg = require("@tgg")
 local landings = require("./landings")
 
-local state = tgg.state(landings.defaults())
-
 -- Displayed frames a result stays up, the last FADE of them fading
 local SHOW = 100
 local FADE = 20
@@ -13,7 +11,6 @@ local HUD_ABOVE = 95
 
 local function fresh()
 	return {
-		seen = { 0, 0, 0, 0 }, -- state.port[].seq counted so far
 		hits = { 0, 0, 0, 0 }, -- L-cancels
 		tries = { 0, 0, 0, 0 }, -- landings that could be L-canceled
 		age = { SHOW, SHOW, SHOW, SHOW }, -- displayed frames since the last result
@@ -25,32 +22,29 @@ end
 local in_match = false
 local view = fresh()
 
--- Before each logic frame: counts the landings whose frame is final
+-- A new match starts the counts over
 tgg.on.advance(function()
 	if not tgg.in_match() then
 		in_match = false
-		return
-	end
-	if not in_match then
+	elseif not in_match then
 		view = fresh()
 		in_match = true
 	end
-	local final = tgg.frame_final()
-	for p = 1, 4 do
-		local st = state.port[p]
-		if st.seq < view.seen[p] then
-			view.seen[p] = st.seq -- the state went back (a rollback past it)
-		end
-		if st.seq > view.seen[p] and st.frame <= final then
-			view.seen[p] = st.seq
-			view.tries[p] += 1
-			if st.result == landings.CANCEL then
-				view.hits[p] += 1
-			end
-			view.result[p] = st.result
-			view.frames[p] = st.frames
-			view.age[p] = 0
-		end
+end)
+
+-- Each landing's result, once its frame is final
+tgg.on.posted(function(value)
+	local r: landings.Result = value
+	local p = r.port + 1
+	view.tries[p] += 1
+	if r.result == landings.CANCEL then
+		view.hits[p] += 1
+	end
+	view.result[p] = r.result
+	view.frames[p] = r.frames
+	view.age[p] = 0
+	if landings.showing() then
+		tgg.log(`P{p}: {landings.label(r.result, r.frames)}`)
 	end
 end)
 

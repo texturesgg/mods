@@ -32,9 +32,9 @@ Three scripts: `sim.luau` decides, `view.luau` draws, and `landings.luau` is wha
 - Otherwise `fighter_update` watches the landing lag for a press
   (`fighter.cancel_press_age`): late, by the frames since the landing. Leaving the landing
   with no press: missed.
-- Each result is kept in `state`, so it comes out right through a rollback. The `advance`
-  event counts a result once its frame is final (`tgg.frame_final`), and `hud_draw` draws it
-  above the player's percent (`player.hud_x` / `player.hud_y`).
+- Each result is posted (`tgg.post`), and `view.luau` counts it in `tgg.on.posted`, once,
+  after no rollback can change it. `hud_draw` draws it above the player's percent
+  (`player.hud_x` / `player.hud_y`).
 
 It only reads, so it's a display script.
 

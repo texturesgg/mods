@@ -11,17 +11,20 @@ landings.MISSED = 4
 
 -- The simulation's facts for one port
 export type Port = {
-	seq: number, -- landings decided so far
-	result: number, -- the last one's result
-	frames: number, -- frames early or late
-	frame: number, -- tgg.frame() it was decided on
 	waiting: boolean, -- landed without a press in time: watching for a late one
 	landed: number, -- the tick of that landing
 }
 
 function landings.port(): Port
-	return { seq = 0, result = 0, frames = 0, frame = 0, waiting = false, landed = 0 }
+	return { waiting = false, landed = 0 }
 end
+
+-- A landing's result, which sim.luau posts (tgg.post) and view.luau counts
+export type Result = {
+	port: number,
+	result: number,
+	frames: number, -- frames early or late
+}
 
 -- sim.luau's state: the logic frames into the match, and each port's facts (ports 1 to 4)
 function landings.defaults()

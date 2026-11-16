@@ -26,9 +26,9 @@ export type Attempt = {
 	gone: number, -- the tick the intangibility ran out, 0 while it lasts
 }
 
+-- An attempt's result, which sim.luau posts (tgg.post) and view.luau shows
 export type Result = {
-	seq: number, -- results so far
-	frame: number, -- tgg.frame() it was decided on
+	port: number,
 	kind: number, -- DASH or NO_STAGE
 	ledge: number, -- frames on the ledge
 	to_jump: number, -- drop to jump, -1 with no jump
@@ -41,16 +41,14 @@ function ledges.attempt(): Attempt
 end
 
 function ledges.result(): Result
-	return { seq = 0, frame = 0, kind = 0, ledge = 0, to_jump = 0, to_dodge = 0, left = 0 }
+	return { port = 0, kind = 0, ledge = 0, to_jump = 0, to_dodge = 0, left = 0 }
 end
 
--- sim.luau's state: the logic frames into the match, and each port's attempt and last result
--- (ports 1 to 4)
+-- sim.luau's state: the logic frames into the match, and each port's attempt (ports 1 to 4)
 function ledges.defaults()
 	return {
 		tick = 0,
 		at = { ledges.attempt(), ledges.attempt(), ledges.attempt(), ledges.attempt() },
-		res = { ledges.result(), ledges.result(), ledges.result(), ledges.result() },
 	}
 end
 

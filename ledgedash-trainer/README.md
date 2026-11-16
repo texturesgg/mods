@@ -38,8 +38,9 @@ Three scripts: `sim.luau` decides, `view.luau` draws, and `ledges.luau` is what 
 off the ledge, a jump (`fighter.jumps_used` goes up), `ESCAPE_AIR`, then
 `LANDING_FALL_SPECIAL`, the waveland's landing. On the first frame after the landing it reads
 the intangibility the ledge grab set (`fighter.intangible`), or, if it already ran out, how
-many frames ago. The attempt and each result are in `state`, so they're right through a
-rollback, and a result shows once its frame is final (`tgg.frame_final`).
+many frames ago. The attempt is in `state`, so it's right through a rollback. Each result is
+posted (`tgg.post`), and `view.luau` shows it in `tgg.on.posted`, once, after no rollback can
+change it.
 
 It only reads, so it's a display script.
 

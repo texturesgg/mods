@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0
+
+- Each landing is counted and logged once, after no rollback can change it. Before, the log
+  was written as a frame first ran, so online it could miss a landing or show one that
+  didn't happen.
+
 ## 1.0.0
 
 - A Luau script now, in place of the C library: one package for every platform and game

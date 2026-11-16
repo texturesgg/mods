@@ -7,8 +7,8 @@
 -- passes both, so "early" is exact and analog presses count as the game counts them. A press
 -- during the landing lag after a miss counts as late, by the frames since the landing.
 --
--- This file only reads, so the mod is display. Each landing's result is in state, so it's right
--- through a rollback; view.luau counts the rate once a landing's frame is final.
+-- This file only reads, so the mod is display. Each landing's result is posted (tgg.post), so
+-- view.luau gets it once, when its frame is final, and a rollback can't count it twice.
 local tgg = require("@tgg")
 local landings = require("./landings")
 
@@ -18,15 +18,9 @@ local state = tgg.state(landings.defaults())
 local EARLY_MAX = 20
 
 local function decide(port: number, result: number, frames: number)
-	local p = state.port[port + 1]
-	p.seq += 1
-	p.result = result
-	p.frames = frames
-	p.frame = tgg.frame()
-	p.waiting = false
-	if landings.showing() then
-		tgg.log(`P{port + 1}: {landings.label(result, frames)}`) -- dropped during a re-run
-	end
+	state.port[port + 1].waiting = false
+	local r: landings.Result = { port = port, result = result, frames = frames }
+	tgg.post(r)
 end
 
 local function is_aerial(action: number): boolean
