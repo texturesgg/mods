@@ -10,6 +10,7 @@
  * with ws://), and TGG_MEET_TICKET gives a ticket instead of asking tgg (a
  * local one takes "dev:<name>"). */
 #include "meet.h"
+#include "dc.h"
 
 #include "netplay.h"
 #include "http.h"
@@ -57,7 +58,10 @@ static struct {
     int relay_tried;      /* a relay was up: the host got one, or a joiner heard of the host's */
     int relay_missing;    /* the meeting point had none to give */
     double bytes_told, bytes_ms; /* relay bytes reported so far, and when */
-    char peer_name[64];
+    char token[32];       /* this session's, from the meeting point */
+    char dead_token[32];  /* the session a room went back from (meet_room_again) */
+    double last_meet_ms;  /* the host: when the last joiner was met */
+    int sent_lock;        /* the host told the room it started */
     /* Find a match */
     char search_mode[64]; /* the queue to be in, "" for none */
     int sent_search;
@@ -310,10 +314,11 @@ static int send_candidates(void)
 }
 
 typedef struct Peers {
-    char addrs[CANDIDATES * 3][64];
-    char kinds[CANDIDATES * 3][12];
+    char addrs[CANDIDATES * MEET_MEMBERS][64];
+    char kinds[CANDIDATES * MEET_MEMBERS][12];
     int n;
-    char name[64];
+    char names[MEET_MEMBERS][64];
+    int n_names;
 } Peers;
 
 static void each_candidate(const char* value, void* ctx)
@@ -332,10 +337,42 @@ static void each_candidate(const char* value, void* ctx)
 static void each_peer(const char* value, void* ctx)
 {
     Peers* p = ctx;
-    if (p->name[0] == '\0') {
-        text(value, "name", p->name, sizeof p->name);
+    if (p->n_names < MEET_MEMBERS && text(value, "name", p->names[p->n_names], sizeof p->names[0])) {
+        p->n_names++;
     }
     elements(member(value, "candidates"), each_candidate, p);
+}
+
+/* Adds the names of the games met to this session's, once each */
+static void add_peers(const Peers* peers)
+{
+    for (int i = 0; i < peers->n_names; i++) {
+        int known = 0;
+        for (int k = 0; k < m.st.n_peers; k++) {
+            known |= strcmp(m.st.peers[k], peers->names[i]) == 0;
+        }
+        if (!known && m.st.n_peers < MEET_MEMBERS) {
+            snprintf(m.st.peers[m.st.n_peers++], sizeof m.st.peers[0], "%s", peers->names[i]);
+        }
+    }
+}
+
+/* "saavy", "saavy and bo", "saavy, bo and cy": who this game met */
+static const char* peer_names(char* out, size_t cap)
+{
+    out[0] = '\0';
+    size_t used = 0;
+    for (int i = 0; i < m.st.n_peers && used < cap; i++) {
+        const char* sep = i == 0 ? "" : i == m.st.n_peers - 1 ? " and " : ", ";
+        used += (size_t) snprintf(out + used, cap - used, "%s%s", sep, m.st.peers[i]);
+    }
+    return out[0] != '\0' ? out : "the other players";
+}
+
+/* Whether this game made the room (and so hosts its sessions) */
+static int room_host(void)
+{
+    return m.kind == KIND_MAKE;
 }
 
 static void got_meet(const char* msg)
@@ -346,34 +383,57 @@ static void got_meet(const char* msg)
     if (!text(msg, "token", token, sizeof token)) {
         return;
     }
-    m.st.side = (int) number(msg, "side", -1);
-    const char* queue = member(msg, "queue");
-    m.st.queue = queue != NULL;
-    const char* relay = queue != NULL ? member(queue, "relay") : NULL;
-    m.relay_now = relay != NULL && strncmp(relay, "true", 4) == 0;
+    const int side = (int) number(msg, "side", -1);
     elements(member(msg, "peers"), each_peer, &peers);
-    snprintf(m.peer_name, sizeof m.peer_name, "%s", peers.name);
-    snprintf(m.st.peer, sizeof m.st.peer, "%s", peers.name);
-    const char* addrs[CANDIDATES * 3];
-    const char* kinds[CANDIDATES * 3];
+    const char* addrs[sizeof peers.addrs / sizeof peers.addrs[0]];
+    const char* kinds[sizeof peers.addrs / sizeof peers.addrs[0]];
     for (int i = 0; i < peers.n; i++) {
         addrs[i] = peers.addrs[i];
         kinds[i] = peers.kinds[i];
     }
+    if (strcmp(token, m.dead_token) == 0) {
+        tgg_log("meet: ignoring a meet for the session that ended");
+        return;
+    }
+    if (m.kind != KIND_ONLINE && m.step >= STEP_PUNCH) {
+        if (room_host() && side == 0 && strcmp(token, m.token) == 0) {
+            /* Another joiner for this session: the host punches to it too */
+            add_peers(&peers);
+            m.last_meet_ms = tgg_net_time_ms();
+            tgg_log("meet: %s joins, %d of their addresses", peers.n_names > 0 ? peers.names[0] : "?",
+                    peers.n);
+            netplay_add_candidates(addrs, kinds, peers.n);
+        } else if (!room_host() && strcmp(token, m.token) != 0) {
+            /* The host started a new session (a drop ended the last): this
+             * game's new addresses bring the room's meet for it */
+            tgg_log("meet: the host has a new session");
+            meet_room_again();
+        }
+        return;
+    }
+    m.st.side = side;
+    const char* queue = member(msg, "queue");
+    m.st.queue = queue != NULL;
+    const char* relay = queue != NULL ? member(queue, "relay") : NULL;
+    m.relay_now = relay != NULL && strncmp(relay, "true", 4) == 0;
+    m.st.n_peers = 0;
+    add_peers(&peers);
     const char* why = NULL;
     if (m.st.side < 0 || peers.n == 0) {
         char text_why[200];
         snprintf(text_why, sizeof text_why, "%s's game didn't send an address to reach it.",
-                 peers.name[0] != '\0' ? peers.name : "The other player");
+                 peers.n_names > 0 ? peers.names[0] : "The other player");
         fail(text_why);
         return;
     }
-    tgg_log("meet: meeting %s as side %d, %d of their addresses", peers.name, m.st.side, peers.n);
+    tgg_log("meet: meeting %s as side %d, %d of their addresses",
+            peers.n_names > 0 ? peers.names[0] : "?", m.st.side, peers.n);
     if (netplay_open_meet(m.st.side, addrs, kinds, peers.n, token, &why) != 0) {
         fail(why != NULL ? why : "Netplay couldn't start.");
         return;
     }
-    m.met_ms = tgg_net_time_ms();
+    snprintf(m.token, sizeof m.token, "%s", token);
+    m.met_ms = m.last_meet_ms = tgg_net_time_ms();
     m.st.state = MEET_PUNCHING;
     m.step = STEP_PUNCH;
 }
@@ -386,6 +446,9 @@ static void got_room(const char* msg)
     if (strcmp(was, m.st.code) != 0) {
         tgg_log("meet: in room %s", m.st.code);
     }
+    char before[MEET_MEMBERS][64];
+    const int n_before = m.st.n_members;
+    memcpy(before, m.st.members, sizeof before);
     m.st.n_members = 0;
     const char* list = member(msg, "members");
     const char* p = list != NULL ? ws_skip(list) : NULL;
@@ -406,6 +469,20 @@ static void got_room(const char* msg)
             }
         }
     }
+    /* Who left, for the line that says so */
+    for (int i = 0; i < n_before; i++) {
+        int still = 0;
+        for (int k = 0; k < m.st.n_members; k++) {
+            still |= strcmp(before[i], m.st.members[k]) == 0;
+        }
+        if (!still) {
+            snprintf(m.st.left, sizeof m.st.left, "%.63s", before[i]);
+            tgg_log("meet: %s left the room", before[i]);
+        }
+    }
+    m.st.games = (int) number(msg, "games", m.st.games);
+    const char* locked = member(msg, "locked");
+    m.st.locked = locked != NULL && strncmp(locked, "true", 4) == 0;
     if (m.step == STEP_ROOM && m.st.state != MEET_PUNCHING) {
         m.st.state = MEET_IN_ROOM;
     }
@@ -500,7 +577,8 @@ static void got(const char* msg)
         }
     } else if (strcmp(type, "closed") == 0) {
         char why[200];
-        if (m.step != STEP_DONE) {
+        /* A room's close ends it, playing or not */
+        if (m.step != STEP_DONE || m.kind != KIND_ONLINE) {
             fail(text(msg, "why", why, sizeof why) ? why : "The room closed.");
         }
     } else if (strcmp(type, "error") == 0) {
@@ -522,9 +600,20 @@ static void relay_step(void)
 {
     const double now = tgg_net_time_ms();
     double ms = 0;
-    if (m.st.side != 0) {
+    if (m.st.side != 0 || m.step < STEP_PUNCH) {
         return;
     }
+    /* A room's host: tell the room once the session started, so it takes
+     * nobody new */
+    netplay_info info;
+    netplay_status(&info);
+    if (room_host() && info.locked && !m.sent_lock) {
+        m.sent_lock = 1;
+        m.st.left[0] = '\0';
+        send_json("{\"type\":\"room.lock\"}");
+    }
+    /* Only the first game met decides on a relay: joiners met after it use the
+     * host's relay when it has one (the room passes its address on) */
     if (m.step == STEP_PUNCH && !m.relay_asked && netplay_route(&ms)[0] == '\0' &&
         (m.relay_now || now - m.met_ms > 3000))
     {
@@ -558,12 +647,13 @@ static int prepare(void)
  * `note` says why, for the screen ("" for none). */
 static void search_again(const char* note)
 {
-    netplay_close();
+    dc_netplay_close();
     m.sent_candidates = 0;
     m.sent_search = 0;
     m.reported = 0;
     m.relay_asked = m.relay_told = m.relay_tried = m.relay_missing = m.relay_now = 0;
     m.bytes_told = 0;
+    m.st.n_peers = 0;
     m.st.side = 0;
     m.st.queue = 0;
     snprintf(m.st.note, sizeof m.st.note, "%s", note);
@@ -572,11 +662,37 @@ static void search_again(const char* note)
     prepare();
 }
 
+int meet_room_again(void)
+{
+    if (m.kind == KIND_ONLINE || m.ws == NULL || http_ws_state(m.ws) != HTTP_WS_OPEN ||
+        m.st.state == MEET_FAILED || m.st.state == MEET_OFF || m.step < STEP_ROOM)
+    {
+        return -1;
+    }
+    report_relay_bytes(1);
+    if (m.token[0] != '\0') {
+        snprintf(m.dead_token, sizeof m.dead_token, "%s", m.token);
+    }
+    m.token[0] = '\0';
+    dc_netplay_close();
+    m.sent_candidates = 0;
+    m.reported = 0;
+    m.sent_lock = 0;
+    m.relay_asked = m.relay_told = m.relay_tried = m.relay_missing = m.relay_now = 0;
+    m.bytes_told = 0;
+    m.st.side = 0;
+    m.st.n_peers = 0;
+    m.st.state = MEET_IN_ROOM;
+    m.step = STEP_ROOM;
+    tgg_log("meet: back in room %s, meeting the others again", m.st.code);
+    return prepare();
+}
+
 /* What to tell the player when the games couldn't reach each other */
 static void could_not_connect(const char* netplay_why)
 {
-    char why[320];
-    const char* who = m.peer_name[0] != '\0' ? m.peer_name : "the other player";
+    char why[320], names[200];
+    const char* who = peer_names(names, sizeof names);
     if (m.relay_tried) {
         snprintf(why, sizeof why, "Couldn't reach %s, even through the relay.", who);
     } else if (m.relay_missing) {
@@ -727,7 +843,10 @@ static void step(void)
                 quote(code, sizeof code, m.want_code);
                 snprintf(room, sizeof room, "{\"type\":\"room.join\",\"code\":%s}", code);
             } else {
-                snprintf(room, sizeof room, "{\"type\":\"room.make\",\"games\":2}");
+                /* As many games as this netplay carries; the meeting point
+                 * may hold fewer */
+                snprintf(room, sizeof room, "{\"type\":\"room.make\",\"games\":%d}",
+                         NETPLAY_MAX_PLAYERS);
             }
             send_json(room);
         }
@@ -925,7 +1044,7 @@ void meet_leave(void)
         if (info.state == NETPLAY_OFF || info.state == NETPLAY_WAITING ||
             info.state == NETPLAY_CONNECTING || info.state == NETPLAY_FAILED)
         {
-            netplay_close();
+            dc_netplay_close();
         }
     }
     memset(&m.st, 0, sizeof m.st);

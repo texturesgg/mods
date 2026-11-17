@@ -31,6 +31,7 @@ enum {
     VIEW_DIFFERENT,  /* the host has other mods: what differs, and get them? */
     VIEW_RESTARTING, /* tgg is getting the host's mods (tgg/restart.h) */
     VIEW_ROOM,       /* a room on textures.gg: signing in, its code, connecting */
+    VIEW_PLAY,       /* scripted room matches (roomplay.c) */
 };
 
 /* What differs between the host's mods and this game's (profile.c) */
@@ -74,6 +75,8 @@ typedef struct Dc {
     /* This game was restarted with the host's mods to join it: leaving
      * netplay goes back to the player's own game */
     int for_netplay;
+    /* The room met again after a session ended (meet_room_again) */
+    int reformed;
 } Dc;
 
 extern Dc dc;
@@ -105,5 +108,23 @@ int queue_busy(void);
  * first; and its name */
 int local_addresses(char out[][48], int max);
 const char* local_name(void);
+
+/* played.c: the Played with file. played_got takes a "tgg-name" message (1),
+ * played_frame follows the session each frame */
+int played_got(const char* text, int from);
+void played_frame(void);
+/* Closes the netplay session, its Played with line first */
+void dc_netplay_close(void);
+
+/* report.c: the room report for an app (TGG_DIRECT_CONNECT_REPORT), each frame */
+void report_frame(void);
+
+/* roomplay.c: scripted room matches for tests */
+int roomplay_wanted(void);
+int roomplay_done(void);
+void roomplay_reset(void);
+int roomplay_got(const char* text, int from);
+void roomplay_frame(void);
+void roomplay_enter(int from_match);
 
 #endif

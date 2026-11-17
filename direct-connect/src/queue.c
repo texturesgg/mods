@@ -307,7 +307,7 @@ static void host_play(void)
         tgg_match_set_player(&match, side, TGG_PLAYER_HUMAN);
         if (tgg_match_set_character(&match, side, chars[side]) != 0) {
             to_failed("The other player picked a character this game doesn't have.");
-            netplay_close();
+            dc_netplay_close();
             return;
         }
         tgg_match_set_costume(&match, side, costumes[side]);
@@ -342,7 +342,9 @@ static void read_messages(void)
     int n;
     while ((n = netplay_receive(buf, sizeof buf - 1, &from)) > 0) {
         buf[n] = '\0';
-        got_message(buf);
+        if (!played_got(buf, from)) {
+            got_message(buf);
+        }
     }
 }
 
@@ -501,7 +503,7 @@ static void frame(void)
             tgg_log("find a match: the other game has other mods: %s", info.why);
             meet_search_again();
         } else if (dc.meet.state == MEET_CONNECTED && info.state == NETPLAY_CONNECTED) {
-            snprintf(q.opponent, sizeof q.opponent, "%s", dc.meet.peer);
+            snprintf(q.opponent, sizeof q.opponent, "%s", dc.meet.n_peers > 0 ? dc.meet.peers[0] : "");
             tgg_log("find a match: playing %s as side %d", q.opponent, info.side);
             tgg_sound_menu(TGG_SOUND_ACCEPT);
             reset_lobby();
@@ -644,7 +646,7 @@ static void draw(void)
         const int s = (int) (dc.meet.search_ms / 1000);
         if (dc.meet.state == MEET_PUNCHING) {
             snprintf(text, sizeof text, "Found %s. Connecting.",
-                     dc.meet.peer[0] != '\0' ? dc.meet.peer : "someone");
+                     dc.meet.n_peers > 0 ? dc.meet.peers[0] : "someone");
         } else if (dc.meet.state == MEET_CONNECTED) {
             snprintf(text, sizeof text, "Connected.");
         } else {

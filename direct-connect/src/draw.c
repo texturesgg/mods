@@ -90,6 +90,10 @@ static void draw_room(void)
         draw_room_code(110);
         tgg_draw_text(320, 330, 22, WHITE, TGG_ALIGN_CENTER, "Connecting");
         break;
+    case MEET_CONNECTED:
+        draw_room_code(110);
+        tgg_draw_text(320, 330, 22, WHITE, TGG_ALIGN_CENTER, "Connected");
+        break;
     default:
         tgg_draw_text(320, 200, 22, WHITE, TGG_ALIGN_CENTER, "Getting a room on textures.gg");
         break;
@@ -241,6 +245,7 @@ void dc_draw(void)
         draw_restarting();
         break;
     case VIEW_ROOM:
+    case VIEW_PLAY:
         draw_room();
         break;
     }

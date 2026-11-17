@@ -2,6 +2,9 @@
 
 ## 1.0.0
 
+- Rooms take as many games as netplay plays together (4 today). Each joiner connects to the host; the host leads the menus. If anyone leaves, the others connect again by themselves and the room says who left. Once the host starts, the room takes nobody new until that session ends.
+- `TGG_DIRECT_CONNECT_REPORT=<file>`: a JSON line each time the room changes (code, link, players, state), for an app that started the game into a room.
+- After each session through textures.gg, a line in `played-with.jsonl` in the data folder: who you played with, when, and the room or queue.
 - Made for mod API 1.0. It uses parts of the API that still change, so each tgg-melee update comes with a new version of it.
 
 ## 0.6.0

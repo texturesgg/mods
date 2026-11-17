@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* The meeting point (meet.c): playing a friend on another network through a
  * room code on textures.gg. One game makes a room and shows its code, the
- * other joins with it; the meeting point hands each game the other's
- * addresses, and netplay punches through to them. After that it's an
+ * others join with it; netplay is a star through the host, so the meeting
+ * point hands the host and each joiner the other's addresses as the joiner
+ * arrives, and netplay punches through to them. After that it's an
  * ordinary netplay session: netplay_status follows it.
  *
  *     meet_make();            // or meet_join("ABC234")
@@ -17,6 +18,8 @@
 #ifndef DC_MEET_H
 #define DC_MEET_H
 
+#include "netplay.h"
+
 enum {
     MEET_OFF = 0,
     MEET_STARTING,   /* getting a ticket and opening the connection */
@@ -29,7 +32,8 @@ enum {
     MEET_FAILED,     /* why says what happened, for the player */
 };
 
-#define MEET_MEMBERS 4
+/* Who's in a room, as the room lists them: as many as netplay carries */
+#define MEET_MEMBERS NETPLAY_MAX_PLAYERS
 
 typedef struct meet_status {
     int state;
@@ -47,7 +51,13 @@ typedef struct meet_status {
     double search_ms;
     char note[200];
     int queue;                         /* the session came from a queue */
-    char peer[64];                     /* MEET_PUNCHING and after: who this game meets */
+    int locked;                        /* the room's host started playing */
+    int games;                         /* the most games the room takes */
+    /* MEET_PUNCHING and after: the games this one met in this session, by
+     * name (a joiner meets only the host; the host meets every joiner) */
+    char peers[MEET_MEMBERS][64];
+    int n_peers;
+    char left[64];                     /* the last member who left the room */
 } meet_status;
 
 /* Makes a room and waits in it. 0, or -1 when Online can't start here (no
@@ -56,6 +66,12 @@ int meet_make(void);
 /* Joins the room with `code`. 0 or -1, as meet_make. */
 int meet_join(const char* code);
 void meet_poll(meet_status* out);
+/* In a room whose netplay session ended (someone left, or a link dropped)
+ * while the room is still open: closes the session, gathers this game's
+ * addresses again and sends them, so the room meets the games still in it
+ * again (MEET_IN_ROOM, then MEET_PUNCHING). 0, or -1 when there's no room to
+ * go back to. */
+int meet_room_again(void);
 /* Leaves the room and the meeting point; a netplay session it opened stays
  * up until netplay_close. */
 void meet_leave(void);

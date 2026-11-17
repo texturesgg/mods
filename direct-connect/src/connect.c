@@ -127,7 +127,7 @@ static void leave_session(void)
         meet_leave();
         dc.room = 0;
     }
-    netplay_close();
+    dc_netplay_close();
     dc.mode = MODE_NONE;
     if (dc.for_netplay) {
         go_back();
@@ -187,7 +187,7 @@ static void room_frame(uint32_t in)
         tgg_log("room: %s", dc.meet.why);
         meet_leave();
         dc.room = 0;
-        netplay_close();
+        dc_netplay_close();
         dc.mode = MODE_NONE;
         fail_view(dc.meet.why);
     } else if (dc.meet.state == MEET_CONNECTED) {
@@ -248,21 +248,28 @@ static void different_frame(uint32_t in)
     if (f != NULL && fclose(f) != 0) {
         saved = 0;
     }
-    netplay_close();
+    dc_netplay_close();
     if (!saved) {
         tgg_sound_menu(TGG_SOUND_ERROR);
         tgg_log("can't write %s", path);
         fail_view("Can't save the host's list of mods.");
         return;
     }
-    if (tgg_restart_with("tgg.direct-connect", path, dc.joined) != 0) {
+    /* Afterwards: back to the same room, or to the same address */
+    char then[ADDRESS_MAX + 16];
+    if (dc.room) {
+        snprintf(then, sizeof then, "room:%s", dc.meet.code);
+    } else {
+        snprintf(then, sizeof then, "join:%s", dc.joined);
+    }
+    if (tgg_restart_with("tgg.direct-connect", path, then) != 0) {
         tgg_sound_menu(TGG_SOUND_ERROR);
         tgg_log("can't get the host's mods, tgg has to be in the game's folder");
         say_compare();
         return;
     }
     tgg_sound_menu(TGG_SOUND_ACCEPT);
-    tgg_log("getting the host's mods (%s), then joining %s again", path, dc.joined);
+    tgg_log("getting the host's mods (%s), then %s again", path, then);
     memset(&dc.restart, 0, sizeof dc.restart);
     dc.view = VIEW_RESTARTING;
 }
@@ -315,6 +322,27 @@ static void restarting_frame(uint32_t in)
     }
 }
 
+/* A room's session ended (someone left, a link dropped) while the room is
+ * still open: the games still in it meet again, and the host starts again
+ * when it's ready. 1 when it went back to the room. */
+static int room_again(void)
+{
+    netplay_info info;
+    netplay_status(&info);
+    if (!dc.room || info.state != NETPLAY_FAILED || tgg_in_match()) {
+        return 0;
+    }
+    meet_poll(&dc.meet);
+    if (dc.meet.state == MEET_FAILED || meet_room_again() != 0) {
+        return 0;
+    }
+    tgg_log("room %s: %s Meeting the others again.", dc.meet.code, info.why);
+    dc.reformed = 1;
+    roomplay_reset();
+    meet_poll(&dc.meet);
+    return 1;
+}
+
 /* ---- The screen: typing, connecting, the host's mods, why it ended */
 
 static void frame(void)
@@ -323,8 +351,21 @@ static void frame(void)
         dc.message_frames--;
     }
     const uint32_t in = tgg_menu_input();
+    if (room_again()) {
+        dc.view = VIEW_ROOM;
+    }
     netplay_info info;
     netplay_status(&info);
+    if (dc.view == VIEW_PLAY) {
+        if (info.state != NETPLAY_FAILED && roomplay_done()) {
+            tgg_log("room play: done, leaving the room");
+            leave_session();
+            done();
+        } else if (info.state != NETPLAY_FAILED) {
+            roomplay_frame();
+        }
+        return;
+    }
     if (dc.view != VIEW_ADDRESS && dc.view != VIEW_FAILED && info.state == NETPLAY_FAILED) {
         tgg_sound_menu(TGG_SOUND_ERROR);
         fail_view(info.why);
@@ -395,9 +436,16 @@ static void frame(void)
  * ended */
 static void enter(int from_match)
 {
-    (void) from_match;
     netplay_info info;
     netplay_status(&info);
+    if (dc.view == VIEW_PLAY) {
+        roomplay_enter(from_match);
+        return;
+    }
+    if (info.state == NETPLAY_FAILED && dc.room && room_again()) {
+        dc.view = VIEW_ROOM;
+        return;
+    }
     if (info.state == NETPLAY_FAILED) {
         fail_view(info.why);
         leave_session();
@@ -553,7 +601,12 @@ static const char* room_line(void)
     if (dc.meet.code[0] == '\0') {
         return dc.mode == MODE_ROOM ? "Getting a room on textures.gg." : "Joining the room.";
     }
-    snprintf(line, sizeof line, "Room %s - %s", dc.meet.code,
+    /* Someone left since the host last started: say so until it starts again */
+    char left[96] = "";
+    if (dc.meet.left[0] != '\0' && !dc.meet.locked) {
+        snprintf(left, sizeof left, "%s left. ", dc.meet.left);
+    }
+    snprintf(line, sizeof line, "Room %s - %s%s", dc.meet.code, left,
              dc.mode == MODE_ROOM ? in_count() : joined_count());
     return line;
 }
@@ -673,7 +726,7 @@ TGG_MENU_ADD("online/join", join_item);
  * (Find a match; with a character it skips the character select), for scripted runs and a quick
  * start; TGG_DIRECT_CONNECT_GAMES=<n> has a host start once n games are in.
  * A game restarted with the host's mods (tgg_restart_with above;
- * TGG_RETURN_BY names this mod, TGG_RETURN_THEN the host) joins the host at
+ * TGG_RETURN_BY names this mod, TGG_RETURN_THEN "room:<code>" or "join:<address>") joins again at
  * once. */
 static const char* autostart;
 static int autostart_games;
@@ -687,9 +740,10 @@ static void init(void)
     const char* then = getenv("TGG_RETURN_THEN");
     if (by != NULL && strcmp(by, "tgg.direct-connect") == 0 && then != NULL && then[0] != '\0') {
         dc.for_netplay = 1;
-        snprintf(rejoin, sizeof rejoin, "join:%s", then);
+        /* "room:<code>" or "join:<address>", as different_frame left it */
+        snprintf(rejoin, sizeof rejoin, "%s", then);
         autostart = rejoin;
-        tgg_log("restarted with the host's mods, joining %s", then);
+        tgg_log("restarted with the host's mods, then %s", then);
         tgg_boot_mode(TGG_MODE_MENU);
         return;
     }
@@ -721,12 +775,38 @@ static void on_frame(void)
             note(dc.meet.why);
             meet_leave();
             dc.room = 0;
-            netplay_close();
+            dc_netplay_close();
             dc.mode = MODE_NONE;
         }
     }
+    played_frame();
+    report_frame();
+    if (!queue_shown() && !queue_busy()) {
+        /* The games' messages, outside Find a match (whose screen reads its own) */
+        char buf[400];
+        int from = 0, n;
+        while ((n = netplay_receive(buf, sizeof buf - 1, &from)) > 0) {
+            buf[n] = '\0';
+            if (!played_got(buf, from) && !roomplay_got(buf, from)) {
+                tgg_log("a message this mod doesn't know: %.40s", buf);
+            }
+        }
+    }
+    if (tgg_screen_shown() != &screen && room_again()) {
+        /* The room meets again; its screen says so until everyone's back */
+        dc.view = VIEW_ROOM;
+        tgg_screen_open(&screen);
+        return;
+    }
     netplay_info info;
     netplay_status(&info);
+    if (roomplay_wanted() && info.locked && info.state == NETPLAY_CONNECTED && !roomplay_done() &&
+        tgg_screen_shown() == NULL && !tgg_in_match())
+    {
+        dc.view = VIEW_PLAY;
+        tgg_screen_open(&screen);
+        return;
+    }
     if (info.state == NETPLAY_MISMATCH && tgg_screen_shown() != &screen && !queue_shown() &&
         !tgg_in_match())
     {
@@ -737,8 +817,13 @@ static void on_frame(void)
         tgg_screen_open(&screen);
         return;
     }
-    if (autostart_games >= 2 && (dc.mode == MODE_HOST || dc.mode == MODE_ROOM) && !info.locked &&
-        info.players >= autostart_games && netplay_lock() == 0)
+    /* TGG_DIRECT_CONNECT_GAMES: the host starts once that many are in, and
+     * after the room met again, once everyone still in it is */
+    const int all_in = autostart_games >= 2 &&
+                       (info.players >= autostart_games ||
+                        (dc.reformed && info.players >= 2 && info.players == dc.meet.n_members));
+    if (all_in && (dc.mode == MODE_HOST || dc.mode == MODE_ROOM) && !info.locked &&
+        netplay_lock() == 0)
     {
         tgg_log("playing with %d games, mod set %s", info.players, tgg_mod_set_id());
     }
