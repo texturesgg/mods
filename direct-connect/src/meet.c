@@ -719,6 +719,12 @@ static void could_not_connect(const char* netplay_why)
         search_again(why);
         return;
     }
+    /* A room's host keeps the room: the joiner it couldn't reach may be
+     * restarting into the host's mods, or can't get through and leaves. The
+     * host meets whoever is still in it again. */
+    if (room_host() && meet_room_again() == 0) {
+        return;
+    }
     fail(why);
 }
 
