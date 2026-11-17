@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0
+
+- Find a match: pairs you with someone with the same gameplay mods, nearby first. VS is 4 stocks, 8 minutes, items off, a random legal stage each game. Play again or find someone else after each match.
+- Modes from other mods that play online can be searched too.
+- Shows how many are searching. If the connection fails, both players go back to searching.
+- `TGG_DIRECT_CONNECT=search[:mode[:character[:costume]]]` starts a search from the command line.
+- Needs tgg.netplay 0.10 and mod API 0.10.
+
 ## 0.5.0
 
 - Works with tgg.netplay 0.9, the version current games play with. Needs tgg.netplay 0.9 and tgg.http.

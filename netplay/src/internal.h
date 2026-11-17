@@ -110,6 +110,10 @@ void stun_pump(void);
 int stun_got(const void* data, size_t len);
 /* 1 with the address, 0 while asking, -1 when no answer came */
 int stun_mapped(char* text, size_t cap);
+/* 1 once both STUN ports answered or gave up */
+int stun_settled(void);
+/* What this game's router does: "easy", "hard" or "unknown" */
+const char* stun_nat(void);
 /* Milliseconds on a clock that only goes forward. Presentation code only. */
 double net_now_ms(void);
 /* Waits up to `ms` for a datagram to arrive: for loops that run while the

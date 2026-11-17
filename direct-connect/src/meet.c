@@ -29,10 +29,25 @@
 
 enum { STEP_TICKET, STEP_SOCKET, STEP_ROOM, STEP_PUNCH, STEP_DONE };
 
+/* What the connection is for */
+enum { KIND_MAKE, KIND_JOIN, KIND_ONLINE };
+
+/* How often to ask for counts, per mode, and how many modes */
+#define COUNTS_MS 20000.0
+#define COUNT_MODES 4
+
+typedef struct Count {
+    char mode[64];
+    char label[64];
+    int n;          /* -1 before an answer */
+    int want;       /* asked for since the last send */
+    double sent_ms; /* when it was last asked of the meeting point */
+} Count;
+
 static struct {
     meet_status st;
     int step;
-    int joining;
+    int kind; /* KIND_* */
     char want_code[16];
     http_ws* ws;
     int sent_hello, sent_room, sent_candidates, reported;
@@ -43,6 +58,12 @@ static struct {
     int relay_missing;    /* the meeting point had none to give */
     double bytes_told, bytes_ms; /* relay bytes reported so far, and when */
     char peer_name[64];
+    /* Find a match */
+    char search_mode[64]; /* the queue to be in, "" for none */
+    int sent_search;
+    double search_since;  /* when this game started searching */
+    int relay_now;        /* a queue pair of two hard routers: the relay at once */
+    Count counts[COUNT_MODES];
 } m;
 
 static void fail(const char* why)
@@ -225,12 +246,35 @@ static void send_json(const char* json)
 
 static void send_hello(void)
 {
-    char game[200], target[80], versions[80], msg[512];
-    quote(game, sizeof game, tgg_game_build());
-    quote(target, sizeof target, TGG_TARGET);
-    quote(versions, sizeof versions, tgg_mod_set_versions());
-    snprintf(msg, sizeof msg, "{\"type\":\"hello\",\"game\":%s,\"target\":%s,\"versions\":%s}",
-             game, target, versions);
+    /* The game's version as players on any platform compare it: the build
+     * without its last word (netplay's session.c does the same) */
+    char version[160];
+    snprintf(version, sizeof version, "%s", tgg_game_build());
+    char* last = strrchr(version, ' ');
+    if (last != NULL) {
+        *last = '\0';
+    }
+    /* The counted mods, for the queue's name: cut at a whole mod */
+    char names[1800];
+    snprintf(names, sizeof names, "%s", tgg_mod_set_names());
+    if (strlen(tgg_mod_set_names()) >= sizeof names - 1) {
+        char* comma = strrchr(names, ',');
+        if (comma != NULL) {
+            *comma = '\0';
+        }
+    }
+    static char q_game[200], q_target[80], q_versions[80], q_version[200], q_all[80],
+        q_names[2 * sizeof names], msg[4000];
+    quote(q_game, sizeof q_game, tgg_game_build());
+    quote(q_target, sizeof q_target, TGG_TARGET);
+    quote(q_versions, sizeof q_versions, tgg_mod_set_versions());
+    quote(q_version, sizeof q_version, version);
+    quote(q_all, sizeof q_all, tgg_mod_set_all());
+    quote(q_names, sizeof q_names, names);
+    snprintf(msg, sizeof msg,
+             "{\"type\":\"hello\",\"game\":%s,\"target\":%s,\"versions\":%s,\"version\":%s,"
+             "\"all\":%s,\"strict\":false,\"names\":%s}",
+             q_game, q_target, q_versions, q_version, q_all, q_names);
     send_json(msg);
 }
 
@@ -252,10 +296,10 @@ static int send_candidates(void)
                                   i > 0 ? "," : "", addr, kind);
     }
     if (used < sizeof msg) {
-        snprintf(msg + used, sizeof msg - used, "],\"nat\":\"unknown\"}");
+        snprintf(msg + used, sizeof msg - used, "],\"nat\":\"%s\"}", netplay_nat());
     }
     send_json(msg);
-    tgg_log("meet: %d addresses for the other game", n);
+    tgg_log("meet: %d addresses for the other game, router %s", n, netplay_nat());
     for (int i = 0; i < n; i++) {
         tgg_log("meet:   %s (%s)", list[i].addr, list[i].kind);
     }
@@ -300,8 +344,13 @@ static void got_meet(const char* msg)
         return;
     }
     m.st.side = (int) number(msg, "side", -1);
+    const char* queue = member(msg, "queue");
+    m.st.queue = queue != NULL;
+    const char* relay = queue != NULL ? member(queue, "relay") : NULL;
+    m.relay_now = relay != NULL && strncmp(relay, "true", 4) == 0;
     elements(member(msg, "peers"), each_peer, &peers);
     snprintf(m.peer_name, sizeof m.peer_name, "%s", peers.name);
+    snprintf(m.st.peer, sizeof m.st.peer, "%s", peers.name);
     const char* addrs[CANDIDATES * 3];
     const char* kinds[CANDIDATES * 3];
     for (int i = 0; i < peers.n; i++) {
@@ -390,6 +439,25 @@ static void got_relay(const char* msg)
     }
 }
 
+/* How many search in a queue, for meet_count */
+static void got_counts(const char* msg)
+{
+    char mode[64];
+    if (!text(msg, "mode", mode, sizeof mode)) {
+        return;
+    }
+    for (int i = 0; i < COUNT_MODES; i++) {
+        Count* c = &m.counts[i];
+        if (strcmp(c->mode, mode) == 0) {
+            text(msg, "label", c->label, sizeof c->label);
+            c->n = (int) number(msg, "searching", c->n);
+        }
+    }
+    if (strcmp(mode, m.search_mode) == 0 && m.st.state == MEET_SEARCHING) {
+        m.st.searching = (int) number(msg, "searching", m.st.searching);
+    }
+}
+
 static void got(const char* msg)
 {
     char type[24];
@@ -414,6 +482,19 @@ static void got(const char* msg)
             m.relay_tried = 1;
             netplay_add_candidates(addrs, kinds, 1);
         }
+    } else if (strcmp(type, "searching") == 0) {
+        text(msg, "label", m.st.label, sizeof m.st.label);
+        m.st.searching = (int) number(msg, "searching", m.st.searching);
+        if (m.st.state == MEET_READY) {
+            m.st.state = MEET_SEARCHING;
+        }
+    } else if (strcmp(type, "counts") == 0) {
+        got_counts(msg);
+    } else if (strcmp(type, "search.ended") == 0) {
+        if (m.st.state == MEET_SEARCHING) {
+            char why[200];
+            fail(text(msg, "why", why, sizeof why) ? why : "The search ended.");
+        }
     } else if (strcmp(type, "closed") == 0) {
         char why[200];
         if (m.step != STEP_DONE) {
@@ -421,7 +502,9 @@ static void got(const char* msg)
         }
     } else if (strcmp(type, "error") == 0) {
         char why[200] = "";
-        if (text(msg, "message", why, sizeof why) && m.step < STEP_PUNCH) {
+        if (text(msg, "message", why, sizeof why) &&
+            (m.step < STEP_PUNCH || m.st.state == MEET_SEARCHING))
+        {
             fail(why);
         } else if (m.relay_asked && !m.relay_tried) {
             tgg_log("meet: no relay: %s", why);
@@ -440,7 +523,7 @@ static void relay_step(void)
         return;
     }
     if (m.step == STEP_PUNCH && !m.relay_asked && netplay_route(&ms)[0] == '\0' &&
-        now - m.met_ms > 3000)
+        (m.relay_now || now - m.met_ms > 3000))
     {
         m.relay_asked = 1;
         tgg_log("meet: no direct way through yet, asking for a relay");
@@ -454,6 +537,36 @@ static void relay_step(void)
         send_json(msg);
     }
     report_relay_bytes(now - m.bytes_ms > 60000);
+}
+
+/* Opens netplay's socket and starts gathering this game's addresses. 0, or -1
+ * having failed */
+static int prepare(void)
+{
+    const char* why = NULL;
+    if (netplay_prepare(UDP_PORT, &why) != 0 && netplay_prepare(0, &why) != 0) {
+        fail(why != NULL ? why : "Couldn't open a network port.");
+        return -1;
+    }
+    return 0;
+}
+
+/* Back into the queue: a new socket, its addresses sent again, then the search.
+ * `note` says why, for the screen ("" for none). */
+static void search_again(const char* note)
+{
+    netplay_close();
+    m.sent_candidates = 0;
+    m.sent_search = 0;
+    m.reported = 0;
+    m.relay_asked = m.relay_told = m.relay_tried = m.relay_missing = m.relay_now = 0;
+    m.bytes_told = 0;
+    m.st.side = 0;
+    m.st.queue = 0;
+    snprintf(m.st.note, sizeof m.st.note, "%s", note);
+    m.st.state = MEET_SEARCHING;
+    m.step = STEP_ROOM;
+    prepare();
 }
 
 /* What to tell the player when the games couldn't reach each other */
@@ -479,7 +592,43 @@ static void could_not_connect(const char* netplay_why)
         send_json(report);
         m.reported = 1;
     }
+    if (m.st.queue && m.search_mode[0] != '\0') {
+        /* A queue's match: the meeting point puts this game back at the front,
+         * and won't pair these two again */
+        tgg_log("meet: searching again");
+        snprintf(why + strlen(why), sizeof why - strlen(why), " Searching again.");
+        search_again(why);
+        return;
+    }
     fail(why);
+}
+
+/* Sends what's due: the search, and counts asked for */
+static void send_queue(void)
+{
+    const double now = tgg_net_time_ms();
+    if (m.search_mode[0] != '\0' && !m.sent_search && m.st.state == MEET_SEARCHING) {
+        char mode[96], msg[160];
+        quote(mode, sizeof mode, m.search_mode);
+        snprintf(msg, sizeof msg, "{\"type\":\"search\",\"mode\":%s}", mode);
+        send_json(msg);
+        m.sent_search = 1;
+        tgg_log("meet: searching for a match (%s)", m.search_mode);
+    }
+    for (int i = 0; i < COUNT_MODES; i++) {
+        Count* c = &m.counts[i];
+        /* While searching, the queue's own count stays fresh */
+        const int mine = m.st.state == MEET_SEARCHING && strcmp(c->mode, m.search_mode) == 0;
+        if (c->mode[0] == '\0' || !(c->want || mine) || now - c->sent_ms < COUNTS_MS) {
+            continue;
+        }
+        char mode[96], msg[160];
+        quote(mode, sizeof mode, c->mode);
+        snprintf(msg, sizeof msg, "{\"type\":\"counts\",\"mode\":%s}", mode);
+        send_json(msg);
+        c->want = 0;
+        c->sent_ms = now;
+    }
 }
 
 static void step(void)
@@ -542,7 +691,7 @@ static void step(void)
         return;
     }
     if (ws_state == HTTP_WS_CLOSED) {
-        if (m.step < STEP_DONE) {
+        if (m.step < STEP_DONE || m.st.queue || m.search_mode[0] != '\0') {
             char why[320];
             snprintf(why, sizeof why, "Lost the connection to textures.gg: %s",
                      http_ws_error(m.ws));
@@ -564,17 +713,27 @@ static void step(void)
         }
     }
     if (!m.sent_room) {
-        char room[96];
-        if (m.joining) {
-            char code[32];
-            quote(code, sizeof code, m.want_code);
-            snprintf(room, sizeof room, "{\"type\":\"room.join\",\"code\":%s}", code);
-        } else {
-            snprintf(room, sizeof room, "{\"type\":\"room.make\",\"games\":2}");
-        }
-        send_json(room);
         m.sent_room = 1;
         m.step = STEP_ROOM;
+        if (m.kind == KIND_ONLINE) {
+            m.st.state = m.search_mode[0] != '\0' ? MEET_SEARCHING : MEET_READY;
+        } else {
+            char room[96];
+            if (m.kind == KIND_JOIN) {
+                char code[32];
+                quote(code, sizeof code, m.want_code);
+                snprintf(room, sizeof room, "{\"type\":\"room.join\",\"code\":%s}", code);
+            } else {
+                snprintf(room, sizeof room, "{\"type\":\"room.make\",\"games\":2}");
+            }
+            send_json(room);
+        }
+    }
+    if (m.kind == KIND_ONLINE && m.step == STEP_ROOM) {
+        send_queue();
+    }
+    if (m.st.state == MEET_SEARCHING) {
+        m.st.search_ms = tgg_net_time_ms() - m.search_since;
     }
     relay_step();
     if (m.step == STEP_PUNCH) {
@@ -595,21 +754,23 @@ static void step(void)
             }
             m.reported = 1;
             m.st.state = MEET_CONNECTED;
+            m.st.note[0] = '\0';
             m.step = STEP_DONE;
         }
     }
 }
 
-static int start(int joining, const char* code)
+static int start(int kind, const char* code)
 {
     meet_leave();
     memset(&m, 0, sizeof m);
-    m.joining = joining;
+    for (int i = 0; i < COUNT_MODES; i++) {
+        m.counts[i].n = -1;
+    }
+    m.kind = kind;
     snprintf(m.want_code, sizeof m.want_code, "%s", code != NULL ? code : "");
     m.st.state = MEET_STARTING;
-    const char* why = NULL;
-    if (netplay_prepare(UDP_PORT, &why) != 0 && netplay_prepare(0, &why) != 0) {
-        fail(why != NULL ? why : "Couldn't open a network port.");
+    if (prepare() != 0) {
         return -1;
     }
     const char* given = getenv("TGG_MEET_TICKET");
@@ -627,12 +788,112 @@ static int start(int joining, const char* code)
 
 int meet_make(void)
 {
-    return start(0, NULL);
+    return start(KIND_MAKE, NULL);
 }
 
 int meet_join(const char* code)
 {
-    return start(1, code);
+    return start(KIND_JOIN, code);
+}
+
+int meet_online(void)
+{
+    if (m.kind == KIND_ONLINE && m.st.state != MEET_OFF && m.st.state != MEET_FAILED) {
+        return 0; /* already */
+    }
+    return start(KIND_ONLINE, NULL);
+}
+
+int meet_search(const char* mode)
+{
+    if (meet_online() != 0) {
+        return -1;
+    }
+    snprintf(m.search_mode, sizeof m.search_mode, "%s", mode);
+    m.search_since = tgg_net_time_ms();
+    m.st.search_ms = 0;
+    m.st.note[0] = '\0';
+    m.st.label[0] = '\0';
+    m.st.searching = 0;
+    for (int i = 0; i < COUNT_MODES; i++) {
+        if (strcmp(m.counts[i].mode, mode) == 0) {
+            snprintf(m.st.label, sizeof m.st.label, "%s", m.counts[i].label);
+            m.st.searching = m.counts[i].n > 0 ? m.counts[i].n : 0;
+        }
+    }
+    m.sent_search = 0;
+    if (m.st.state == MEET_READY || m.st.state == MEET_CONNECTED) {
+        if (m.st.state == MEET_CONNECTED) {
+            search_again("");
+        } else {
+            m.st.state = MEET_SEARCHING;
+        }
+    } else {
+        /* Still connecting: MEET_SEARCHING once it's ready */
+        m.st.state = m.st.state == MEET_SIGN_IN ? MEET_SIGN_IN : MEET_STARTING;
+    }
+    meet_counts(mode);
+    step();
+    return 0;
+}
+
+void meet_search_stop(void)
+{
+    if (m.search_mode[0] == '\0') {
+        return;
+    }
+    if (m.ws != NULL && http_ws_state(m.ws) == HTTP_WS_OPEN) {
+        send_json("{\"type\":\"search.stop\"}");
+    }
+    tgg_log("meet: stopped searching");
+    m.search_mode[0] = '\0';
+    m.sent_search = 0;
+    if (m.st.state == MEET_SEARCHING) {
+        m.st.state = MEET_READY;
+    }
+}
+
+void meet_search_again(void)
+{
+    if (m.search_mode[0] == '\0' || m.st.state == MEET_OFF || m.st.state == MEET_FAILED) {
+        return;
+    }
+    report_relay_bytes(1);
+    m.search_since = tgg_net_time_ms();
+    search_again("");
+}
+
+void meet_counts(const char* mode)
+{
+    Count* slot = NULL;
+    for (int i = 0; i < COUNT_MODES && slot == NULL; i++) {
+        if (strcmp(m.counts[i].mode, mode) == 0) {
+            slot = &m.counts[i];
+        }
+    }
+    for (int i = 0; i < COUNT_MODES && slot == NULL; i++) {
+        if (m.counts[i].mode[0] == '\0') {
+            slot = &m.counts[i];
+            snprintf(slot->mode, sizeof slot->mode, "%s", mode);
+            slot->n = -1;
+        }
+    }
+    if (slot != NULL) {
+        slot->want = 1;
+    }
+}
+
+int meet_count(const char* mode, char* label, int cap)
+{
+    for (int i = 0; i < COUNT_MODES; i++) {
+        if (strcmp(m.counts[i].mode, mode) == 0) {
+            if (label != NULL && cap > 0) {
+                snprintf(label, (size_t) cap, "%s", m.counts[i].label);
+            }
+            return m.counts[i].n;
+        }
+    }
+    return -1;
 }
 
 void meet_poll(meet_status* out)
@@ -648,7 +909,8 @@ void meet_leave(void)
     if (m.ws != NULL) {
         if (http_ws_state(m.ws) == HTTP_WS_OPEN) {
             report_relay_bytes(1);
-            send_json("{\"type\":\"room.leave\"}");
+            send_json(m.search_mode[0] != '\0' ? "{\"type\":\"search.stop\"}"
+                                               : "{\"type\":\"room.leave\"}");
         }
         http_ws_close(m.ws);
         m.ws = NULL;
@@ -664,6 +926,7 @@ void meet_leave(void)
         }
     }
     memset(&m.st, 0, sizeof m.st);
+    m.search_mode[0] = '\0';
     m.step = STEP_TICKET;
 }
 

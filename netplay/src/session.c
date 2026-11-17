@@ -1433,7 +1433,7 @@ int netplay_candidates(netplay_candidate* out, int max)
     }
     char mapped[TGG_NET_ADDR_TEXT];
     const int stun = stun_mapped(mapped, sizeof mapped);
-    if (stun == 0) {
+    if (stun == 0 || !stun_settled()) {
         return -1; /* still asking */
     }
     int n = 0;
@@ -1464,6 +1464,11 @@ int netplay_candidates(netplay_candidate* out, int max)
         }
     }
     return n < max ? n : max;
+}
+
+const char* netplay_nat(void)
+{
+    return stun_nat();
 }
 
 int netplay_open_meet(int side, const char* const* addrs, const char* const* kinds, int n,

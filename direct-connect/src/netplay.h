@@ -155,6 +155,13 @@ TGG_API(NETPLAY, int, netplay_prepare, (int port, const char** why));
  * answered yet (it gives up after two seconds) or nothing is prepared. */
 TGG_API(NETPLAY, int, netplay_candidates, (netplay_candidate* out, int max));
 
+/* What this game's router does, from asking STUN on two ports once
+ * netplay_candidates has answered: "easy" (one public port for the socket,
+ * whoever it sends to: punching works), "hard" (a new port per destination:
+ * punching only works if the other router is easy) or "unknown". For the
+ * meeting point, which pairs and picks the host by it. */
+TGG_API(NETPLAY, const char*, netplay_nat, (void));
+
 /* Opens a session the meeting point set up: side 0 hosts, others join, as it
  * said. `addrs` and `kinds` are the other games' candidates as it sent them
  * (`n` of each; kinds may be NULL), and `token` its session token, 16 hex

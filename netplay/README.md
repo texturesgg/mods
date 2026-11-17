@@ -59,6 +59,7 @@ List it in your manifest and include `include/netplay.h` (copy it, or add netpla
 | `netplay_close()` | ends the session and tells the other games. When any game leaves, the session ends for all |
 | `netplay_prepare(port, &why)` | through a meeting point: opens the socket now and asks STUN for this game's internet address |
 | `netplay_candidates(out, max)` | the addresses another game might reach this one at (local, Tailscale, STUN's, public IPv6), for the meeting point; -1 while STUN hasn't answered |
+| `netplay_nat()` | what the router does: "easy" (punching works), "hard" (a new public port for each destination) or "unknown", for the meeting point |
 | `netplay_open_meet(side, addrs, kinds, n, token, &why)` | opens the session the meeting point set up, on the other games' addresses, with its session token |
 | `netplay_route(&ms)` | which kind of address got through first, and how long it took |
 | `netplay_relay(server, user, pass, &why)`, `netplay_relay_address`, `netplay_add_candidates`, `netplay_relay_bytes` | the host takes a relay on a TURN server; the others add its relay address |

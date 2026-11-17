@@ -1,13 +1,18 @@
 # Direct connect
 
-Play with up to three friends online. One of you makes a room and the others join with its
-code, or join by address on the same network.
+Play online. Find a match pairs you with someone who has the same gameplay mods, or play with up
+to three friends: one of you makes a room and the others join with its code, or join by address
+on the same network.
 
 ## For players
 
 It's Online on the main menu. `tgg.netplay` does the netplay itself: rollback, input delay, and
 checking everyone's games agree.
 
+- **Find a match** pairs you with someone who has the same gameplay mods as you. Pick a mode
+  (VS, 1 on 1, or a mode from a mod that plays online), pick your character, and it searches.
+  It shows how many are searching. The first time, it says you might not know the other player
+  and that they can see your IP address.
 - **Make a room** gets a 4-letter code. Give your friends the code.
 - **Join a room** asks for the code. Type it with the on-screen keyboard or a real keyboard.
 - **Host by address** and **Join by address** skip textures.gg and connect by IP, for games on
@@ -24,6 +29,11 @@ Once connected, everyone picks on the game's own character select and the host p
 Nobody can pause a match over the network, same as Slippi. If two games can't reach each other
 directly, they go through a relay and the screen says so.
 
+In Find a match, VS is 4 stocks, 8 minutes, items off, on a random legal stage each game
+(Battlefield, Final Destination, Dream Land, Yoshi's Story, Fountain of Dreams, Pokemon
+Stadium). After a match you can play the same person again or find someone else. If the two
+games can't connect, you both go back to searching and won't be paired with each other again.
+
 Your controller plays your side whichever port it's plugged into. With more than one plugged in
 it uses the first one, or you can pick one with netplay's "Your controller" setting.
 
@@ -38,7 +48,11 @@ These are your own and don't need to match anyone else's.
 
 To skip the menus, start the game with `TGG_DIRECT_CONNECT=host`,
 `TGG_DIRECT_CONNECT=join:<address>`, `TGG_DIRECT_CONNECT=room` (make a room) or
-`TGG_DIRECT_CONNECT=room:<code>` (join one). It opens Online and does that right away.
+`TGG_DIRECT_CONNECT=room:<code>` (join one), or
+`TGG_DIRECT_CONNECT=search[:<mode>[:<character>[:<costume>]]]` (find a match; the mode is `vs`
+or a shared menu entry like `main/first-to-3`, the character like `melee/fox`). It opens Online
+and does that right away. With `search`, `TGG_DIRECT_CONNECT_YES=1` accepts every prompt and
+`TGG_DIRECT_CONNECT_MATCHES=<n>` stops after n matches, for scripted tests.
 
 ## For mod makers
 
@@ -52,6 +66,12 @@ itself is the `StartMeleeData` the host builds, and netplay hands it to both gam
   `stage <stkind index> <stocks> <minutes>` for the host's rules. For
   `TGG_DIRECT_CONNECT`, `TGG_INIT` boots to the menu (`tgg_boot_mode`) and a `frame` event
   opens the screen (`tgg_screen_open`).
+- `src/queue.c`: Find a match. `meet.c` sends `search` to the meeting point and gets the
+  opponent back as a `meet`, the same as a room. The host (side 0) builds each match with the
+  stage rule `STAGE_RULE`: `STAGES_RANDOM` (the host draws a legal stage) or
+  `STAGES_COUNTERPICK` (the winner bans one, the loser picks). Modes other than VS come from
+  `tgg_menu_shared`; the host calls `netplay_lock` and `tgg_menu_pick`, and every game opens it.
+  The screens talk with `qpick`, `qban`, `qstage`, `qwin` and `qagain` messages.
 - `src/keyboard.c`: an on-screen keyboard for a controller, plus the real keyboard
   (`tgg/input.h`).
 - `src/draw.c`: the screen in the menus' look, with `tgg/draw.h`.
@@ -67,8 +87,8 @@ check.
 
 ## Requirements
 
-`tgg.netplay` 0.9 (`"depends": { "tgg.netplay": "^0.9" }`), `tgg.http` 0.1, and tgg-melee
-0.1.0-rc.9 or later (the first with `tgg/net.h`).
+`tgg.netplay` 0.10 (`"depends": { "tgg.netplay": "^0.10" }`), `tgg.http` 0.1, and mod API 0.10
+(the first with `tgg_menu_shared`).
 
 ## Build
 

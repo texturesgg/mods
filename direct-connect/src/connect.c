@@ -642,6 +642,15 @@ static const tgg_menu_entry online = {
 };
 TGG_MENU_ADD("main/online", online);
 
+static const char* find_match_line(void)
+{
+    return session_line("Play someone with the same mods as you.");
+}
+
+static const tgg_menu_entry find_match_item = {
+    .label = "Find a match", .action = queue_open, .describe = find_match_line,
+};
+TGG_MENU_ADD("online/find-match", find_match_item);
 static const tgg_menu_entry make_room_item = {
     .label = "Make a room", .action = make_room_entry, .describe = make_room_line,
 };
@@ -660,7 +669,8 @@ static const tgg_menu_entry join_item = {
 TGG_MENU_ADD("online/join", join_item);
 
 /* What the game starts on: TGG_DIRECT_CONNECT=host, join:<address>, room
- * (make a room) or room:<code> (join one), for scripted runs and a quick
+ * (make a room) or room:<code> (join one), or search[:<mode>[:<character>[:<costume>]]]
+ * (Find a match; with a character it skips the character select), for scripted runs and a quick
  * start; TGG_DIRECT_CONNECT_GAMES=<n> has a host start once n games are in.
  * A game restarted with the host's mods (tgg_restart_with above;
  * TGG_RETURN_BY names this mod, TGG_RETURN_THEN the host) joins the host at
@@ -717,7 +727,9 @@ static void on_frame(void)
     }
     netplay_info info;
     netplay_status(&info);
-    if (info.state == NETPLAY_MISMATCH && tgg_screen_shown() != &screen && !tgg_in_match()) {
+    if (info.state == NETPLAY_MISMATCH && tgg_screen_shown() != &screen && !queue_shown() &&
+        !tgg_in_match())
+    {
         /* The host has other mods: the screen shows what differs, and gets them */
         dc.have_diff = 0;
         dc.bad_profile = 0;
@@ -730,7 +742,7 @@ static void on_frame(void)
     {
         tgg_log("playing with %d games, mod set %s", info.players, tgg_mod_set_id());
     }
-    if (tgg_screen_shown() == NULL && !tgg_in_match() && info.state == NETPLAY_FAILED) {
+    if (tgg_screen_shown() == NULL && !tgg_in_match() && info.state == NETPLAY_FAILED && !queue_shown() && !queue_busy()) {
         /* A session that ended says why, once the game is at the main menu */
         tgg_screen_open(&screen);
         return;
@@ -739,6 +751,13 @@ static void on_frame(void)
         return;
     }
     const char* what = autostart;
+    if (strncmp(what, "search", 6) == 0) {
+        /* Opens once the game is at a menu */
+        if (queue_autostart(what + 6)) {
+            autostart = NULL;
+        }
+        return;
+    }
     if (strcmp(what, "host") == 0 || strcmp(what, "room") == 0) {
         autostart = NULL;
         if (what[0] == 'h') {

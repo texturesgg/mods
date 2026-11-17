@@ -93,6 +93,14 @@ void keyboard_draw(void);
 /* draw.c */
 void dc_draw(void);
 
+/* queue.c: Find a match. queue_open opens its screen from Online;
+ * queue_autostart from TGG_DIRECT_CONNECT=search[:<mode>[:<character>[:<costume>]]] */
+void queue_open(void);
+int queue_autostart(const char* spec); /* 1 once its screen is up */
+int queue_shown(void);
+/* In a queue's search or match, the screen shown or not */
+int queue_busy(void);
+
 /* addr.c: this machine's addresses to tell the other player, the tailnet's
  * first; and its name */
 int local_addresses(char out[][48], int max);

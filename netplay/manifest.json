@@ -2,7 +2,7 @@
   "api": "tgg-melee/0",
   "id": "tgg.netplay",
   "name": "Netplay",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Rollback netplay for 2 to 4 players. You also need a connect mod like Direct connect.",
   "icon": "icon.png",
   "tags": [
