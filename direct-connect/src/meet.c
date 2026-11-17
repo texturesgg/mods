@@ -264,7 +264,10 @@ static void send_hello(void)
         }
     }
     static char q_game[200], q_target[80], q_versions[80], q_version[200], q_all[80],
-        q_names[2 * sizeof names], msg[4000];
+        q_names[2 * sizeof names];
+    /* Room for every quoted field and the keys around them */
+    static char msg[sizeof q_game + sizeof q_target + sizeof q_versions + sizeof q_version +
+                    sizeof q_all + sizeof q_names + 128];
     quote(q_game, sizeof q_game, tgg_game_build());
     quote(q_target, sizeof q_target, TGG_TARGET);
     quote(q_versions, sizeof q_versions, tgg_mod_set_versions());

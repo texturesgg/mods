@@ -31,7 +31,8 @@ directly, they go through a relay and the screen says so.
 
 In Find a match, VS is 4 stocks, 8 minutes, items off, on a random legal stage each game
 (Battlefield, Final Destination, Dream Land, Yoshi's Story, Fountain of Dreams, Pokemon
-Stadium). After a match you can play the same person again or find someone else. If the two
+Stadium), the way Slippi's unranked picks them: against the same person, no stage comes up
+again until you've played them all. After a match you can play the same person again or find someone else. If the two
 games can't connect, you both go back to searching and won't be paired with each other again.
 
 Your controller plays your side whichever port it's plugged into. With more than one plugged in
@@ -67,11 +68,11 @@ itself is the `StartMeleeData` the host builds, and netplay hands it to both gam
   `TGG_DIRECT_CONNECT`, `TGG_INIT` boots to the menu (`tgg_boot_mode`) and a `frame` event
   opens the screen (`tgg_screen_open`).
 - `src/queue.c`: Find a match. `meet.c` sends `search` to the meeting point and gets the
-  opponent back as a `meet`, the same as a room. The host (side 0) builds each match with the
-  stage rule `STAGE_RULE`: `STAGES_RANDOM` (the host draws a legal stage) or
-  `STAGES_COUNTERPICK` (the winner bans one, the loser picks). Modes other than VS come from
-  `tgg_menu_shared`; the host calls `netplay_lock` and `tgg_menu_pick`, and every game opens it.
-  The screens talk with `qpick`, `qban`, `qstage`, `qwin` and `qagain` messages.
+  opponent back as a `meet`, the same as a room. The host (side 0) builds each match and draws
+  its stage as Slippi's `getRandomStage` does (`draw_stage`: a bag of the legal stages, new
+  for each opponent). Modes other than VS come from `tgg_menu_shared`; the host calls
+  `netplay_lock` and `tgg_menu_pick`, and every game opens it. The screens talk with `qpick`
+  and `qagain` messages.
 - `src/keyboard.c`: an on-screen keyboard for a controller, plus the real keyboard
   (`tgg/input.h`).
 - `src/draw.c`: the screen in the menus' look, with `tgg/draw.h`.

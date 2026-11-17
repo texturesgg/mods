@@ -9,8 +9,8 @@
  *   notice       the first time: people you don't know see your IP address
  *   character    the game's own character select (VS only)
  *   searching    until someone's found; B stops
- *   lobby        the two games trade picks, the host makes the match with the
- *                queue's stage rule (STAGE_RULE), and it plays
+ *   lobby        the two games trade picks, the host makes the match on a
+ *                random legal stage (draw_stage), and it plays
  *   after        A plays again, B finds someone else
  *
  * A mode a mod offers online (a shared main menu entry, tgg/menu.h) needs no
@@ -19,9 +19,6 @@
  *
  * In the lobby the games talk in short messages (netplay_send):
  *   qpick <character> <costume>    each game's pick
- *   qban <stage>, qstage <stage>   the counterpick rule: the winner's ban and
- *                                  the loser's pick
- *   qwin <side>                    the host: who won the last match
  *   qagain                         this player wants another match
  */
 #include "dc.h"
@@ -30,7 +27,6 @@
 #include "tgg/events.h"
 #include "tgg/files.h"
 #include "tgg/input.h"
-#include "tgg/fighter.h"
 #include "tgg/match.h"
 #include "tgg/menu.h"
 #include "tgg/net.h"
@@ -40,12 +36,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-/* The stage rule. STAGES_RANDOM: a random legal stage every game, drawn by
- * the host, as Slippi's unranked does. STAGES_COUNTERPICK: game one random,
- * then the last game's winner bans one and the loser picks from the rest. */
-enum { STAGES_RANDOM, STAGES_COUNTERPICK };
-#define STAGE_RULE STAGES_RANDOM
 
 /* The rules of a queue's VS match */
 #define STOCKS 4
@@ -109,15 +99,13 @@ static struct {
     int started;    /* netplay_play went through */
     int opened;     /* a mod's mode was opened */
     int games;      /* matches played with this opponent */
-    int winner;     /* the last match's winner's side, -1 not known */
-    int banned;     /* the winner's ban, -1 none yet */
-    int stage;      /* the loser's pick, -1 none yet */
+    int stage;      /* the host: this game's stage, -1 not drawn yet */
     int again_me, again_them;
     double after_ms;
-    /* What the last match looked like, for who won */
-    int stocks[2];
-    float percent[2];
     char opponent[64];
+    /* The host's stages not drawn yet with this opponent (draw_stage) */
+    int bag[N_STAGES];
+    int bag_n;
 } q;
 
 static int notice_seen = -1;
@@ -207,7 +195,6 @@ static void reset_lobby(void)
     q.have_theirs = 0;
     q.started = 0;
     q.opened = 0;
-    q.banned = -1;
     q.stage = -1;
     q.again_me = q.again_them = 0;
 }
@@ -220,7 +207,6 @@ static void search(void)
         return;
     }
     q.games = 0;
-    q.winner = -1;
     reset_lobby();
     q.view = Q_SEARCH;
 }
@@ -265,28 +251,43 @@ static void send_text(const char* text)
     }
 }
 
-static int random_stage(void)
+/* The stage, as Slippi's unranked draws it (project-slippi/dolphin,
+ * EXI_DeviceSlippi.cpp, getRandomStage): from a bag of the legal stages, so
+ * none comes up twice until all have been played, then the bag fills again.
+ * Each new opponent starts a new bag, and Slippi draws once on connecting
+ * without playing it (new_opponent). Only the host's draws count: Slippi plays
+ * port 1's stage. */
+static int draw_stage(void)
 {
+    if (q.bag_n == 0) {
+        for (int i = 0; i < N_STAGES; i++) {
+            q.bag[i] = i;
+        }
+        q.bag_n = N_STAGES;
+    }
     uint8_t b = 0;
     tgg_net_random(&b, 1);
-    return b % N_STAGES;
+    const int at = b % q.bag_n;
+    const int stage = q.bag[at];
+    q.bag[at] = q.bag[--q.bag_n];
+    return stage;
 }
 
-/* The host: the stage this game plays on, or -1 while it isn't known yet */
-static int stage_now(void)
+static void new_opponent(void)
 {
-    if (STAGE_RULE == STAGES_RANDOM || q.games == 0 || q.winner < 0) {
-        return random_stage();
-    }
-    return q.stage;
+    q.bag_n = 0;
+    draw_stage();
 }
 
 static void host_play(void)
 {
-    const int stage = stage_now();
-    if (stage < 0 || !q.have_theirs) {
+    if (!q.have_theirs) {
         return;
     }
+    if (q.stage < 0) {
+        q.stage = draw_stage();
+    }
+    const int stage = q.stage;
     static tgg_match match;
     tgg_match_defaults(&match);
     tgg_match_set_stage(&match, STAGES[stage].id);
@@ -318,7 +319,7 @@ static void host_play(void)
     }
 }
 
-static void got_message(const char* text, int from)
+static void got_message(const char* text)
 {
     char word[16], arg[64];
     int n = 0;
@@ -329,12 +330,6 @@ static void got_message(const char* text, int from)
         snprintf(q.their_character, sizeof q.their_character, "%s", arg);
         q.their_costume = n;
         q.have_theirs = 1;
-    } else if (strcmp(word, "qban") == 0) {
-        q.banned = atoi(arg);
-    } else if (strcmp(word, "qstage") == 0) {
-        q.stage = atoi(arg);
-    } else if (strcmp(word, "qwin") == 0 && from == 0) {
-        q.winner = atoi(arg);
     } else if (strcmp(word, "qagain") == 0) {
         q.again_them = 1;
     }
@@ -347,48 +342,11 @@ static void read_messages(void)
     int n;
     while ((n = netplay_receive(buf, sizeof buf - 1, &from)) > 0) {
         buf[n] = '\0';
-        got_message(buf, from);
+        got_message(buf);
     }
 }
 
-/* Counterpick: the stage list's input, for whoever has to choose now */
-static void counterpick_frame(uint32_t in, int me)
-{
-    if (STAGE_RULE != STAGES_COUNTERPICK || q.games == 0 || q.winner < 0 || q.stage >= 0) {
-        return;
-    }
-    const int banning = q.banned < 0;
-    const int chooser = banning ? q.winner : 1 - q.winner;
-    if (me != chooser) {
-        return;
-    }
-    if (in & TGG_MENU_DOWN) {
-        q.cursor = (q.cursor + 1) % N_STAGES;
-        tgg_menu_sound(TGG_SOUND_MOVE);
-    } else if (in & TGG_MENU_UP) {
-        q.cursor = (q.cursor + N_STAGES - 1) % N_STAGES;
-        tgg_menu_sound(TGG_SOUND_MOVE);
-    } else if ((in & TGG_MENU_ACCEPT) || auto_yes()) {
-        if (!banning && q.cursor == q.banned) {
-            q.cursor = (q.cursor + 1) % N_STAGES;
-            if (!auto_yes()) {
-                tgg_menu_sound(TGG_SOUND_ERROR);
-                return;
-            }
-        }
-        char msg[32];
-        snprintf(msg, sizeof msg, "%s %d", banning ? "qban" : "qstage", q.cursor);
-        send_text(msg);
-        if (banning) {
-            q.banned = q.cursor;
-        } else {
-            q.stage = q.cursor;
-        }
-        tgg_menu_sound(TGG_SOUND_ACCEPT);
-    }
-}
-
-static void lobby_frame(uint32_t in)
+static void lobby_frame(void)
 {
     netplay_info info;
     netplay_status(&info);
@@ -411,7 +369,6 @@ static void lobby_frame(uint32_t in)
         send_text(msg);
         q.sent_pick = 1;
     }
-    counterpick_frame(in, info.side);
     if (q.started) {
         return;
     }
@@ -457,7 +414,6 @@ static void frame(void)
             snprintf(dc.meet.note, sizeof dc.meet.note, "%s", note);
             reset_lobby();
             q.games = 0;
-            q.winner = -1;
             q.view = Q_SEARCH;
             return;
         }
@@ -549,11 +505,12 @@ static void frame(void)
             tgg_log("find a match: playing %s as side %d", q.opponent, info.side);
             tgg_menu_sound(TGG_SOUND_ACCEPT);
             reset_lobby();
+            new_opponent();
             q.view = Q_LOBBY;
         }
         break;
     case Q_LOBBY:
-        lobby_frame(in);
+        lobby_frame();
         break;
     case Q_PLAYING:
         break;
@@ -568,7 +525,6 @@ static void frame(void)
             meet_search_again();
             reset_lobby();
             q.games = 0;
-            q.winner = -1;
             q.view = Q_SEARCH;
         } else if (((in & TGG_MENU_ACCEPT) || yes) && !q.again_me) {
             tgg_menu_sound(TGG_SOUND_ACCEPT);
@@ -592,62 +548,15 @@ static void frame(void)
     }
 }
 
-/* Who won: more stocks, then less damage; -1 for a tie */
-static int winner_of_last(void)
-{
-    if (q.stocks[0] != q.stocks[1]) {
-        return q.stocks[0] > q.stocks[1] ? 0 : 1;
-    }
-    if (q.percent[0] != q.percent[1]) {
-        return q.percent[0] < q.percent[1] ? 0 : 1;
-    }
-    return -1;
-}
-
 static void enter(int from_match)
 {
-    if (!from_match) {
-        return;
-    }
-    if (q.view == Q_PLAYING) {
+    if (from_match && q.view == Q_PLAYING) {
         q.games++;
-        netplay_info info;
-        netplay_status(&info);
-        if (info.side == 0) {
-            q.winner = winner_of_last();
-            if (q.winner < 0) {
-                q.winner = random_stage() % 2;
-            }
-            char msg[16];
-            snprintf(msg, sizeof msg, "qwin %d", q.winner);
-            send_text(msg);
-        } else {
-            q.winner = -1; /* the host says */
-        }
         tgg_log("find a match: game %d over", q.games);
         q.after_ms = tgg_net_time_ms();
         q.view = Q_AFTER;
     }
 }
-
-/* What the last match looked like, while it runs */
-static void on_match_frame(void)
-{
-    if (!tgg_in_match() || tgg_screen_shown() != NULL) {
-        return;
-    }
-    if (q.view != Q_PLAYING) {
-        return;
-    }
-    for (int side = 0; side < 2; side++) {
-        const tgg_fighter f = tgg_fighter_at(side, 0);
-        if (f != TGG_NO_FIGHTER) {
-            q.stocks[side] = tgg_fighter_stocks(f);
-            q.percent[side] = tgg_fighter_percent(f);
-        }
-    }
-}
-TGG_ON(frame, on_match_frame);
 
 /* ---- Drawing */
 
@@ -754,30 +663,8 @@ static void draw(void)
         break;
     }
     case Q_LOBBY:
-        if (STAGE_RULE == STAGES_COUNTERPICK && q.games > 0 && q.winner >= 0 && q.stage < 0) {
-            netplay_info info;
-            netplay_status(&info);
-            const int banning = q.banned < 0;
-            const int chooser = banning ? q.winner : 1 - q.winner;
-            if (info.side != chooser) {
-                snprintf(text, sizeof text, "%s is %s a stage.",
-                         q.opponent[0] != '\0' ? q.opponent : "The other player",
-                         banning ? "banning" : "picking");
-                lines(200, text);
-            } else {
-                tgg_draw_text(320, 80, 22, WHITE, TGG_ALIGN_CENTER,
-                              banning ? "You won. Ban a stage." : "Pick the stage.");
-                for (int i = 0; i < N_STAGES; i++) {
-                    const tgg_color c = i == q.banned ? DIM : i == q.cursor ? GOLD : WHITE;
-                    tgg_draw_text(320, 120 + (float) i * 40, 22, c, TGG_ALIGN_CENTER,
-                                  STAGES[i].name);
-                }
-                help = "A: choose";
-            }
-        } else {
-            snprintf(text, sizeof text, "Playing %s.", q.opponent[0] != '\0' ? q.opponent : "someone");
-            lines(200, text);
-        }
+        snprintf(text, sizeof text, "Playing %s.", q.opponent[0] != '\0' ? q.opponent : "someone");
+        lines(200, text);
         break;
     case Q_PLAYING:
         break;
@@ -811,7 +698,6 @@ TGG_SCREEN("find-match", screen);
 static void start(void)
 {
     memset(&q, 0, sizeof q);
-    q.winner = -1;
     q.view = Q_CONNECT;
     if (meet_online() != 0) {
         meet_poll(&dc.meet);
