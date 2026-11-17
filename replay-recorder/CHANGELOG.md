@@ -2,6 +2,7 @@
 
 ## 1.0.0
 
+- A match with more than 4 players isn't recorded, since a replay holds 4. The log says so.
 - Made for mod API 1.0. It uses parts of the API that still change, so each tgg-melee update comes with a new version of it.
 
 ## 0.5.0

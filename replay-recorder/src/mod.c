@@ -133,6 +133,23 @@ static void on_setup(const tgg_match* setup)
         }
         return;
     }
+    /* A replay has four ports: a match with more players, or one in a slot
+     * past the fourth, isn't recorded */
+    int players = 0;
+    int past_four = 0;
+    for (int i = 0; i < TGG_MATCH_PLAYERS; i++) {
+        if (tgg_match_player(setup, i) != TGG_PLAYER_NONE) {
+            players++;
+            past_four |= i >= 4;
+        }
+    }
+    if (players > 4 || past_four) {
+        tgg_log("not recording this match: replays hold 4 players and it has %d", players);
+        if (!busy) {
+            capture_stop();
+        }
+        return;
+    }
     static RecMatch m;
     memset(&m, 0, sizeof m);
     read_unlocks(&m);
