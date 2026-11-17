@@ -25,7 +25,7 @@ static float slp_bef(const uint8_t* p)
 static SlpFrame* frame_at(Slp* slp, int32_t frame)
 {
     const int i = frame - SLP_FIRST_FRAME;
-    if (i < 0) {
+    if (i < 0 || i >= SLP_MAX_FRAMES) {
         return NULL;
     }
     if (i >= slp->frame_count) {
@@ -46,6 +46,9 @@ static SlpFrame* frame_at(Slp* slp, int32_t frame)
 
 static void read_pre(Slp* slp, const uint8_t* e, uint16_t size)
 {
+    if (!HAS(size, 0x37, 4)) {
+        return; /* too short for the inputs */
+    }
     const int port = e[5];
     SlpFrame* f = frame_at(slp, (int32_t) slp_be32(e + 1));
     /* A follower (Nana) plays from her leader's input */
@@ -100,7 +103,7 @@ static int ubj_text(Ubj* u, char* out, size_t cap)
     } else {
         return -1;
     }
-    if (u->p + n > u->end) {
+    if (n > (size_t) (u->end - u->p)) {
         return -1;
     }
     const size_t copy = n < cap ? n : cap - 1;
@@ -241,6 +244,10 @@ const char* slp_read(const char* path, Slp* slp)
     size_t at = 15;
     uint16_t sizes[256] = { 0 };
     const uint8_t table_len = data[at + 1];
+    if (table_len == 0 || at + 1 + table_len > end) {
+        free(data);
+        return "not a Slippi replay";
+    }
     for (size_t i = 0; i + 3 <= (size_t) table_len - 1; i += 3) {
         sizes[data[at + 2 + i]] = slp_be16(data + at + 3 + i);
     }
@@ -257,6 +264,9 @@ const char* slp_read(const char* path, Slp* slp)
         const uint8_t* e = data + at;
         switch (cmd) {
         case 0x36: /* Game Start */
+            if (!HAS(size, 0x13D, 4)) {
+                break;
+            }
             have_start = 1;
             memcpy(slp->version, e + 1, 3);
             memcpy(slp->info, e + 5, sizeof slp->info);
@@ -264,7 +274,7 @@ const char* slp_read(const char* path, Slp* slp)
             slp->major_scene = HAS(size, 0x1A4, 1) ? e[0x1A4] : 0;
             break;
         case 0x3A: { /* Frame Start */
-            SlpFrame* f = frame_at(slp, (int32_t) slp_be32(e + 1));
+            SlpFrame* f = !HAS(size, 5, 4) ? NULL : frame_at(slp, (int32_t) slp_be32(e + 1));
             if (f != NULL) {
                 f->has_seed = 1;
                 f->seed = slp_be32(e + 5);
@@ -275,6 +285,9 @@ const char* slp_read(const char* path, Slp* slp)
             read_pre(slp, e, size);
             break;
         case 0x38: { /* Post-Frame Update */
+            if (!HAS(size, 6, 1)) {
+                break;
+            }
             const int32_t frame = (int32_t) slp_be32(e + 1);
             if (e[5] <= 3 && e[6] == 0 && frame > last_post) {
                 last_post = frame;
@@ -286,7 +299,11 @@ const char* slp_read(const char* path, Slp* slp)
             break;
         case 0x10: /* Message Splitter: the gecko code list, in parts */
             if (size >= 0x204 && e[0x203] == 0x3D) {
+                /* Up to 0x200 bytes of the code list, then its length */
                 const uint16_t part = slp_be16(e + 0x201);
+                if (part > 0x200) {
+                    break;
+                }
                 uint8_t* grown = realloc(slp->gecko, slp->gecko_len + part);
                 if (grown != NULL) {
                     memcpy(grown + slp->gecko_len, e + 1, part);

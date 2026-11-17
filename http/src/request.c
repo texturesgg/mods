@@ -101,11 +101,15 @@ static int dechunk(http_request* r, const char* p, size_t len)
             }
             return 1;
         }
+        if (size > HTTP_MAX_RESPONSE - body.len) {
+            buf_free(&body);
+            return -1;
+        }
         if ((size_t) (end - p) < size + 2) {
             buf_free(&body);
             return 0;
         }
-        if (body.len + size > HTTP_MAX_RESPONSE || buf_add(&body, p, size) != 0) {
+        if (buf_add(&body, p, size) != 0) {
             buf_free(&body);
             return -1;
         }

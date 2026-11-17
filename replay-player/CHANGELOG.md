@@ -2,6 +2,7 @@
 
 ## 0.7.0
 
+- A damaged or hostile replay file can't crash the game or make it allocate gigabytes: events shorter than the reader expects, a short event size table, oversized gecko parts and frame numbers past four hours are ignored.
 - Matches start the stage state the game carries between matches (Princess Peach's Castle's wind, Kongo Jungle's log bridge) as a fresh game has it while a replay is loaded, as Slippi does.
 - The rules a replay needs include prevent wobbling, the Ice Climbers freeze glitch fix and the Whispy blow direction fix, and name `tgg.ucf-legacy` for replays that ran UCF 0.8.
 

@@ -12,6 +12,10 @@
  * frame 0 is the first one players can act on. */
 #define SLP_FIRST_FRAME (-123)
 
+/* The most frames a replay is read for: over four hours, more than any match.
+ * A frame number past it is ignored, so a file can't ask for gigabytes. */
+#define SLP_MAX_FRAMES (1 << 20)
+
 /* One port's pre-frame update: the inputs the game used that frame. */
 typedef struct SlpInput {
     uint8_t have;

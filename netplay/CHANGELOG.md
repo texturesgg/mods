@@ -2,6 +2,7 @@
 
 ## 0.10.0
 
+- The replay test reads damaged replay files safely, as tgg.replay-player 0.7.0 does.
 - `netplay_nat` says what the router does (easy, hard or unknown), from asking STUN on two ports, so the meeting point can pair players whose games can reach each other. `netplay_candidates` waits for both answers (at most two seconds).
 
 ## 0.9.0

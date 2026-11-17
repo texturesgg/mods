@@ -29,4 +29,7 @@ CI runs it on every push against the SDK of tgg-melee's latest `main`, after
 `ci/check-depends.sh`, which fails when a mod's `depends` range doesn't accept the version of
 that mod here: the official set has to load together.
 
+`tools/fuzz/` fuzzes the parsers that read what other people send: netplay's packets, replay
+files and HTTP answers. See its README.
+
 See `CREDITS.md` for the work these mods build on.

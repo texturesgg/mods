@@ -25,6 +25,8 @@
       devShells.${system} = {
         # Mods for Linux
         default = pkgs.mkShell { packages = tools ++ luau ++ [ pkgs.gcc ]; };
+        # The fuzz drivers (tools/fuzz): clang with libFuzzer and sanitizers
+        fuzz = pkgs.mkShell { packages = [ pkgs.clang pkgs.llvm ]; };
         # Mods for Windows, cross-built with MinGW-w64 GCC as the game is
         windows = pkgs.mkShell {
           packages = tools ++ [ mingw.buildPackages.gcc ];
