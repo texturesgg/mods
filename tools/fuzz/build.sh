@@ -13,10 +13,11 @@ mkdir -p "$out"
 drivers=("$@")
 [ ${#drivers[@]} -gt 0 ] || drivers=(netplay replay-player http)
 
-# The mods' own flags (TggMod.cmake), with -O1 and the sanitizers. -fwrapv as
+# The mods' own flags (TggMod.cmake), with -O1 and the sanitizers, and TGG_EXPERIMENTAL
+# (netplay and the replay player use the experimental parts). -fwrapv as
 # in the real build: signed overflow wraps there, so it isn't a finding.
 common=(
-    -DMTX_USE_PS -DTARGET_PC -Dbool=int
+    -DMTX_USE_PS -DTARGET_PC -Dbool=int -DTGG_EXPERIMENTAL=1
     -isystem "$sdk/include/game/0" -isystem "$sdk/include/game/1" -isystem "$sdk/game"
     -isystem "$sdk/include/game/3" -isystem "$sdk/include"
     -include "$sdk/include/tgg/game_imports.h" -include "$sdk/include/tgg/internal/glibc.h"
