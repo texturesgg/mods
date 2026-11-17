@@ -2,6 +2,7 @@
 
 ## 0.6.0
 
+- Before downloading the host's mods, it says they're native code that runs on your computer and who published them. It only asks about native code from publishers who aren't official.
 - Find a match: pairs you with someone with the same gameplay mods, nearby first. VS is 4 stocks, 8 minutes, items off, a random legal stage each game, drawn the way Slippi's unranked does (no repeats against the same person until every stage has come up). Play again or find someone else after each match.
 - Modes from other mods that play online can be searched too.
 - Shows how many are searching. If the connection fails, both players go back to searching.

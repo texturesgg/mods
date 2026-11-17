@@ -223,10 +223,12 @@ static void draw_restart(void)
     tgg_draw_rect(x, y, w, 2, BLUE);
     char text[300];
     if (r->state == TGG_RESTART_NEEDS_TRUST) {
-        tgg_draw_text(x + 14, y + 14, 19, WHITE, TGG_ALIGN_LEFT, "It was played with mods by");
+        /* tgg only asks about native code from publishers who aren't official */
+        tgg_draw_text(x + 14, y + 14, 19, WHITE, TGG_ALIGN_LEFT, "It needs native code by");
         tgg_text_fit(text, sizeof text, 19, w - 28, r->trust);
         tgg_draw_text(x + 14, y + 40, 19, GOLD, TGG_ALIGN_LEFT, text);
-        tgg_draw_text(x + 14, y + 72, 16, DIM, TGG_ALIGN_LEFT, "Download them to watch it?");
+        tgg_draw_text(x + 14, y + 72, 16, DIM, TGG_ALIGN_LEFT, "It runs on your computer.");
+        tgg_draw_text(x + 14, y + 94, 16, DIM, TGG_ALIGN_LEFT, "Download it to watch?");
         tgg_draw_text(x + 14, y + h - 30, 16, DIM, TGG_ALIGN_LEFT, "A: Yes, always    B: No");
         return;
     }

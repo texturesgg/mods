@@ -197,10 +197,11 @@ static void draw_restarting(void)
     tgg_draw_rect(60, 150, 520, 2, BLUE);
     char text[300];
     if (r->state == TGG_RESTART_NEEDS_TRUST) {
-        tgg_draw_text(80, 166, 20, WHITE, TGG_ALIGN_LEFT, "The host's mods are by");
+        /* tgg only asks about native code from publishers who aren't official */
+        tgg_draw_text(80, 166, 20, WHITE, TGG_ALIGN_LEFT, "The host's mods run native code by");
         tgg_text_fit(text, sizeof text, 20, 480, r->trust);
         tgg_draw_text(80, 194, 20, GOLD, TGG_ALIGN_LEFT, text);
-        tgg_draw_text(80, 228, 18, DIM, TGG_ALIGN_LEFT, "Download them?");
+        tgg_draw_text(80, 228, 18, DIM, TGG_ALIGN_LEFT, "It runs on your computer. Download it?");
         footer("A  Yes, always     B  No");
         return;
     }
