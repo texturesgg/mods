@@ -20,7 +20,7 @@ Final Destination, Dream Land, Yoshi's Story, Fountain of Dreams and Pokémon St
 
 A display script, `scripts/view.luau`:
 
-- `tgg.change.stage_offered` turns every other stage off (`tgg.stage.OFF`): faded, in its
+- `tgg.change.stage_offered` turns every other stage off (`tgg.offer.OFF`): faded, in its
   place. Stages are content ids (`"melee/battlefield"`).
 - `tgg.on.save_loaded` writes the Random Stage Switch list with `tgg.save.set_random_stage`,
   only while `tgg.save.random_stages_untouched()` says the player hasn't changed it.

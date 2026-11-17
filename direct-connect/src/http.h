@@ -31,7 +31,7 @@
  *
  * A mod that uses it lists it in its manifest's "depends":
  *
- *     "depends": { "tgg.http": "^0.1" }
+ *     "depends": { "tgg.http": "^1.0" }
  *
  * and includes this header (copy it, or add tgg.http's include/ to the
  * include path). */

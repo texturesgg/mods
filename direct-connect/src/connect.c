@@ -95,11 +95,11 @@ static void host(void)
     const char* why = NULL;
     dc.note[0] = '\0';
     if (netplay_open(0, NULL, setting_port, &why) != 0) {
-        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_sound_menu(TGG_SOUND_ERROR);
         note(why != NULL ? why : "Can't host.");
         return;
     }
-    tgg_menu_sound(TGG_SOUND_ACCEPT);
+    tgg_sound_menu(TGG_SOUND_ACCEPT);
     dc.mode = MODE_HOST;
 }
 
@@ -109,11 +109,11 @@ static void join(const char* typed)
     dc_full_address(typed, full, sizeof full);
     const char* why = NULL;
     if (netplay_open(1, full, 0, &why) != 0) {
-        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_sound_menu(TGG_SOUND_ERROR);
         say(why != NULL ? why : "Can't connect.");
         return;
     }
-    tgg_menu_sound(TGG_SOUND_ACCEPT);
+    tgg_sound_menu(TGG_SOUND_ACCEPT);
     snprintf(setting_peer, sizeof setting_peer, "%s", typed);
     tgg_setting_store(setting_peer);
     snprintf(dc.joined, sizeof dc.joined, "%s", full);
@@ -141,12 +141,12 @@ static void make_room(void)
     memset(&dc.meet, 0, sizeof dc.meet);
     dc.note[0] = '\0';
     if (meet_make() != 0) {
-        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_sound_menu(TGG_SOUND_ERROR);
         meet_poll(&dc.meet);
         note(dc.meet.why[0] != '\0' ? dc.meet.why : "Can't make a room here.");
         return;
     }
-    tgg_menu_sound(TGG_SOUND_ACCEPT);
+    tgg_sound_menu(TGG_SOUND_ACCEPT);
     dc.room = 1;
     dc.mode = MODE_ROOM;
 }
@@ -163,12 +163,12 @@ static void join_room(const char* typed)
     code[n] = '\0';
     memset(&dc.meet, 0, sizeof dc.meet);
     if (n == 0 || meet_join(code) != 0) {
-        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_sound_menu(TGG_SOUND_ERROR);
         meet_poll(&dc.meet);
         note(dc.meet.why[0] != '\0' ? dc.meet.why : "Can't join a room here.");
         return;
     }
-    tgg_menu_sound(TGG_SOUND_ACCEPT);
+    tgg_sound_menu(TGG_SOUND_ACCEPT);
     dc.room = 1;
     dc.mode = MODE_JOIN_ROOM;
 }
@@ -177,13 +177,13 @@ static void join_room(const char* typed)
 static void room_frame(uint32_t in)
 {
     if (in & TGG_MENU_BACK) {
-        tgg_menu_sound(TGG_SOUND_BACK);
+        tgg_sound_menu(TGG_SOUND_BACK);
         leave_session();
         done();
         return;
     }
     if (dc.meet.state == MEET_FAILED) {
-        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_sound_menu(TGG_SOUND_ERROR);
         tgg_log("room: %s", dc.meet.why);
         meet_leave();
         dc.room = 0;
@@ -191,7 +191,7 @@ static void room_frame(uint32_t in)
         dc.mode = MODE_NONE;
         fail_view(dc.meet.why);
     } else if (dc.meet.state == MEET_CONNECTED) {
-        tgg_menu_sound(TGG_SOUND_ACCEPT);
+        tgg_sound_menu(TGG_SOUND_ACCEPT);
         tgg_log("room %s: connected as side %d", dc.meet.code, dc.meet.side);
         done();
     }
@@ -229,7 +229,7 @@ static void different_frame(uint32_t in)
         }
     }
     if (in & TGG_MENU_BACK) {
-        tgg_menu_sound(TGG_SOUND_BACK);
+        tgg_sound_menu(TGG_SOUND_BACK);
         leave_session();
         return;
     }
@@ -250,18 +250,18 @@ static void different_frame(uint32_t in)
     }
     netplay_close();
     if (!saved) {
-        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_sound_menu(TGG_SOUND_ERROR);
         tgg_log("can't write %s", path);
         fail_view("Can't save the host's list of mods.");
         return;
     }
     if (tgg_restart_with("tgg.direct-connect", path, dc.joined) != 0) {
-        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_sound_menu(TGG_SOUND_ERROR);
         tgg_log("can't get the host's mods, tgg has to be in the game's folder");
         say_compare();
         return;
     }
-    tgg_menu_sound(TGG_SOUND_ACCEPT);
+    tgg_sound_menu(TGG_SOUND_ACCEPT);
     tgg_log("getting the host's mods (%s), then joining %s again", path, dc.joined);
     memset(&dc.restart, 0, sizeof dc.restart);
     dc.view = VIEW_RESTARTING;
@@ -276,17 +276,17 @@ static void restarting_frame(uint32_t in)
     case TGG_RESTART_WORKING:
         if (in & TGG_MENU_BACK) {
             tgg_restart_cancel();
-            tgg_menu_sound(TGG_SOUND_BACK);
+            tgg_sound_menu(TGG_SOUND_BACK);
             done();
         }
         break;
     case TGG_RESTART_NEEDS_TRUST:
         if (in & (TGG_MENU_ACCEPT | TGG_MENU_START)) {
-            tgg_menu_sound(TGG_SOUND_ACCEPT);
+            tgg_sound_menu(TGG_SOUND_ACCEPT);
             tgg_log("getting mods by %s: yes, and from now on", dc.restart.trust);
             tgg_restart_trust(1, 1);
         } else if (in & TGG_MENU_BACK) {
-            tgg_menu_sound(TGG_SOUND_BACK);
+            tgg_sound_menu(TGG_SOUND_BACK);
             tgg_log("getting mods by %s: no", dc.restart.trust);
             tgg_restart_trust(0, 0);
             done();
@@ -296,7 +296,7 @@ static void restarting_frame(uint32_t in)
         /* tgg says this game already has the host's mods, yet the two
          * differ: nothing a restart fixes */
         tgg_restart_cancel();
-        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_sound_menu(TGG_SOUND_ERROR);
         tgg_log("tgg says this game already has the host's mods, but the mod sets differ");
         fail_view("You have the host's mods, but they still differ. The log lists both.");
         break;
@@ -305,7 +305,7 @@ static void restarting_frame(uint32_t in)
         snprintf(why, sizeof why, "Can't get the host's mods: %.120s.", dc.restart.message);
         tgg_log("%s", why);
         tgg_restart_cancel();
-        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_sound_menu(TGG_SOUND_ERROR);
         fail_view(why);
         break;
     }
@@ -326,14 +326,14 @@ static void frame(void)
     netplay_info info;
     netplay_status(&info);
     if (dc.view != VIEW_ADDRESS && dc.view != VIEW_FAILED && info.state == NETPLAY_FAILED) {
-        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_sound_menu(TGG_SOUND_ERROR);
         fail_view(info.why);
         leave_session();
     }
     if ((dc.view == VIEW_CONNECTING || dc.view == VIEW_ROOM) &&
         info.state == NETPLAY_MISMATCH)
     {
-        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_sound_menu(TGG_SOUND_ERROR);
         dc.have_diff = 0;
         dc.bad_profile = 0;
         dc.view = VIEW_DIFFERENT;
@@ -343,7 +343,7 @@ static void frame(void)
         const int r = keyboard_frame();
         if (r > 0) {
             if (dc.address[0] == '\0') {
-                tgg_menu_sound(TGG_SOUND_ERROR);
+                tgg_sound_menu(TGG_SOUND_ERROR);
             } else if (dc.typing_code) {
                 join_room(dc.address);
             } else {
@@ -356,11 +356,11 @@ static void frame(void)
     }
     case VIEW_CONNECTING:
         if (in & TGG_MENU_BACK) {
-            tgg_menu_sound(TGG_SOUND_BACK);
+            tgg_sound_menu(TGG_SOUND_BACK);
             leave_session();
             done();
         } else if (info.state == NETPLAY_CONNECTED) {
-            tgg_menu_sound(TGG_SOUND_ACCEPT);
+            tgg_sound_menu(TGG_SOUND_ACCEPT);
             tgg_log("joined %s as side %d, mod set %s", info.peer, info.side, tgg_mod_set_id());
             done();
         }
@@ -377,7 +377,7 @@ static void frame(void)
     case VIEW_FAILED:
         dc.failed_frames++;
         if (in & (TGG_MENU_ACCEPT | TGG_MENU_BACK | TGG_MENU_START)) {
-            tgg_menu_sound(TGG_SOUND_BACK);
+            tgg_sound_menu(TGG_SOUND_BACK);
             if (dc.for_netplay) {
                 go_back();
             }
@@ -421,14 +421,14 @@ TGG_SCREEN("connect", screen);
 static void start_typing(int code)
 {
     if (dc.mode != MODE_NONE) {
-        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_sound_menu(TGG_SOUND_ERROR);
         return;
     }
     dc.typing_code = code;
     dc.key = 0;
     dc.view = VIEW_ADDRESS;
     snprintf(dc.address, sizeof dc.address, "%s", code ? "" : setting_peer);
-    tgg_menu_sound(TGG_SOUND_ACCEPT);
+    tgg_sound_menu(TGG_SOUND_ACCEPT);
     tgg_screen_open(&screen);
 }
 
@@ -439,10 +439,10 @@ static void play(void)
     netplay_info info;
     netplay_status(&info);
     if (info.players < 2 || netplay_lock() != 0) {
-        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_sound_menu(TGG_SOUND_ERROR);
         return;
     }
-    tgg_menu_sound(TGG_SOUND_ACCEPT);
+    tgg_sound_menu(TGG_SOUND_ACCEPT);
     tgg_log("playing with %d games, mod set %s", info.players, tgg_mod_set_id());
     tgg_menu_back();
 }
@@ -454,7 +454,7 @@ static void make_room_entry(void)
     } else if (dc.mode == MODE_NONE) {
         make_room();
     } else {
-        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_sound_menu(TGG_SOUND_ERROR);
     }
 }
 
@@ -476,7 +476,7 @@ static void code_typed(const char* text)
         code[n++] = c;
     }
     if (n != 4) {
-        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_sound_menu(TGG_SOUND_ERROR);
         note("Room codes are 4 letters.");
         return;
     }
@@ -487,7 +487,7 @@ static void code_typed(const char* text)
 static void join_room_entry(void)
 {
     if (dc.mode != MODE_NONE || tgg_menu_keyboard(code_typed) != 0) {
-        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_sound_menu(TGG_SOUND_ERROR);
         return;
     }
     dc.note[0] = '\0';
@@ -500,7 +500,7 @@ static void host_entry(void)
     } else if (dc.mode == MODE_NONE) {
         host();
     } else {
-        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_sound_menu(TGG_SOUND_ERROR);
     }
 }
 
@@ -787,8 +787,10 @@ TGG_ON(frame, on_frame);
 /* A player's panel: their name (their Name Tag, else their textures.gg name,
  * else "P2") and their ping where this game has a link to them. Online, side
  * s plays port s. */
-static void on_panel(int port, float x, float y, float w, float h)
+static void on_panel(const tgg_panel* panel)
 {
+    const int port = panel->port;
+    const float x = panel->x, y = panel->y, w = panel->w, h = panel->h;
     netplay_info info;
     netplay_status(&info);
     if (info.players < 2 || port >= info.players ||
@@ -816,8 +818,8 @@ static void on_panel(int port, float x, float y, float w, float h)
         who = fallback;
     }
     char name[64];
-    const float room = w - 4 - (ping[0] != '\0' ? tgg_text_width(size, ping) + 6 : 0);
-    tgg_text_fit(name, sizeof name, size, room, who);
+    const float room = w - 4 - (ping[0] != '\0' ? tgg_draw_text_width(size, ping) + 6 : 0);
+    tgg_draw_text_fit(name, sizeof name, size, room, who);
     tgg_draw_text(x + 2, top, size, white, TGG_ALIGN_LEFT, name);
     if (port == 0 && dc.room && dc.meet.code[0] != '\0') {
         /* The room, below the panels, so more friends can join */
@@ -826,4 +828,4 @@ static void on_panel(int port, float x, float y, float w, float h)
         tgg_draw_text(320, 456, 18, white, TGG_ALIGN_CENTER, line);
     }
 }
-TGG_ON(css_panel_draw, on_panel);
+TGG_ON(character_select_panel_draw, on_panel);

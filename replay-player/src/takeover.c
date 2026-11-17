@@ -95,7 +95,7 @@ void takeover_reset(const tgg_match* match)
     for (int p = 0; p < 4; p++) {
         source[p] = TAKE_RECORDING;
         players[p].present = match != NULL && tgg_match_player(match, p) != TGG_PLAYER_NONE;
-        players[p].ckind = match != NULL ? tgg_match_character_kind(match, p) : -1;
+        players[p].ckind = match != NULL ? tgg_match_character_number(match, p) : -1;
     }
 }
 
@@ -203,8 +203,8 @@ void takeover_skip(void)
 
 static int controller_there(int c)
 {
-    tgg_viewer_pad pad;
-    return tgg_viewer_pad_read(c, &pad);
+    tgg_controller_state pad;
+    return tgg_input_controller(c, &pad);
 }
 
 /* The next choice for a row after `from`, one way or the other: the
@@ -332,7 +332,7 @@ void takeover_draw(void)
         if (help_frames < 300 && !gm_GetDbPauseFlag(1)) {
             help_frames++;
             const char* help = "D-pad left: Try again    L+R+A+Start: Leave";
-            const float w = tgg_text_width(18, help) + 24;
+            const float w = tgg_draw_text_width(18, help) + 24;
             tgg_draw_rect(320 - w / 2, 4, w, 26, TGG_RGBA(0, 0, 0, 150));
             tgg_draw_text(320, 8, 18, TGG_RGBA(220, 225, 240, 255), TGG_ALIGN_CENTER, help);
         }

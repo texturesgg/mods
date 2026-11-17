@@ -86,7 +86,7 @@ static void move(int by)
     }
     if (to != br.sel) {
         br.sel = to;
-        tgg_menu_sound(TGG_SOUND_MOVE);
+        tgg_sound_menu(TGG_SOUND_MOVE);
     }
 }
 
@@ -95,14 +95,14 @@ static void go_up(void)
     char parent[PATH_MAX_LEN];
     list_parent(parent, sizeof parent);
     if (parent[0] == '\0') {
-        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_sound_menu(TGG_SOUND_ERROR);
         return;
     }
     char from[PATH_MAX_LEN];
     const char* slash = strrchr(br.folder, '/');
     snprintf(from, sizeof from, "%s", slash != NULL ? slash + 1 : br.folder);
     if (list_open(parent) == 0) {
-        tgg_menu_sound(TGG_SOUND_BACK);
+        tgg_sound_menu(TGG_SOUND_BACK);
         for (int i = 0; i < br.n; i++) {
             if (strcmp(br.entries[i].name, from) == 0) {
                 br.sel = i;
@@ -117,9 +117,9 @@ static void play(const char* path)
     replay_play_fn* replay_play =
         (replay_play_fn*) tgg_mod_export("tgg.replay-player", "replay_play@1");
     if (replay_play != NULL && replay_play(path, &why) == 0) {
-        tgg_menu_sound(TGG_SOUND_ACCEPT);
+        tgg_sound_menu(TGG_SOUND_ACCEPT);
     } else {
-        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_sound_menu(TGG_SOUND_ERROR);
         char text[160];
         snprintf(text, sizeof text, "Can't play it: %s.", why != NULL ? why : "unknown");
         say(text);
@@ -139,9 +139,9 @@ static void choose(void)
     list_path(br.sel, path, sizeof path);
     if (br.entries[br.sel].is_dir) {
         if (list_open(path) == 0) {
-            tgg_menu_sound(TGG_SOUND_ACCEPT);
+            tgg_sound_menu(TGG_SOUND_ACCEPT);
         } else {
-            tgg_menu_sound(TGG_SOUND_ERROR);
+            tgg_sound_menu(TGG_SOUND_ERROR);
             say("Can't open that folder.");
         }
         return;
@@ -150,7 +150,7 @@ static void choose(void)
      * with those mods. Without tgg, it plays here as it is. */
     snprintf(br.pending, sizeof br.pending, "%s", path);
     if (tgg_restart_with("tgg.replay-browser", path, br.folder) == 0) {
-        tgg_menu_sound(TGG_SOUND_ACCEPT);
+        tgg_sound_menu(TGG_SOUND_ACCEPT);
         br.restarting = 1;
     } else {
         play(path);
@@ -166,16 +166,16 @@ static void restart_frame(uint32_t in)
     case TGG_RESTART_WORKING:
         if (in & TGG_MENU_BACK) {
             tgg_restart_cancel();
-            tgg_menu_sound(TGG_SOUND_BACK);
+            tgg_sound_menu(TGG_SOUND_BACK);
             br.restarting = 0;
         }
         break;
     case TGG_RESTART_NEEDS_TRUST:
         if (in & (TGG_MENU_ACCEPT | TGG_MENU_START)) {
-            tgg_menu_sound(TGG_SOUND_ACCEPT);
+            tgg_sound_menu(TGG_SOUND_ACCEPT);
             tgg_restart_trust(1, 1);
         } else if (in & TGG_MENU_BACK) {
-            tgg_menu_sound(TGG_SOUND_BACK);
+            tgg_sound_menu(TGG_SOUND_BACK);
             tgg_restart_trust(0, 0);
             br.restarting = 0;
         }
@@ -187,7 +187,7 @@ static void restart_frame(uint32_t in)
         break;
     case TGG_RESTART_FAILED: {
         br.restarting = 0;
-        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_sound_menu(TGG_SOUND_ERROR);
         char text[300];
         snprintf(text, sizeof text, "Can't download what it needs: %s.", br.restart.message);
         say(text);
@@ -211,7 +211,7 @@ static void frame(void)
         return;
     }
     if (in & TGG_MENU_BACK) {
-        tgg_menu_sound(TGG_SOUND_BACK);
+        tgg_sound_menu(TGG_SOUND_BACK);
         tgg_screen_close();
         return;
     }
@@ -234,15 +234,15 @@ static void frame(void)
         setting_sort = setting_sort == SORT_NEWEST ? SORT_OLDEST : SORT_NEWEST;
         tgg_setting_store(&setting_sort);
         list_sort();
-        tgg_menu_sound(TGG_SOUND_MOVE);
+        tgg_sound_menu(TGG_SOUND_MOVE);
     }
     if (in & TGG_MENU_Y) {
         snprintf(setting_folder, sizeof setting_folder, "%s", br.folder);
         if (tgg_setting_store(setting_folder) == 0) {
-            tgg_menu_sound(TGG_SOUND_ACCEPT);
+            tgg_sound_menu(TGG_SOUND_ACCEPT);
             say("Replays will open here from now on.");
         } else {
-            tgg_menu_sound(TGG_SOUND_ERROR);
+            tgg_sound_menu(TGG_SOUND_ERROR);
         }
     }
 }

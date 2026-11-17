@@ -58,7 +58,7 @@ static void draw_room_code(float y)
     y += 100;
     for (int i = 0; i < m->n_members && i < MEET_MEMBERS; i++) {
         char fit[64];
-        tgg_text_fit(fit, sizeof fit, 20, 330, m->members[i]);
+        tgg_draw_text_fit(fit, sizeof fit, 20, 330, m->members[i]);
         tgg_draw_text(320, y, 20, i == 0 ? WHITE : DIM, TGG_ALIGN_CENTER, fit);
         y += 28;
     }
@@ -74,7 +74,7 @@ static void draw_room(void)
     case MEET_SIGN_IN:
         tgg_draw_text(320, 120, 24, WHITE, TGG_ALIGN_CENTER, "Sign in to textures.gg");
         tgg_draw_text(320, 168, 18, DIM, TGG_ALIGN_CENTER, "On your phone or computer, go to");
-        tgg_text_fit(line, sizeof line, 20, 560, m->signin_url);
+        tgg_draw_text_fit(line, sizeof line, 20, 560, m->signin_url);
         tgg_draw_text(320, 196, 20, WHITE, TGG_ALIGN_CENTER, line);
         tgg_draw_text(320, 240, 18, DIM, TGG_ALIGN_CENTER, "and enter");
         tgg_draw_rect(200, 266, 240, 56, PANEL);
@@ -123,7 +123,7 @@ static void draw_failed(void)
     band("Online", NULL);
     tgg_draw_rect(60, 170, 520, 100, PANEL);
     char fit[160];
-    tgg_text_fit(fit, sizeof fit, 20, 500, dc.why);
+    tgg_draw_text_fit(fit, sizeof fit, 20, 500, dc.why);
     tgg_draw_text(320, 190, 22, GOLD, TGG_ALIGN_CENTER, "Disconnected");
     tgg_draw_text(320, 228, 20, WHITE, TGG_ALIGN_CENTER, fit);
     footer(dc.for_netplay ? "A  Back to your game" : "A  OK");
@@ -139,7 +139,7 @@ static void draw_list(float x, const char* title, char lines[][DIFF_TEXT], int n
     const int shown = n < DIFF_LINES ? n : DIFF_LINES;
     for (int i = 0; i < shown; i++) {
         char fit[DIFF_TEXT];
-        tgg_text_fit(fit, sizeof fit, 17, 246, lines[i]);
+        tgg_draw_text_fit(fit, sizeof fit, 17, 246, lines[i]);
         tgg_draw_text(x + 12, y, 17, WHITE, TGG_ALIGN_LEFT, fit);
         y += 23;
     }
@@ -199,14 +199,14 @@ static void draw_restarting(void)
     if (r->state == TGG_RESTART_NEEDS_TRUST) {
         /* tgg only asks about native code from publishers who aren't official */
         tgg_draw_text(80, 166, 20, WHITE, TGG_ALIGN_LEFT, "The host's mods run native code by");
-        tgg_text_fit(text, sizeof text, 20, 480, r->trust);
+        tgg_draw_text_fit(text, sizeof text, 20, 480, r->trust);
         tgg_draw_text(80, 194, 20, GOLD, TGG_ALIGN_LEFT, text);
         tgg_draw_text(80, 228, 18, DIM, TGG_ALIGN_LEFT, "It runs on your computer. Download it?");
         footer("A  Yes, always     B  No");
         return;
     }
     tgg_draw_text(80, 166, 20, WHITE, TGG_ALIGN_LEFT, "Downloading the host's mods");
-    tgg_text_fit(text, sizeof text, 18, 480, r->label);
+    tgg_draw_text_fit(text, sizeof text, 18, 480, r->label);
     tgg_draw_text(80, 200, 18, DIM, TGG_ALIGN_LEFT, text);
     /* This step's bytes, when tgg knows the size */
     tgg_draw_rect(80, 234, 480, 10, TGG_RGBA(255, 255, 255, 40));

@@ -1,8 +1,8 @@
 {
-  "api": "tgg-melee/0",
+  "api": "tgg-melee/1",
   "id": "tgg.freeze-dead-up-fall",
   "name": "Freeze screen KO fall",
-  "version": "0.1.4",
+  "version": "1.0.0",
   "description": "Screen KOs play out the same wherever the camera is, like Slippi online.",
   "icon": "icon.png",
   "tags": [

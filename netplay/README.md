@@ -31,7 +31,7 @@ stops agreeing, the log names the display mods only one of you has: the likely c
 
 One game hosts and up to three join it. Once the host locks the session, this mod is the
 port's session (`tgg/session.h`): shared screens run in lockstep on the menu input every game
-sends, `tgg_session_rand` starts from the seed the host picked, and `tgg_play_match` starts
+sends, `tgg_session_random` starts from the seed the host picked, and `tgg_match_play` starts
 the match through `netplay_play`. A mod with shared screens gets netplay from that alone and
 doesn't depend on this mod.
 
@@ -46,7 +46,7 @@ List it in your manifest and include `include/netplay.h` (copy it, or add netpla
 `include/` to the include path):
 
 ```json
-"depends": { "tgg.netplay": "^0.5" }
+"depends": { "tgg.netplay": "^1.0" }
 ```
 
 | Function | Does |
@@ -178,7 +178,7 @@ replay's Slippi rule mods have to be installed.
 
 ## Requirements
 
-tgg-melee with mod API 0.4 or later: netplay provides the port's session (`tgg/session.h`)
+tgg-melee with mod API 1.0, the same minor it was built for: it uses the experimental parts. Netplay provides the port's session (`tgg/session.h`)
 and asks STUN with a random transaction id (`tgg_net_random`).
 
 ## Build

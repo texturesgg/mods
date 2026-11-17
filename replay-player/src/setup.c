@@ -40,7 +40,7 @@ const char* player_content(const Slp* slp)
                      port + 1, ckind);
             return why;
         }
-        const int here = tgg_character_kind(id);
+        const int here = tgg_content_character_number(id);
         if (here < 0) {
             snprintf(why, sizeof why, "player %d plays %s, which this game doesn't have", port + 1,
                      id);
@@ -64,7 +64,7 @@ const char* player_content(const Slp* slp)
                      stkind);
             return why;
         }
-        const int here = tgg_stage_kind(slp->stage);
+        const int here = tgg_content_stage_number(slp->stage);
         if (here < 0) {
             snprintf(why, sizeof why, "it's on %s, which this game doesn't have", slp->stage);
             return why;
@@ -89,7 +89,7 @@ void player_match(const Slp* slp, tgg_match* start)
      * game's if it has the costume */
     for (int port = 0; port < 4; port++) {
         const char* costume = slp->costumes[port][0] != '\0' ? slp->costumes[port] : NULL;
-        if (tgg_costume_pick(port, costume) < 0 && costume != NULL) {
+        if (tgg_content_costume_pick(port, costume) < 0 && costume != NULL) {
             tgg_log("player %d played the costume %s, which this game doesn't have, so it shows "
                     "the costume it's based on",
                     port + 1, costume);

@@ -30,7 +30,7 @@ it doesn't count toward the mod-set.
 
 A display script, `scripts/view.luau`, with two save events and the save calls:
 
-- `tgg.on.rules_defaults` (the game resets its rules: at start and on erase) writes the
+- `tgg.on.rules_reset` (the game resets its rules: at start and on erase) writes the
   competitive rules with `tgg.save.set_rule`.
 - `tgg.on.save_loaded` turns items off when the item switch is still the game's default
   (`tgg.save.rule_default`), so a player's own choice stays.

@@ -24,17 +24,14 @@ tgg.on.save_loaded(function()
 	if not tgg.save.random_stages_untouched() then
 		return
 	end
-	for kind = 0, tgg.content.stage_count() - 1 do
-		local stage = tgg.content.stage_id(kind)
-		if stage ~= nil then
-			tgg.save.set_random_stage(stage, LEGAL[stage] == true)
-		end
+	for _, stage in tgg.content.stages() do
+		tgg.save.set_random_stage(stage, LEGAL[stage] == true)
 	end
 end)
 
 -- The stage select shows only the legal stages
 tgg.change.stage_offered(function(offered)
 	if not LEGAL[offered.stage] then
-		offered.state = tgg.stage.OFF
+		offered.state = tgg.offer.OFF
 	end
 end)

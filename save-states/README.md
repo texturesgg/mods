@@ -26,9 +26,9 @@ On the Mods page (Y on the main menu):
 
 ## How it works
 
-`scripts/view.luau`. The `frame` event reads the controllers with `tgg.input.pad` (the person
+`scripts/view.luau`. The `frame` event reads the controllers with `tgg.input.controller` (the person
 at this machine, never the simulation's input) and calls `tgg.snapshot.save` or
-`tgg.snapshot.load`; the port does them between two logic frames. The `state_loaded` event
+`tgg.snapshot.load`; the port does them between two logic frames. The `snapshot_loaded` event
 shows "Loaded". Its Practice entry (`tgg.menu.add("practice/free", ...)`) starts Free practice
 through `tgg.practice-stage`, found with `tgg.mod`, so it doesn't depend on it. The snapshot is
 freed when the match ends, since it only loads into its own match.

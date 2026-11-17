@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.0
+
+- Made for mod API 1.0. It uses parts of the API that still change, so each tgg-melee update comes with a new version of it.
+
 ## 0.7.0
 
 - A damaged or hostile replay file can't crash the game or make it allocate gigabytes: events shorter than the reader expects, a short event size table, oversized gecko parts and frame numbers past four hours are ignored.

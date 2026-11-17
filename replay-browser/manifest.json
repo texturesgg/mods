@@ -1,8 +1,9 @@
 {
-  "api": "tgg-melee/0",
+  "api": "tgg-melee/1",
   "id": "tgg.replay-browser",
   "name": "Replays",
-  "version": "0.2.2",
+  "version": "1.0.0",
+  "experimental": true,
   "description": "Browse your Slippi replays with a preview of each, and watch them.",
   "icon": "icon.png",
   "tags": [

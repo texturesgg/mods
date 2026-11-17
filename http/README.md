@@ -14,7 +14,7 @@ List it in your manifest and include `include/http.h` (copy it, or add this mod'
 `include/` to the include path):
 
 ```json
-"depends": { "tgg.http": "^0.1" }
+"depends": { "tgg.http": "^1.0" }
 ```
 
 ```c
@@ -90,7 +90,7 @@ the configuration again.
 
 ## Requirements
 
-tgg-melee with mod API 0.4 or later (`tgg_net_connect` and the rest).
+tgg-melee with mod API 1.0 or later.
 
 ## Build
 

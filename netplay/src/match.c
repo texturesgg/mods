@@ -675,7 +675,7 @@ static void on_setup(const tgg_match* data)
     for (size_t i = 0x60; i < TGG_CONSOLE_MATCH_SIZE; i++) {
         h = (h ^ data->console[i]) * 0x01000193u;
     }
-    h = (h ^ (uint32_t) tgg_match_stage_kind(data)) * 0x01000193u;
+    h = (h ^ (uint32_t) tgg_match_stage_number(data)) * 0x01000193u;
     mt.hash = h != 0 ? h : 1;
 }
 TGG_ON(match_setup, on_setup);
@@ -849,7 +849,7 @@ void match_abandon(void)
     }
     mt.abandoned = 1;
     report(0);
-    tgg_end_match();
+    tgg_match_finish();
 }
 
 /* From the first frame the games disagree on, the match says so on screen: it

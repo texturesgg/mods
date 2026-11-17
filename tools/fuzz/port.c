@@ -277,7 +277,7 @@ int tgg_match_player(const tgg_match* match, int player)
     return player < fz_players ? TGG_PLAYER_HUMAN : TGG_PLAYER_NONE;
 }
 
-int tgg_match_stage_kind(const tgg_match* match)
+int tgg_match_stage_number(const tgg_match* match)
 {
     (void) match;
     return 0;
@@ -295,7 +295,7 @@ void tgg_boot_match(const tgg_match* match)
     (void) match;
 }
 
-int tgg_end_match(void)
+int tgg_match_finish(void)
 {
     return 0;
 }
@@ -462,19 +462,19 @@ const void* fz_event(const char* event)
 
 /* ---- Content and mods, by id: none loaded */
 
-int tgg_character_kind(const char* id)
+int tgg_content_character_number(const char* id)
 {
     (void) strlen(id);
     return -1;
 }
 
-int tgg_costume_pick(int player, const char* id)
+int tgg_content_costume_pick(int player, const char* id)
 {
     (void) player, (void) strlen(id);
     return -1;
 }
 
-int tgg_stage_kind(const char* id)
+int tgg_content_stage_number(const char* id)
 {
     (void) strlen(id);
     return -1;

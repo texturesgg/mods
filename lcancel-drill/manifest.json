@@ -1,5 +1,5 @@
 {
-  "api": "tgg-melee/0",
+  "api": "tgg-melee/1",
   "id": "tgg.lcancel-drill",
   "name": "L-cancel drill",
   "version": "1.0.0",
@@ -7,7 +7,7 @@
   "icon": "icon.png",
   "class": "offline",
   "depends": {
-    "tgg.practice-stage": "^0.1.4"
+    "tgg.practice-stage": "^1.0"
   },
   "tags": [
     "training"

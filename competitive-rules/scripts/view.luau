@@ -3,13 +3,13 @@
 -- team attack on) instead of the game's 2-minute time match with items. The game's own rules
 -- screens are where they change.
 --
--- The game sets the VS rules to its defaults every start (rules_defaults); the mod sets the
+-- The game sets the VS rules to its defaults every start (rules_reset); the mod sets the
 -- competitive ones then. The item switch is in the save, so a change there stays: the mod only
 -- turns items off on a save whose item switch the player never touched.
 local tgg = require("@tgg")
 
 -- At start, and when the player erases their data
-tgg.on.rules_defaults(function()
+tgg.on.rules_reset(function()
 	tgg.save.set_rule(tgg.rule.MODE, tgg.rule_mode.STOCK)
 	tgg.save.set_rule(tgg.rule.STOCKS, 4)
 	tgg.save.set_rule(tgg.rule.STOCK_TIME_LIMIT, 8)

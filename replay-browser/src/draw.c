@@ -68,7 +68,7 @@ static void draw_row(int i, float y)
     const tgg_color fg = on ? INK : WHITE;
     char text[256];
     if (e->is_dir) {
-        tgg_text_fit(text, sizeof text, 20, LIST_W - 40,
+        tgg_draw_text_fit(text, sizeof text, 20, LIST_W - 40,
                      strcmp(e->name, "..") == 0 ? "Up a folder" : e->name);
         tgg_draw_text(LIST_X + 12, y + 9, 20, on ? INK : DIM, TGG_ALIGN_LEFT, text);
         tgg_draw_text(LIST_X + LIST_W - 12, y + 9, 20, on ? INK : DIM, TGG_ALIGN_RIGHT,
@@ -77,7 +77,7 @@ static void draw_row(int i, float y)
     }
     const replay_summary* s = list_summary(i);
     if (s == NULL) {
-        tgg_text_fit(text, sizeof text, 18, LIST_W - 24, e->name);
+        tgg_draw_text_fit(text, sizeof text, 18, LIST_W - 24, e->name);
         tgg_draw_text(LIST_X + 12, y + 10, 18, on ? INK : DIM, TGG_ALIGN_LEFT, text);
         return;
     }
@@ -93,7 +93,7 @@ static void draw_row(int i, float y)
         x -= 26;
         const int lost = s->winner >= 0 && pl->placement != 0 &&
                          !(s->teams && pl->team == s->players[s->winner].team);
-        tgg_draw_image(tgg_image_stock_icon(tgg_character_id(pl->ckind), pl->costume), x, y + 7, 24, 24,
+        tgg_draw_image(tgg_image_stock_icon(tgg_content_character_id(pl->ckind), pl->costume), x, y + 7, 24, 24,
                        lost ? TGG_RGBA(255, 255, 255, 110) : WHITE);
     }
 }
@@ -140,8 +140,8 @@ static void draw_preview(void)
 
     /* The stage: its icon from the stage select, and its name */
     float y = TOP + 12;
-    const tgg_image* icon = tgg_image_stage(tgg_stage_id(s->stage));
-    const tgg_image* name = tgg_image_stage_name(tgg_stage_id(s->stage));
+    const tgg_image* icon = tgg_image_stage(tgg_content_stage_id(s->stage));
+    const tgg_image* name = tgg_image_stage_name(tgg_content_stage_id(s->stage));
     char text[160];
     if (icon != NULL) {
         tgg_draw_rect(x + 11, y - 1, 82, 72, TGG_RGBA(90, 115, 255, 160));
@@ -150,7 +150,7 @@ static void draw_preview(void)
     if (name != NULL) {
         tgg_draw_image(name, x + 98, y + 12, 168, 42, GOLD);
     } else {
-        tgg_text_fit(text, sizeof text, 20, w - 24, stage_name(s->stage));
+        tgg_draw_text_fit(text, sizeof text, 20, w - 24, stage_name(s->stage));
         tgg_draw_text(x + 98, y + 24, 20, GOLD, TGG_ALIGN_LEFT, text);
     }
     y += 84;
@@ -161,12 +161,12 @@ static void draw_preview(void)
         if (!pl->present) {
             continue;
         }
-        tgg_draw_image(tgg_image_stock_icon(tgg_character_id(pl->ckind), pl->costume), x + 12, y + 2, 30, 30, WHITE);
+        tgg_draw_image(tgg_image_stock_icon(tgg_content_character_id(pl->ckind), pl->costume), x + 12, y + 2, 30, 30, WHITE);
         const int won = s->winner >= 0 &&
                         (p == s->winner || (s->teams && pl->team == s->players[s->winner].team));
         /* Room for "Winner" on the right */
         const float room = won ? w - 150 : w - 62;
-        tgg_text_fit(text, sizeof text, 19, room, who(pl));
+        tgg_draw_text_fit(text, sizeof text, 19, room, who(pl));
         tgg_draw_text(x + 50, y, 19, WHITE, TGG_ALIGN_LEFT, text);
         char sub[80];
         if (pl->cpu) {
@@ -176,7 +176,7 @@ static void draw_preview(void)
         } else {
             snprintf(sub, sizeof sub, "P%d  %s", p + 1, fighter_name(pl->ckind));
         }
-        tgg_text_fit(text, sizeof text, 15, room, sub);
+        tgg_draw_text_fit(text, sizeof text, 15, room, sub);
         tgg_draw_text(x + 50, y + 20, 15, DIM, TGG_ALIGN_LEFT, text);
         if (won) {
             tgg_draw_text(x + w - 12, y + 8, 19, GOLD, TGG_ALIGN_RIGHT, "Winner");
@@ -206,7 +206,7 @@ static void draw_preview(void)
         const size_t n = strlen(line);
         snprintf(line + n, sizeof line - n, "   Online");
     }
-    tgg_text_fit(text, sizeof text, 18, w - 24, line);
+    tgg_draw_text_fit(text, sizeof text, 18, w - 24, line);
     tgg_draw_text(x + 12, y, 18, WHITE, TGG_ALIGN_LEFT, text);
     long_date(s->date, text, sizeof text);
     tgg_draw_text(x + 12, y + 25, 15, DIM, TGG_ALIGN_LEFT, text);
@@ -225,7 +225,7 @@ static void draw_restart(void)
     if (r->state == TGG_RESTART_NEEDS_TRUST) {
         /* tgg only asks about native code from publishers who aren't official */
         tgg_draw_text(x + 14, y + 14, 19, WHITE, TGG_ALIGN_LEFT, "It needs native code by");
-        tgg_text_fit(text, sizeof text, 19, w - 28, r->trust);
+        tgg_draw_text_fit(text, sizeof text, 19, w - 28, r->trust);
         tgg_draw_text(x + 14, y + 40, 19, GOLD, TGG_ALIGN_LEFT, text);
         tgg_draw_text(x + 14, y + 72, 16, DIM, TGG_ALIGN_LEFT, "It runs on your computer.");
         tgg_draw_text(x + 14, y + 94, 16, DIM, TGG_ALIGN_LEFT, "Download it to watch?");
@@ -233,7 +233,7 @@ static void draw_restart(void)
         return;
     }
     tgg_draw_text(x + 14, y + 14, 19, WHITE, TGG_ALIGN_LEFT, "Downloading what it was played with");
-    tgg_text_fit(text, sizeof text, 16, w - 28, r->label);
+    tgg_draw_text_fit(text, sizeof text, 16, w - 28, r->label);
     tgg_draw_text(x + 14, y + 48, 16, DIM, TGG_ALIGN_LEFT, text);
     /* This step's bytes, when tgg knows the size */
     tgg_draw_rect(x + 14, y + 80, w - 28, 10, TGG_RGBA(255, 255, 255, 40));
@@ -255,7 +255,7 @@ void browser_draw(void)
     tgg_draw_rect(b.x, 22, b.w, 52, BAND);
     tgg_draw_text(40, 30, 40, TGG_RGBA(200, 205, 225, 255), TGG_ALIGN_LEFT, "Replays");
     char text[PATH_MAX_LEN];
-    tgg_text_fit_end(text, sizeof text, 16, 380, br.folder);
+    tgg_draw_text_fit_end(text, sizeof text, 16, 380, br.folder);
     tgg_draw_text(608, 42, 16, DIM, TGG_ALIGN_RIGHT, text);
 
     draw_list();
@@ -266,7 +266,7 @@ void browser_draw(void)
 
     tgg_draw_rect(b.x, 440, b.w, 40, BAND);
     if (br.message_frames > 0) {
-        tgg_text_fit(text, sizeof text, 20, 600, br.message);
+        tgg_draw_text_fit(text, sizeof text, 20, 600, br.message);
         tgg_draw_text(320, 450, 20, GOLD, TGG_ALIGN_CENTER, text);
     } else {
         const int dir = br.n > 0 && br.entries[br.sel].is_dir;

@@ -4,7 +4,7 @@
 -- match ends.
 --
 -- A save and a load are asked for from the frame event and happen at the next boundary between
--- logic frames. The buttons are read from the viewer's controllers (tgg.input.pad), so they
+-- logic frames. The buttons are read from the viewer's controllers (tgg.input.controller), so they
 -- never reach the simulation. Off while a replay plays: the replay player has its own controls
 -- on the D-pad.
 --
@@ -59,7 +59,7 @@ end
 local function pressed(): number
 	local any = 0
 	for port = 0, 3 do
-		local pad = tgg.input.pad(port)
+		local pad = tgg.input.controller(port)
 		if pad then
 			any = bit32.bor(any, pad.pressed)
 		end
@@ -100,7 +100,7 @@ tgg.on.frame(function()
 	end
 end)
 
-tgg.on.state_loaded(function()
+tgg.on.snapshot_loaded(function()
 	if usable() then
 		say("Loaded")
 		tgg.log(`loaded (states take {tgg.snapshot.bytes() // 1048576} MB)`)

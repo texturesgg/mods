@@ -4,6 +4,7 @@
 
 - A Luau script now, in place of the C library: one package for every platform and game
   layout, with nothing to compile. Plays as 0.1.4 did.
+- Made for mod API 1.0, so it keeps working on every tgg-melee 1.x.
 
 ## 0.1.4
 

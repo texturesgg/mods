@@ -24,7 +24,7 @@ Off in netplay: an offline mod, switched off by the game for a netplay session.
 
 `include/practice_stage.h` is the API a drill uses. Look the functions up with
 `tgg_mod_export("tgg.practice-stage", "practice_start@1")`, or list
-`"tgg.practice-stage": "^0.1"` in `depends` and copy the header.
+`"tgg.practice-stage": "^1.0"` in `depends` and copy the header.
 
 - `practice_start(&how)` from a menu entry's action: opens Training Mode's character select,
   and the match after it is your drill's (`how.drill` is your mod id; `keep_cpu` and
@@ -40,7 +40,7 @@ Put your drill's entry in the Practice submenu with `TGG_MENU_ADD("practice/<nam
 
 A script drill gets the same through `tgg.mod("tgg.practice-stage")` (`assets/script-api.json`):
 `start(drill, stage, keep_cpu, keep_screen)` (`""` for no stage), `drill()`, `reset_here()`,
-`reset(say)` and `has_reset()`. List `"tgg.practice-stage": "^0.1.4"` in `depends`.
+`reset(say)` and `has_reset()`. List `"tgg.practice-stage": "^1.0"` in `depends`.
 
 ## How it works
 

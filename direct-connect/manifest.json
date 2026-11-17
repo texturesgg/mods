@@ -1,11 +1,12 @@
 {
-  "api": "tgg-melee/0",
+  "api": "tgg-melee/1",
   "id": "tgg.direct-connect",
   "name": "Direct connect",
-  "version": "0.6.0",
+  "version": "1.0.0",
+  "experimental": true,
   "depends": {
-    "tgg.netplay": "^0.10",
-    "tgg.http": "^0.1"
+    "tgg.netplay": "^1.0",
+    "tgg.http": "^1.0"
   },
   "description": "Play with up to three friends online. Host a room, or join with a code or address.",
   "icon": "icon.png",

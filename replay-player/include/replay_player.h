@@ -4,7 +4,7 @@
  *
  * A mod that uses it lists the player in its manifest's "depends":
  *
- *     "depends": { "tgg.replay-player": "^0.3" }
+ *     "depends": { "tgg.replay-player": "^1.0" }
  *
  * and includes this header (copy it, or add the player's include/ to the
  * include path). */

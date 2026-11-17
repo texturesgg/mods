@@ -88,7 +88,7 @@ check.
 
 ## Requirements
 
-`tgg.netplay` 0.10 (`"depends": { "tgg.netplay": "^0.10" }`), `tgg.http` 0.1, and mod API 0.10
+`tgg.netplay` 1.0 (`"depends": { "tgg.netplay": "^1.0" }`), `tgg.http` 1.0, and mod API 1.0
 (the first with `tgg_menu_shared`).
 
 ## Build

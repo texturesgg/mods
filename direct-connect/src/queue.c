@@ -398,7 +398,7 @@ static void frame(void)
     const uint32_t in = auto_yes() ? 0 : tgg_menu_input();
     meet_poll(&dc.meet);
     if (dc.meet.state == MEET_FAILED && q.view != Q_FAILED) {
-        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_sound_menu(TGG_SOUND_ERROR);
         to_failed(dc.meet.why);
     }
     netplay_info info;
@@ -421,7 +421,7 @@ static void frame(void)
     switch (q.view) {
     case Q_CONNECT:
         if (in & TGG_MENU_BACK) {
-            tgg_menu_sound(TGG_SOUND_BACK);
+            tgg_sound_menu(TGG_SOUND_BACK);
             meet_leave();
             tgg_screen_close();
         } else if (dc.meet.state == MEET_READY || dc.meet.state == MEET_SEARCHING) {
@@ -448,17 +448,17 @@ static void frame(void)
         break;
     case Q_MODES:
         if (in & TGG_MENU_BACK) {
-            tgg_menu_sound(TGG_SOUND_BACK);
+            tgg_sound_menu(TGG_SOUND_BACK);
             meet_leave();
             tgg_screen_close();
         } else if (in & TGG_MENU_DOWN) {
             q.cursor = (q.cursor + 1) % q.n_modes;
-            tgg_menu_sound(TGG_SOUND_MOVE);
+            tgg_sound_menu(TGG_SOUND_MOVE);
         } else if (in & TGG_MENU_UP) {
             q.cursor = (q.cursor + q.n_modes - 1) % q.n_modes;
-            tgg_menu_sound(TGG_SOUND_MOVE);
+            tgg_sound_menu(TGG_SOUND_MOVE);
         } else if (in & TGG_MENU_ACCEPT) {
-            tgg_menu_sound(TGG_SOUND_ACCEPT);
+            tgg_sound_menu(TGG_SOUND_ACCEPT);
             q.mode = q.cursor;
             pick_mode();
         } else {
@@ -469,10 +469,10 @@ static void frame(void)
         break;
     case Q_NOTICE:
         if (in & TGG_MENU_BACK) {
-            tgg_menu_sound(TGG_SOUND_BACK);
+            tgg_sound_menu(TGG_SOUND_BACK);
             q.view = Q_MODES;
         } else if (in & (TGG_MENU_ACCEPT | TGG_MENU_START)) {
-            tgg_menu_sound(TGG_SOUND_ACCEPT);
+            tgg_sound_menu(TGG_SOUND_ACCEPT);
             remember_notice();
             pick_mode();
         }
@@ -484,8 +484,8 @@ static void frame(void)
             q.view = Q_MODES;
         } else if (!q.choosing) {
             /* The real character select; the stage comes from the queue's rule */
-            static const tgg_choose_how how = {.start = NULL, .stage = "melee/battlefield"};
-            if (tgg_choose_match(&how, chosen) == 0) {
+            static const tgg_match_choose_how how = {.start = NULL, .stage = "melee/battlefield"};
+            if (tgg_match_choose(&how, chosen) == 0) {
                 q.choosing = 1;
             } else {
                 q.view = Q_MODES;
@@ -494,7 +494,7 @@ static void frame(void)
         break;
     case Q_SEARCH:
         if (in & TGG_MENU_BACK) {
-            tgg_menu_sound(TGG_SOUND_BACK);
+            tgg_sound_menu(TGG_SOUND_BACK);
             back_to_modes();
         } else if (dc.meet.state == MEET_CONNECTED && info.state == NETPLAY_MISMATCH) {
             /* Shouldn't happen in a queue: same mods by its key */
@@ -503,7 +503,7 @@ static void frame(void)
         } else if (dc.meet.state == MEET_CONNECTED && info.state == NETPLAY_CONNECTED) {
             snprintf(q.opponent, sizeof q.opponent, "%s", dc.meet.peer);
             tgg_log("find a match: playing %s as side %d", q.opponent, info.side);
-            tgg_menu_sound(TGG_SOUND_ACCEPT);
+            tgg_sound_menu(TGG_SOUND_ACCEPT);
             reset_lobby();
             new_opponent();
             q.view = Q_LOBBY;
@@ -520,14 +520,14 @@ static void frame(void)
         const char* until = getenv("TGG_DIRECT_CONNECT_MATCHES");
         const int enough = until != NULL && q.games >= atoi(until);
         if ((in & TGG_MENU_BACK) || (yes && enough) || now - q.after_ms > AGAIN_MS) {
-            tgg_menu_sound(TGG_SOUND_BACK);
+            tgg_sound_menu(TGG_SOUND_BACK);
             tgg_log("find a match: someone else");
             meet_search_again();
             reset_lobby();
             q.games = 0;
             q.view = Q_SEARCH;
         } else if (((in & TGG_MENU_ACCEPT) || yes) && !q.again_me) {
-            tgg_menu_sound(TGG_SOUND_ACCEPT);
+            tgg_sound_menu(TGG_SOUND_ACCEPT);
             q.again_me = 1;
             send_text("qagain");
         }
@@ -540,7 +540,7 @@ static void frame(void)
     }
     case Q_FAILED:
         if (in & (TGG_MENU_ACCEPT | TGG_MENU_BACK | TGG_MENU_START)) {
-            tgg_menu_sound(TGG_SOUND_BACK);
+            tgg_sound_menu(TGG_SOUND_BACK);
             meet_leave();
             tgg_screen_close();
         }
@@ -576,7 +576,7 @@ static void lines(float y, const char* text)
         for (int i = 0;; i++) {
             if (p[i] == ' ' || p[i] == '\0') {
                 snprintf(line, sizeof line, "%.*s", i, p);
-                if (cut > 0 && tgg_text_width(20, line) > 520) {
+                if (cut > 0 && tgg_draw_text_width(20, line) > 520) {
                     break;
                 }
                 cut = i;
@@ -628,7 +628,7 @@ static void draw(void)
                 snprintf(text, sizeof text, "Players with your mods");
             }
             char fit[96];
-            tgg_text_fit(fit, sizeof fit, 16, 440, text);
+            tgg_draw_text_fit(fit, sizeof fit, 16, 440, text);
             tgg_draw_text(100, y + 32, 16, DIM, TGG_ALIGN_LEFT, fit);
         }
         help = "A: search   B: back";
@@ -708,11 +708,11 @@ static void start(void)
 void queue_open(void)
 {
     if (dc.mode != MODE_NONE) {
-        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_sound_menu(TGG_SOUND_ERROR);
         return;
     }
     start();
-    tgg_menu_sound(TGG_SOUND_ACCEPT);
+    tgg_sound_menu(TGG_SOUND_ACCEPT);
     tgg_screen_open(&screen);
 }
 

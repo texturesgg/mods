@@ -30,9 +30,9 @@ static void type(char c)
     if (len + 1 < sizeof dc.address) {
         dc.address[len] = c;
         dc.address[len + 1] = '\0';
-        tgg_menu_sound(TGG_SOUND_MOVE);
+        tgg_sound_menu(TGG_SOUND_MOVE);
     } else {
-        tgg_menu_sound(TGG_SOUND_ERROR);
+        tgg_sound_menu(TGG_SOUND_ERROR);
     }
 }
 
@@ -43,7 +43,7 @@ static int erase(void)
         return 0;
     }
     dc.address[len - 1] = '\0';
-    tgg_menu_sound(TGG_SOUND_BACK);
+    tgg_sound_menu(TGG_SOUND_BACK);
     return 1;
 }
 
@@ -87,7 +87,7 @@ int keyboard_frame(void)
     }
     if (in & TGG_MENU_BACK) {
         if (!erase()) {
-            tgg_menu_sound(TGG_SOUND_BACK);
+            tgg_sound_menu(TGG_SOUND_BACK);
             return -1;
         }
         return 0;
@@ -113,7 +113,7 @@ int keyboard_frame(void)
     }
     if (moved) {
         dc.key = row == ROWS ? (col < 5 ? KEY_DELETE : KEY_CONNECT) : row * COLS + col;
-        tgg_menu_sound(TGG_SOUND_MOVE);
+        tgg_sound_menu(TGG_SOUND_MOVE);
     }
     if (in & TGG_MENU_ACCEPT) {
         if (dc.key == KEY_CONNECT) {
@@ -142,7 +142,7 @@ void keyboard_draw(void)
     /* The address being typed */
     tgg_draw_rect(70, 96, 500, 48, PANEL);
     /* The text, centered, and a caret after it */
-    const float width = tgg_text_width(28, dc.address);
+    const float width = tgg_draw_text_width(28, dc.address);
     tgg_draw_text(320 - 4, 106, 28, WHITE, TGG_ALIGN_CENTER, dc.address);
     tgg_draw_rect(320 - 4 + width / 2 + 3, 108, 3, 28, GOLD);
     char full[ADDRESS_MAX + 8];

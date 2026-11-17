@@ -52,7 +52,7 @@ end
 local function pressed(): number
 	local any = 0
 	for port = 0, 3 do
-		local pad = tgg.input.pad(port)
+		local pad = tgg.input.controller(port)
 		if pad then
 			any = bit32.bor(any, pad.pressed)
 		end

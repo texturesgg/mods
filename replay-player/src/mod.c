@@ -321,8 +321,8 @@ static void on_frame(void)
     if (takeover_active()) {
         uint32_t pad = 0;
         for (int port = 0; port < 4; port++) {
-            tgg_viewer_pad p;
-            if (tgg_viewer_pad_read(port, &p)) {
+            tgg_controller_state p;
+            if (tgg_input_controller(port, &p)) {
                 pad |= p.pressed;
             }
         }
@@ -331,7 +331,7 @@ static void on_frame(void)
         }
         if (tgg_key_pressed(TGG_KEY_ESCAPE)) {
             if (from_screen) {
-                tgg_end_match();
+                tgg_match_finish();
             } else {
                 tgg_restart_back();
             }
@@ -348,7 +348,7 @@ static void on_frame(void)
              * (a disconnect) ends it here */
             if (view.ended_frames == END_WAIT) {
                 reset_controls();
-                tgg_end_match();
+                tgg_match_finish();
             }
         } else {
             if (view.ended_frames == 1) {
@@ -366,7 +366,7 @@ static void on_frame(void)
     const Keys k = keys_pressed();
     if (k.leave && from_screen) {
         reset_controls();
-        tgg_end_match();
+        tgg_match_finish();
         return;
     }
     if (k.leave) {
@@ -421,13 +421,13 @@ static void on_hud(void)
     }
     const tgg_rect b = tgg_draw_bounds();
     if (text[0] != '\0') {
-        const float w = tgg_text_width(22, text) + 20;
+        const float w = tgg_draw_text_width(22, text) + 20;
         tgg_draw_rect(b.x + 16, 16, w, 30, TGG_RGBA(0, 0, 0, 150));
         tgg_draw_text(b.x + 26, 20, 22, TGG_RGBA(255, 255, 255, 255), TGG_ALIGN_LEFT, text);
     }
     if (from_screen && view.shown_frames < 240) {
         const char* help = "Start: Pause    Left/Right: Back/Ahead    X: Take over    B: Back";
-        const float w = tgg_text_width(18, help) + 24;
+        const float w = tgg_draw_text_width(18, help) + 24;
         tgg_draw_rect(320 - w / 2, 4, w, 26, TGG_RGBA(0, 0, 0, 150));
         tgg_draw_text(320, 8, 18, TGG_RGBA(220, 225, 240, 255), TGG_ALIGN_CENTER, help);
     }

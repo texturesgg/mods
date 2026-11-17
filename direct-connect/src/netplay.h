@@ -24,7 +24,7 @@
  *
  * A mod that uses it lists netplay in its manifest's "depends":
  *
- *     "depends": { "tgg.netplay": "^0.5" }
+ *     "depends": { "tgg.netplay": "^1.0" }
  *
  * and includes this header (copy it, or add netplay's include/ to the
  * include path). */
@@ -124,7 +124,7 @@ TGG_API(NETPLAY, int, netplay_receive, (void* buf, int cap, int* from));
  * has called it, each leaves its screen for the match at the same time, and
  * its screen comes back when the match ends; the session then goes back to
  * NETPLAY_CONNECTED for the next one. A mod with shared screens calls
- * tgg_play_match instead, which comes here. Returns 0, or -1 when the session
+ * tgg_match_play instead, which comes here. Returns 0, or -1 when the session
  * isn't connected or `data` doesn't have a human player for each game. */
 TGG_API(NETPLAY, int, netplay_play, (const tgg_match* data));
 

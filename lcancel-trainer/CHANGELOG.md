@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.0
+
+- Made for mod API 1.0, so it keeps working on every tgg-melee 1.x.
+
 ## 1.1.0
 
 - Each landing is counted and logged once, after no rollback can change it. Before, the log

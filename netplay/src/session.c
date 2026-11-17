@@ -370,7 +370,7 @@ static uint32_t get_be32(const uint8_t* p)
 /* ---- The session provider (tgg/session.h) ----------------------------------
  * Once the host locks the session, this mod is the port's session: shared
  * screens run in lockstep on the menu inputs every game sends here, and
- * tgg_play_match starts a match through netplay_play. */
+ * tgg_match_play starts a match through netplay_play. */
 
 #define LOCK_RING 64
 

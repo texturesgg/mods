@@ -61,7 +61,7 @@ tgg.replay-player: not loaded: tgg.offscreen-damage. Install and turn them on, o
 
 ### The API
 
-`include/replay_player.h` is the player's API. List `"tgg.replay-player": "^0.3"` in your
+`include/replay_player.h` is the player's API. List `"tgg.replay-player": "^1.0"` in your
 manifest's `depends` and copy the header (or add this mod's `include/` to your include path).
 
 - `replay_read_summary(path, &summary)` reads what a replay holds without playing it, from

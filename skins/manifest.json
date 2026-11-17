@@ -1,8 +1,9 @@
 {
-  "api": "tgg-melee/0",
+  "api": "tgg-melee/1",
   "id": "tgg.skins",
   "name": "Skins",
-  "version": "0.2.0",
+  "version": "1.0.0",
+  "experimental": true,
   "description": "Loads the skins you picked in tgg-studio. Online, skins that change more than looks show the normal file.",
   "icon": "icon.png",
   "tags": [

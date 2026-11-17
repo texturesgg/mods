@@ -1,8 +1,8 @@
 {
-  "api": "tgg-melee/0",
+  "api": "tgg-melee/1",
   "id": "tgg.http",
   "name": "HTTP",
-  "version": "0.1.1",
+  "version": "1.0.0",
   "description": "Lets other mods make HTTPS requests and open WebSockets.",
   "icon": "icon.png",
   "tags": [

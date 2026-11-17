@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.0
+
+- Made for mod API 1.0. It uses parts of the API that still change, so each tgg-melee update comes with a new version of it.
+
 ## 0.10.0
 
 - The replay test reads damaged replay files safely, as tgg.replay-player 0.7.0 does.

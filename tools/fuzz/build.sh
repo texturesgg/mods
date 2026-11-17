@@ -19,7 +19,7 @@ common=(
     -DMTX_USE_PS -DTARGET_PC -Dbool=int
     -isystem "$sdk/include/game/0" -isystem "$sdk/include/game/1" -isystem "$sdk/game"
     -isystem "$sdk/include/game/3" -isystem "$sdk/include"
-    -include "$sdk/include/tgg/game_imports.h" -include "$sdk/include/tgg/glibc.h"
+    -include "$sdk/include/tgg/game_imports.h" -include "$sdk/include/tgg/internal/glibc.h"
     -include "$sdk/include/tgg/game/tier.h"
     -std=gnu17 -fno-strict-aliasing -fwrapv -ffp-contract=off -g -O1
     -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=undefined

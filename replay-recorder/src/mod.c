@@ -9,7 +9,7 @@
  * from its last run, and never from a guess. The file is finished (the end,
  * the metadata, the raw element's length) once the match has ended and every
  * frame is final, when the match scene has left, or when the game quits.
- * A snapshot load (state_loaded) ends the replay where the match jumped.
+ * A snapshot load (snapshot_loaded) ends the replay where the match jumped.
  *
  * Matches the replay player plays are skipped, unless the `playback`
  * setting asks for them: the player says so through its API, which this
@@ -161,18 +161,18 @@ static void on_setup(const tgg_match* setup)
         /* Added content: the replay keeps the numbers, the metadata says
          * what they are */
         if (pl->slot_type != Gm_PKind_NA) {
-            const char* id = tgg_character_id(p[0]);
+            const char* id = tgg_content_character_id(p[0]);
             if (id != NULL && strncmp(id, "melee/", 6) != 0) {
                 snprintf(m.fighters[i], sizeof m.fighters[i], "%s", id);
             }
-            const char* costume = tgg_costume_id(i);
+            const char* costume = tgg_content_costume(i);
             if (costume != NULL) {
                 snprintf(m.costumes[i], sizeof m.costumes[i], "%s", costume);
             }
         }
     }
     /* An added stage, by the number the Game Info block holds */
-    const char* stage = tgg_stage_id((m.info[0xE] << 8) | m.info[0xF]);
+    const char* stage = tgg_content_stage_id((m.info[0xE] << 8) | m.info[0xF]);
     if (stage != NULL && strncmp(stage, "melee/", 6) != 0) {
         snprintf(m.stage, sizeof m.stage, "%s", stage);
     }
@@ -344,4 +344,4 @@ static void on_state_loaded(void)
         capture_stop();
     }
 }
-TGG_ON(state_loaded, on_state_loaded);
+TGG_ON(snapshot_loaded, on_state_loaded);

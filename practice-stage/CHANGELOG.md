@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.0
+
+- Made for mod API 1.0, so it keeps working on every tgg-melee 1.x.
+
 ## 0.1.4
 
 - Scripts can start a drill and use its reset point: `tgg.mod("tgg.practice-stage")` offers `start`, `drill`, `reset_here`, `reset` and `has_reset`. The stage a drill asks for is copied, so it needn't outlive the call.

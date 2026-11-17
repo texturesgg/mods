@@ -7,7 +7,7 @@
  *     void (*start)(const practice_how*) = (void (*)(const practice_how*))
  *         tgg_mod_export("tgg.practice-stage", "practice_start@1");
  *
- * or lists "tgg.practice-stage": "^0.1" in its manifest's "depends" and
+ * or lists "tgg.practice-stage": "^1.0" in its manifest's "depends" and
  * includes this header. Every function is presentation code: a menu entry's
  * action, the frame event, hud_draw. */
 #ifndef PRACTICE_STAGE_H

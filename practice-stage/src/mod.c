@@ -228,7 +228,7 @@ static void on_hud(void)
     }
     const int left = SHOW - message_age;
     const float a = left < FADE ? (float) left / FADE : 1.0f;
-    const float w = tgg_text_width(22, message) + 28;
+    const float w = tgg_draw_text_width(22, message) + 28;
     tgg_draw_rect(320 - w / 2, 96, w, 32, TGG_RGBA(0, 0, 0, 150 * a));
     tgg_draw_text(320, 100, 22, TGG_RGBA(255, 255, 255, 255 * a), TGG_ALIGN_CENTER, message);
 }
@@ -280,7 +280,7 @@ static void before_sss_cursor(HSD_GObj* gobj)
         return;
     }
     for (int i = 0; i < 30; i++) {
-        if (stage_icons[i].stkind == tgg_stage_kind(drill.how.stage) && stage_icons[i].shown &&
+        if (stage_icons[i].stkind == tgg_content_stage_number(drill.how.stage) && stage_icons[i].shown &&
             stage_icons[i].icon != NULL)
         {
             Vec3 at;

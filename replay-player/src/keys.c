@@ -11,8 +11,8 @@ Keys keys_pressed(void)
     Keys k = { 0 };
     uint32_t pad = 0;
     for (int port = 0; port < 4; port++) {
-        tgg_viewer_pad p;
-        if (tgg_viewer_pad_read(port, &p)) {
+        tgg_controller_state p;
+        if (tgg_input_controller(port, &p)) {
             pad |= p.pressed;
             if ((p.pressed & TGG_BUTTON_X) && k.take == 0) {
                 k.take = port + 1;
