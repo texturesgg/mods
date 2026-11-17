@@ -115,6 +115,9 @@ static const struct {
     { 0x800D4C1C, "tgg.freeze-dead-up-fall", "Online/Core/FreezeDeadUpFallPhysics" },
     { 0x801D24FC, "tgg.stadium-monitor", "Common/PSCameraIndependentMonitor" },
     { 0x801D45EC, "tgg.stadium-preload", "Common/Preload Stadium Transformations" },
+    { 0x8008653C, "tgg.whispy-blow-dir-fix", "Online/Core/WhispyBlowDirFix" },
+    { 0x800DB880, "tgg.prevent-wobbling", "External/PreventWobbling" },
+    { 0x801239A8, "tgg.freeze-glitch-fix", "External/FreezeGlitchFix" },
 };
 
 /* Whether the console's gecko list writes or injects at `address` (a C2
@@ -132,8 +135,8 @@ static int injects(const uint8_t* gecko, size_t len, uint32_t address)
 }
 
 /* Slippi 3.17 and later run UCF 0.84 (its pad buffer at 0x8006B460), which is
- * tgg.ucf 0.84. Slippi 3.9 to 3.16 ran UCF 0.8 (its tumble code at
- * 0x800908F4), which is tgg.ucf 0.8 */
+ * tgg.ucf. Slippi 3.9 to 3.16 ran UCF 0.8 (its tumble code at
+ * 0x800908F4), which is tgg.ucf-legacy */
 static int modern_ucf(const uint8_t* gecko, size_t len)
 {
     return injects(gecko, len, 0x8006B460);
@@ -147,7 +150,7 @@ static int legacy_ucf(const uint8_t* gecko, size_t len)
 int player_rule_mods(const uint8_t* gecko, size_t len, int stage, int transformations,
                      int missing_only, char* out, size_t cap)
 {
-    const char* mods[8];
+    const char* mods[sizeof rule_codes / sizeof *rule_codes + 2];
     int n = 0;
     for (size_t i = 0; i < sizeof rule_codes / sizeof *rule_codes; i++) {
         if (injects(gecko, len, rule_codes[i].address)) {
@@ -159,8 +162,10 @@ int player_rule_mods(const uint8_t* gecko, size_t len, int stage, int transforma
     if (stage == 3 && transformations == 0) {
         mods[n++] = "tgg.frozen-stadium";
     }
-    if (modern_ucf(gecko, len) || legacy_ucf(gecko, len)) {
+    if (modern_ucf(gecko, len)) {
         mods[n++] = "tgg.ucf";
+    } else if (legacy_ucf(gecko, len)) {
+        mods[n++] = "tgg.ucf-legacy";
     }
     size_t used = 0;
     int listed = 0;
@@ -198,12 +203,14 @@ void player_log_rules(const Slp* slp)
         tgg_log("not loaded: %s. Install and turn them on, or the match plays out differently.",
                 missing);
     }
-    const char* ucf = tgg_mod_loaded("tgg.ucf");
+    /* tgg.ucf (UCF 0.84) and tgg.ucf-legacy (UCF 0.8) each change a match, so
+     * the other one being loaded too plays it out differently */
     const int legacy = legacy_ucf(slp->gecko, slp->gecko_len);
-    if (ucf != NULL && (legacy || modern_ucf(slp->gecko, slp->gecko_len)) &&
-        (strncmp(ucf, "0.8.", 4) == 0) != legacy)
+    const int modern = modern_ucf(slp->gecko, slp->gecko_len);
+    if ((legacy && tgg_mod_loaded("tgg.ucf") != NULL) ||
+        (modern && tgg_mod_loaded("tgg.ucf-legacy") != NULL))
     {
-        tgg_log("it ran UCF %s, but tgg.ucf %s is loaded, so the match may play out differently",
-                legacy ? "0.8" : "0.84", ucf);
+        tgg_log("it ran UCF %s, but %s is loaded too, so the match may play out differently",
+                legacy ? "0.8" : "0.84", legacy ? "tgg.ucf" : "tgg.ucf-legacy");
     }
 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0
+
+- Every match starts the stage state the game carries between matches (Princess Peach's Castle's wind, Kongo Jungle's log bridge) as a fresh game has it, so the replay player plays it back the same.
+
 ## 0.4.0
 
 - A replay says which unlocks the save had (`tgg.unlocks` in the metadata), since a match's setup reads them, so the replay player can play it back on the same.

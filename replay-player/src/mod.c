@@ -59,6 +59,16 @@ static int loaded;
 /* It came from a screen (replay_play), which comes back after */
 static int from_screen;
 
+/* While a replay is loaded its matches start fresh, as a recording's did
+ * (tgg_match_start_fresh) */
+static void set_loaded(int now)
+{
+    if (now != loaded) {
+        tgg_match_start_fresh(now);
+    }
+    loaded = now;
+}
+
 /* What the simulation counts from frame to frame */
 static struct {
     int set_up;      /* the replay's match was set up */
@@ -82,7 +92,7 @@ static const char* load(const char* path)
     free(slp.frames);
     free(slp.gecko);
     memset(&slp, 0, sizeof slp);
-    loaded = 0;
+    set_loaded(0);
     memset(&st, 0, sizeof st);
     memset(&view, 0, sizeof view);
     const char* why = slp_read(path, &slp);
@@ -93,7 +103,7 @@ static const char* load(const char* path)
         tgg_log("%s: %s", path, why);
         return why;
     }
-    loaded = 1;
+    set_loaded(1);
     tgg_log("playing %s", path);
     player_log_rules(&slp);
     return NULL;
@@ -131,7 +141,7 @@ int replay_play(const char* path, const char** why)
     player_match(&slp, &match);
     takeover_reset(&match);
     if (tgg_screen_play_match(&match) != 0) {
-        loaded = 0;
+        set_loaded(0);
         *why = "a replay plays from a screen";
         return -1;
     }
@@ -265,7 +275,7 @@ TGG_ON(tick_end, on_tick_end);
 static void on_match_end(void)
 {
     if (from_screen && !tgg_resim()) {
-        loaded = 0;
+        set_loaded(0);
         from_screen = 0;
     }
 }

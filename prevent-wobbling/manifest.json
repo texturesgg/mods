@@ -1,0 +1,29 @@
+{
+  "api": "tgg-melee/0",
+  "id": "tgg.prevent-wobbling",
+  "name": "Prevent wobbling",
+  "version": "1.0.0",
+  "description": "Stops wobbling, like Slippi online.",
+  "icon": "icon.png",
+  "tags": [
+    "competitive",
+    "netplay"
+  ],
+  "slippi": [
+    {
+      "code": "0x8008F090",
+      "name": "Prevent wobbling: Wobble Check",
+      "versions": ">=3.14"
+    },
+    {
+      "code": "0x800DB880",
+      "name": "Prevent wobbling: Init Wobble Count Air",
+      "versions": ">=3.14"
+    },
+    {
+      "code": "0x800DBBD4",
+      "name": "Prevent wobbling: Init Wobble Count Ground",
+      "versions": ">=3.14"
+    }
+  ]
+}

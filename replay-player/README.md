@@ -47,8 +47,8 @@ need it, or neither.
 ### Slippi's rules
 
 A replay plays out as recorded only with the rules its console ran. Slippi adds some
-(neutral spawns, online off-screen damage, frozen Pokémon Stadium, UCF), and
-separate mods reproduce them. At startup the log says which ones this replay needs and
+(neutral spawns, online off-screen damage, frozen Pokémon Stadium, UCF, prevent wobbling and
+more), and separate mods reproduce them. At startup the log says which ones this replay needs and
 which aren't loaded:
 
 ```text

@@ -1,0 +1,19 @@
+{
+  "api": "tgg-melee/0",
+  "id": "tgg.freeze-glitch-fix",
+  "name": "Freeze glitch fix",
+  "version": "1.0.0",
+  "description": "Stops the Ice Climbers freeze glitch, like Slippi.",
+  "icon": "icon.png",
+  "tags": [
+    "competitive",
+    "netplay"
+  ],
+  "slippi": [
+    {
+      "code": "0x801239A8",
+      "name": "Prevent freeze glitch",
+      "versions": "*"
+    }
+  ]
+}

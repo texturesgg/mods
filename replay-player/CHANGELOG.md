@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.0
+
+- Matches start the stage state the game carries between matches (Princess Peach's Castle's wind, Kongo Jungle's log bridge) as a fresh game has it while a replay is loaded, as Slippi does.
+- The rules a replay needs include prevent wobbling, the Ice Climbers freeze glitch fix and the Whispy blow direction fix, and name `tgg.ucf-legacy` for replays that ran UCF 0.8.
+
 ## 0.6.0
 
 - A replay from the port's recorder plays with the unlocks it was recorded with, instead of everything unlocked, so a match recorded on a partly unlocked save plays back the same. Other replays still play with everything unlocked.

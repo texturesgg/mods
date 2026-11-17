@@ -18,6 +18,8 @@ mod names the code it follows.
 - `whispy-blow-dir-fix`: `Online/Core/WhispyBlowDirFix`
 - `stadium-monitor`: `Common/PSCameraIndependentMonitor`
 - `stadium-preload`: `Common/Preload Stadium Transformations`
+- `prevent-wobbling`: `External/PreventWobbling` (UnclePunch)
+- `freeze-glitch-fix`: `External/FreezeGlitchFix` (tauKhan)
 
 `netplay`, `replay-player` and `replay-recorder` read and write Slippi's replay format
 (`.slp`), as its [specification](https://github.com/project-slippi/slippi-wiki/blob/master/SPEC.md)

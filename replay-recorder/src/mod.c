@@ -83,6 +83,8 @@ TGG_GAME_SYMBOL(pad_copy, "HSD_PadCopyStatus");
 static void init(void)
 {
     player_playing = (int (*)(void)) tgg_mod_export("tgg.replay-player", "replay_playing@1");
+    /* Every match starts fresh, as the player plays the replay */
+    tgg_match_start_fresh(1);
 }
 TGG_INIT(init);
 

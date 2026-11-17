@@ -14,7 +14,7 @@ Most are Luau scripts: a folder with `manifest.json` (`"script": true`), `script
 The rest are C, for what a script can't do: sockets, files, replays, loading files from outside
 the mod, and patches to the game's own functions. Those are `netplay`, `direct-connect`,
 `http`, `replay-recorder`, `replay-player`, `replay-browser`, `skins`, `practice-stage`,
-`stadium-preload` and `freeze-dead-up-fall`.
+`stadium-preload`, `freeze-dead-up-fall`, `prevent-wobbling` and `freeze-glitch-fix`.
 
 Both kinds build against the tgg-melee mod SDK:
 
