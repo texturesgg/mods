@@ -190,8 +190,9 @@ TGG_API(NETPLAY, int, netplay_relay,
  * gave it, 0 while asking, -1 without a relay or when it failed. */
 TGG_API(NETPLAY, int, netplay_relay_address, (char* out, int cap));
 
-/* A joiner: more of the host's addresses (its relay address, kind "relay"),
- * said hello to for another ten seconds. */
+/* More of another game's addresses, said hello to for another ten seconds. A
+ * joiner adds the host's relay address (kind "relay"); the host adds each game
+ * the meeting point sends its way after the first, until it locks. */
 TGG_API(NETPLAY, void, netplay_add_candidates,
         (const char* const* addrs, const char* const* kinds, int n));
 

@@ -62,7 +62,7 @@ List it in your manifest and include `include/netplay.h` (copy it, or add netpla
 | `netplay_nat()` | what the router does: "easy" (punching works), "hard" (a new public port for each destination) or "unknown", for the meeting point |
 | `netplay_open_meet(side, addrs, kinds, n, token, &why)` | opens the session the meeting point set up, on the other games' addresses, with its session token |
 | `netplay_route(&ms)` | which kind of address got through first, and how long it took |
-| `netplay_relay(server, user, pass, &why)`, `netplay_relay_address`, `netplay_add_candidates`, `netplay_relay_bytes` | the host takes a relay on a TURN server; the others add its relay address |
+| `netplay_relay(server, user, pass, &why)`, `netplay_relay_address`, `netplay_add_candidates`, `netplay_relay_bytes` | the host takes a relay on a TURN server and the others add its relay address; the host adds games that arrive after the first through the meeting point |
 
 Call these from presentation code (a screen's functions or a PRESENT event), never from
 simulation code. `tgg.direct-connect` is a complete example of a mod built on them.

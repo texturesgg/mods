@@ -408,14 +408,38 @@ int net_relay(const char* server, const char* user, const char* pass)
     return 0;
 }
 
+/* Makes room for one more candidate by dropping the oldest that isn't a peer's
+ * address; 0 when every one is */
+static int drop_oldest_candidate(void)
+{
+    for (int i = 0; i < n_candidates; i++) {
+        int peer = 0;
+        for (int p = 0; p < n_peers && !punching; p++) {
+            peer |= tgg_net_addr_equal(&candidates[i], &peers[p]);
+        }
+        if (!peer) {
+            memmove(&candidates[i], &candidates[i + 1],
+                    (size_t) (n_candidates - i - 1) * sizeof candidates[0]);
+            memmove(candidate_kinds[i], candidate_kinds[i + 1],
+                    (size_t) (n_candidates - i - 1) * sizeof candidate_kinds[0]);
+            n_candidates--;
+            return 1;
+        }
+    }
+    return 0;
+}
+
 void net_add_candidates(const char* const* addrs, const char* const* kinds, int n)
 {
-    for (int i = 0; i < n && n_candidates < NET_CANDIDATES; i++) {
+    for (int i = 0; i < n; i++) {
         tgg_net_addr a;
         if (addrs[i] == NULL || tgg_net_resolve(addrs[i], 0, &a) != TGG_NET_OK || a.port == 0 ||
             candidate_of(&a) >= 0)
         {
             continue;
+        }
+        if (n_candidates == NET_CANDIDATES && !drop_oldest_candidate()) {
+            break;
         }
         candidates[n_candidates] = a;
         snprintf(candidate_kinds[n_candidates], sizeof candidate_kinds[0], "%s",

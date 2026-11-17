@@ -46,8 +46,9 @@ const char* net_peer_name(int peer);
 
 /* ---- The meeting point: the socket opened early, and punching */
 
-/* The most candidate addresses of the other games */
-#define NET_CANDIDATES 16
+/* The most candidate addresses of the other games: three joiners of up to 8 each, and
+ * room for a joiner that comes back; past it the oldest that isn't a peer goes */
+#define NET_CANDIDATES 32
 /* How long to keep saying hello to candidates that haven't answered */
 #define PUNCH_MS 10000.0
 

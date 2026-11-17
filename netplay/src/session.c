@@ -1084,8 +1084,12 @@ static void on_frame(void)
             send_hello(l);
         }
     }
-    if (ss.token != 0 && (ss.state == NETPLAY_WAITING || ss.state == NETPLAY_CONNECTING)) {
+    if (ss.token != 0 && !ss.locked) {
+        /* The host keeps punching to games the meeting point adds
+         * (netplay_add_candidates) until it locks */
         punch(now);
+    }
+    if (ss.token != 0 && (ss.state == NETPLAY_WAITING || ss.state == NETPLAY_CONNECTING)) {
         if (net_punch_age_ms() > PUNCH_MS && !ss.link[0].greeted) {
             net_punch_report();
             session_fail("Couldn't connect to the other player through the routers.");
