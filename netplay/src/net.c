@@ -46,7 +46,8 @@ static const char* open_socket(int port)
 }
 
 /* TGG_NETPLAY_NO_DIRECT=1, for testing the relay on one network: every datagram
- * from another game that didn't come through a relay is dropped */
+ * from another game that didn't come through a relay is dropped, and none is
+ * sent to another game but at a relay address (direct_ok) */
 static int no_direct(void)
 {
     static int v = -1;
@@ -146,6 +147,16 @@ static int candidate_of(const tgg_net_addr* a)
     return -1;
 }
 
+/* Whether a datagram may go straight to an address (TGG_NETPLAY_NO_DIRECT) */
+static int direct_ok(const tgg_net_addr* to)
+{
+    if (!no_direct()) {
+        return 1;
+    }
+    const int c = candidate_of(to);
+    return c >= 0 && strcmp(candidate_kinds[c], "relay") == 0;
+}
+
 static void punched(int candidate)
 {
     if (punched_ms < 0 && candidate >= 0) {
@@ -181,7 +192,9 @@ void net_punch_send(const void* data, size_t len)
             taken |= tgg_net_addr_equal(&candidates[i], &peers[p]);
         }
         if (!taken) {
-            (void) tgg_net_send(sock, &candidates[i], data, len);
+            if (direct_ok(&candidates[i])) {
+                (void) tgg_net_send(sock, &candidates[i], data, len);
+            }
             turn_send(&candidates[i], data, len); /* nothing until a relay is up */
         }
     }
@@ -211,7 +224,9 @@ void net_send_now(int peer, const void* data, size_t len)
     if (punching && peer == 0) {
         if (net_punch_age_ms() <= PUNCH_MS) {
             for (int i = 0; i < n_candidates; i++) {
-                (void) tgg_net_send(sock, &candidates[i], data, len);
+                if (direct_ok(&candidates[i])) {
+                    (void) tgg_net_send(sock, &candidates[i], data, len);
+                }
             }
         }
         return;
@@ -220,14 +235,16 @@ void net_send_now(int peer, const void* data, size_t len)
         turn_send(&peers[peer], data, len);
         return;
     }
-    (void) tgg_net_send(sock, &peers[peer], data, len);
+    if (direct_ok(&peers[peer])) {
+        (void) tgg_net_send(sock, &peers[peer], data, len);
+    }
 }
 
 void net_reply(const void* data, size_t len)
 {
     if (sock != NULL && have_last && last_via_relay) {
         turn_send(&last_from, data, len);
-    } else if (sock != NULL && have_last) {
+    } else if (sock != NULL && have_last && direct_ok(&last_from)) {
         (void) tgg_net_send(sock, &last_from, data, len);
     }
 }
@@ -397,9 +414,13 @@ int net_relay(const char* server, const char* user, const char* pass)
     if (sock == NULL || turn_start(sock, server, user, pass) != 0) {
         return -1;
     }
-    if (no_direct()) {
+    /* A test's TURN server on this machine relays for the games on it */
+    tgg_net_addr at;
+    if (no_direct() ||
+        (tgg_net_resolve(server, 0, &at) == TGG_NET_OK && at.family == TGG_NET_IPV4 && at.ip[0] == 127))
+    {
         tgg_net_addr loopback = {.family = TGG_NET_IPV4, .ip = {127, 0, 0, 1}};
-        turn_permit(&loopback, 1); /* the test's TURN server is on this machine */
+        turn_permit(&loopback, 1);
     }
     for (int i = 0; i < n_candidates; i++) {
         turn_permit(&candidates[i], 0);
