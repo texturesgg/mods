@@ -4,6 +4,7 @@
 
 - Made for mod API 1.0. It uses parts of the API that still change, so each tgg-melee update comes with a new version of it.
 - A host opened through the meeting point keeps punching to games added with `netplay_add_candidates` until it locks, so rooms of three and four meet each joiner as it arrives. Up to 32 candidate addresses, the oldest that isn't a player's dropped first.
+- A tied match's sudden death is played together as the next match. It used to run on each game alone, so the games drifted apart and stalled at the next match.
 
 ## 0.10.0
 
