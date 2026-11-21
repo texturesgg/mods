@@ -594,6 +594,21 @@ static void got(const char* msg)
     }
 }
 
+/* The host: games it met that are still in the room but haven't come through */
+static int met_missing(const netplay_info* info)
+{
+    int here = 0;
+    for (int i = 0; i < m.st.n_peers; i++) {
+        for (int k = 0; k < m.st.n_members; k++) {
+            if (strcmp(m.st.peers[i], m.st.members[k]) == 0) {
+                here++;
+                break;
+            }
+        }
+    }
+    return 1 + here - info->players;
+}
+
 /* The host: no direct way through after 3 seconds, so ask for a relay and tell the
  * others its address; once relayed, report its bytes each minute */
 static void relay_step(void)
@@ -612,11 +627,15 @@ static void relay_step(void)
         m.st.left[0] = '\0';
         send_json("{\"type\":\"room.lock\"}");
     }
-    /* Only the first game met decides on a relay: joiners met after it use the
-     * host's relay when it has one (the room passes its address on) */
-    if (m.step == STEP_PUNCH && !m.relay_asked && netplay_route(&ms)[0] == '\0' &&
-        (m.relay_now || now - m.met_ms > 3000))
-    {
+    /* The first game met, or a room's joiner met after the host reached
+     * another (directly, so it has no relay yet), that hasn't come through in
+     * 3 seconds. The room passes the host's relay address on to every joiner,
+     * later ones too. */
+    const int first_stuck = m.step == STEP_PUNCH && netplay_route(&ms)[0] == '\0' &&
+                            (m.relay_now || now - m.met_ms > 3000);
+    const int late_stuck = m.step == STEP_DONE && room_host() && !info.locked &&
+                           now - m.last_meet_ms > 3000 && met_missing(&info) > 0;
+    if (!m.relay_asked && (first_stuck || late_stuck)) {
         m.relay_asked = 1;
         tgg_log("meet: no direct way through yet, asking for a relay");
         send_json("{\"type\":\"relay.request\"}");
