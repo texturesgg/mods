@@ -1,0 +1,10 @@
+# gitleaks' default rules, without the PEM header and footer strings Mbed TLS
+# (vendored in tgg.http) defines for its key parser. They aren't keys.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Mbed TLS PEM header and footer constants"
+targetRules = ["private-key"]
+paths = ['''^http/src/mbedtls/pk_internal\.h$''']
+
