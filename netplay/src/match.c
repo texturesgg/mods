@@ -65,6 +65,11 @@ static struct {
     int pending;      /* set up for, its match_setup hasn't come */
     int live;         /* its frames are running */
     int over;         /* it ended */
+    int ended_now;    /* it ended, and no frame has run since */
+    int next;         /* a tied match's sudden death follows: it starts once
+                       * every link has this match's inputs (next_ready) */
+    uint32_t next_hash;
+    int next_seen[NET_PEERS]; /* a packet of the sudden death came on the link */
     int abandoned;    /* the session ended during it: no more holding */
     int reported;     /* its summary is in the log */
     uint32_t seed;
@@ -405,6 +410,11 @@ void match_got_inputs(int link, const WireInputs* in)
 {
     session_got_ping(link, in->ping);
     session_got_pong(link, in->pong, in->pong_age);
+    if (mt.next && in->number == mt.number + 1) {
+        /* That game is in the sudden death: it had all of this match's inputs */
+        mt.next_seen[link] = 1;
+        return;
+    }
     if (in->number != mt.number || mt.number == 0) {
         return;
     }
@@ -549,11 +559,47 @@ static int others_known(void)
     return known;
 }
 
+/* Whether every link has this match's inputs from this game, or is in the
+ * sudden death after it already */
+static int next_ready(void)
+{
+    for (int l = 0; l < net_peers(); l++) {
+        for (int s = 0; s < mt.players && ss.link[l].greeted && !mt.next_seen[l]; s++) {
+            if (link_needs(l, s) && mt.acked[l][s] < mt.last[s]) {
+                return 0;
+            }
+        }
+    }
+    return 1;
+}
+
+/* The sudden death, as the next match: the same players, its number after
+ * this one's */
+static void begin_next(void)
+{
+    const int players = mt.players;
+    int ports[SIDES];
+    memcpy(ports, mt.ports, sizeof ports);
+    const int controller = mt.controller;
+    const uint32_t hash = mt.next_hash;
+    reset(mt.number + 1, mt.seed);
+    mt.players = players;
+    memcpy(mt.ports, ports, sizeof ports);
+    mt.controller = controller;
+    mt.pending = 0;
+    mt.live = 1;
+    mt.hash = hash;
+    mt.started_ms = net_now_ms();
+    tgg_log("match %u: sudden death, %d games, side %d plays port %d", mt.number, mt.players,
+            ss.side, mt.ports[ss.side] + 1);
+}
+
 static void on_advance(tgg_advance* adv)
 {
     if (ss.state == NETPLAY_OFF || ss.state == NETPLAY_FAILED) {
         return;
     }
+    mt.ended_now = 0;
     if (ss.env && !ss.locked) {
         /* Before the boot's match: hold until the session is on (the frame
          * event says it) */
@@ -574,6 +620,19 @@ static void on_advance(tgg_advance* adv)
     session_receive();
     if (ss.state != NETPLAY_PLAYING || mt.abandoned) {
         return;
+    }
+    if (mt.next) {
+        if (!next_ready()) {
+            /* The tied match's last inputs go on until every game has them:
+             * a game that lacks one can't leave that match */
+            session_send_lobby(0);
+            send_all_inputs();
+            if (adv->frame >= 0) {
+                hold(adv, adv->frame);
+            }
+            return;
+        }
+        begin_next();
     }
     if (adv->frame < 0 || !mt.live) {
         /* Loading the match: keep in touch, and say what a joiner may still
@@ -656,14 +715,22 @@ TGG_ON(advance, on_advance);
  * games have the same one */
 static void on_setup(const tgg_match* data)
 {
-    if (!mt.pending || (ss.state != NETPLAY_PLAYING && !ss.env)) {
+    if (mt.live && mt.over && mt.ended_now && !mt.abandoned && ss.state == NETPLAY_CONNECTED) {
+        /* A match set up with no frame since the last one ended: a tie's
+         * sudden death, which every game enters from the same frame. The
+         * games play it as the next match. */
+        mt.next = 1;
+        mt.seed = mt.seed * 1664525u + 1013904223u;
+        session_match_continues(mt.number + 1);
+    } else if (!mt.pending || (ss.state != NETPLAY_PLAYING && !ss.env)) {
         return;
+    } else {
+        mt.pending = 0;
+        mt.live = 1;
+        mt.seed = ss.env ? ss.seed : mt.seed;
     }
-    mt.pending = 0;
-    mt.live = 1;
     /* match_seed gives the same seed: the port starts the first frame from it
      * too, whatever the setup drew from this game's save */
-    mt.seed = ss.env ? ss.seed : mt.seed;
     *HSD_RandSeedPtr = mt.seed;
     uint32_t h = 0x811c9dc5u;
     /* The rules (console offsets 0x00-0x37: kind, timer, stocks, items,
@@ -676,7 +743,12 @@ static void on_setup(const tgg_match* data)
         h = (h ^ data->console[i]) * 0x01000193u;
     }
     h = (h ^ (uint32_t) tgg_match_stage_number(data)) * 0x01000193u;
-    mt.hash = h != 0 ? h : 1;
+    h = h != 0 ? h : 1;
+    if (mt.next) {
+        mt.next_hash = h; /* the tied match's packets still carry its own */
+    } else {
+        mt.hash = h;
+    }
 }
 TGG_ON(match_setup, on_setup);
 
@@ -797,6 +869,7 @@ static void on_match_end(void)
         return;
     }
     mt.over = 1;
+    mt.ended_now = 1;
     report(1);
     session_match_over();
 }

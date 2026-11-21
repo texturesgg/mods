@@ -1037,6 +1037,15 @@ void session_match_over(void)
     }
 }
 
+void session_match_continues(uint32_t number)
+{
+    if (ss.state == NETPLAY_CONNECTED) {
+        ss.state = NETPLAY_PLAYING;
+        ss.matches--; /* the sudden death ends it */
+    }
+    sn.last_number = number;
+}
+
 /* The host, through the meeting point: says hello to every candidate of the
  * games on their way, every 100 ms, so its router lets their hellos in */
 static void punch(double now)

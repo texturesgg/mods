@@ -366,6 +366,8 @@ void session_send_packet(int link, const WirePacket* p);
 void session_fail(const char* why);
 /* A match ended: back to CONNECTED */
 void session_match_over(void);
+/* It tied and its sudden death follows as match `number`: PLAYING again */
+void session_match_continues(uint32_t number);
 /* The clock in packets */
 uint32_t session_clock(void);
 /* The round trip on `link`: a ping came back, `age` ms after it was had */
