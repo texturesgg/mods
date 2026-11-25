@@ -255,6 +255,7 @@ const char* slp_read(const char* path, Slp* slp)
 
     int have_start = 0;
     int last_post = SLP_FIRST_FRAME - 1;
+    int prev_stocks[4] = { -1, -1, -1, -1 };
     while (at < end) {
         const uint8_t cmd = data[at];
         const uint16_t size = sizes[cmd];
@@ -289,8 +290,22 @@ const char* slp_read(const char* path, Slp* slp)
                 break;
             }
             const int32_t frame = (int32_t) slp_be32(e + 1);
-            if (e[5] <= 3 && e[6] == 0 && frame > last_post) {
-                last_post = frame;
+            const uint8_t port = e[5];
+            if (port <= 3 && e[6] == 0) {
+                if (frame > last_post) {
+                    last_post = frame;
+                }
+                if (HAS(size, 0x21, 1)) {
+                    const int stocks = (int) e[0x21];
+                    if (prev_stocks[port] >= 0 && stocks < prev_stocks[port] && frame >= 0 &&
+                        slp->n_stock_events < SLP_MAX_STOCK_EVENTS)
+                    {
+                        slp->stock_events[slp->n_stock_events].frame = frame;
+                        slp->stock_events[slp->n_stock_events].port = port;
+                        slp->n_stock_events++;
+                    }
+                    prev_stocks[port] = stocks;
+                }
             }
             break;
         }

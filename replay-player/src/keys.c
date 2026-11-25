@@ -29,5 +29,7 @@ Keys keys_pressed(void)
                (pad & TGG_BUTTON_DOWN);
     k.normal = tgg_key_pressed(TGG_KEY_0) || (pad & TGG_BUTTON_Z);
     k.leave = tgg_key_pressed(TGG_KEY_ESCAPE) || (pad & TGG_BUTTON_B);
+    k.hud_toggle = tgg_key_pressed(TGG_KEY_TAB) || tgg_key_pressed(TGG_KEY_A + ('h' - 'a')) ||
+                   (pad & TGG_BUTTON_Y);
     return k;
 }

@@ -19,6 +19,14 @@
 /* The size of the save a match's setup reads its unlocks from (GmSaveData) */
 #define SLP_SAVE_SIZE 0x1790
 
+/* Most stock-loss markers extracted for the timeline scrubber */
+#define SLP_MAX_STOCK_EVENTS 64
+
+typedef struct SlpStockEvent {
+    int frame;    /* replay frame (from SLP_FIRST_FRAME) where stock dropped */
+    uint8_t port; /* 0..3 */
+} SlpStockEvent;
+
 /* One port's pre-frame update: the inputs the game used that frame. */
 typedef struct SlpInput {
     uint8_t have;
@@ -62,6 +70,9 @@ typedef struct Slp {
     int n_unlocks;
     uint16_t unlock_at[SLP_SAVE_SIZE];
     uint8_t unlock_value[SLP_SAVE_SIZE];
+    /* Stock-loss events extracted from post-frame updates for the timeline bar */
+    SlpStockEvent stock_events[SLP_MAX_STOCK_EVENTS];
+    int n_stock_events;
 } Slp;
 
 /* Reads `path` into `slp`. Returns NULL, or what's wrong with the file. */

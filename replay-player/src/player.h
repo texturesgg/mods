@@ -31,7 +31,7 @@ int player_rule_mods(const uint8_t* gecko, size_t len, int stage, int transforma
 /* The controls the player reads, each nonzero on the frame it's pressed.
  * `take` is the controller that pressed X, plus one (0: none). */
 typedef struct Keys {
-    int pause, step, faster, slower, normal, leave, rewind, take;
+    int pause, step, faster, slower, normal, leave, rewind, take, hud_toggle;
 } Keys;
 
 /* takeover.c: rewinding, skipping ahead, and taking over from a replay */
@@ -48,6 +48,8 @@ int takeover_source(int port);
 void takeover_advance(int replay_frame);
 /* Back a couple of seconds; 0 or -1 */
 int takeover_rewind(int replay_frame);
+/* Oldest snapshot frame kept for rewind, or SLP_FIRST_FRAME - 1 if none */
+int takeover_rewind_oldest(void);
 /* Ahead about 10 seconds, fast */
 void takeover_skip(void);
 /* Opens the takeover panel, `controller` (0 to 3) playing the first player */

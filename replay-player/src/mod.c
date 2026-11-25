@@ -36,6 +36,7 @@
 #include "tgg/input.h"
 #include "tgg/restart.h"
 #include "tgg/screen.h"
+#include "tgg/settings.h"
 
 #include <melee/gm/gmscene.h>
 #include <melee/gm/gmvs.h>
@@ -53,6 +54,13 @@
 /* Displayed frames a replay a screen started waits past its end for the
  * game to end the match itself */
 #define END_WAIT 120
+/* Displayed frames the timeline bar stays visible after a control press in Auto mode */
+#define HUD_AUTO_FRAMES 240
+
+enum { TIMELINE_AUTO = 0, TIMELINE_ALWAYS = 1, TIMELINE_HIDDEN = 2 };
+static int setting_timeline;
+TGG_SETTING_CHOICE_LOCAL(setting_timeline, "timeline", "Timeline bar", TIMELINE_AUTO, "Auto",
+                         "Always", "Hidden");
 
 /* The replay, read outside a match and only read during one */
 static Slp slp;
@@ -86,6 +94,8 @@ static struct {
     int ended_frames; /* displayed frames since it ended */
     int changed;      /* the viewer paused or changed the speed */
     int was_in_match;
+    int hud_timer;    /* remaining displayed frames to keep Auto timeline up */
+    int hud_pinned;   /* 0: follow setting, 1: pinned on, -1: hidden until toggled */
 } view;
 
 static const char* load(const char* path)
@@ -315,7 +325,13 @@ static void on_frame(void)
     if (!loaded) {
         return;
     }
+    if (view.shown_frames == 0) {
+        view.hud_timer = HUD_AUTO_FRAMES;
+    }
     view.shown_frames++;
+    if (view.hud_timer > 0) {
+        view.hud_timer--;
+    }
     /* Taken over, it's the players' match: every button on the controllers
      * goes to the game, and only D-pad left (back to the takeover point) and
      * Escape (leave) are the player's */
@@ -373,13 +389,31 @@ static void on_frame(void)
     if (k.leave) {
         tgg_restart_back();
     }
+    if (k.hud_toggle) {
+        if (view.hud_pinned == 1) {
+            view.hud_pinned = -1;
+            view.hud_timer = 0;
+        } else if (view.hud_pinned == -1) {
+            view.hud_pinned = 1;
+        } else {
+            const int currently_on =
+                setting_timeline == TIMELINE_ALWAYS ||
+                (setting_timeline == TIMELINE_AUTO && view.hud_timer > 0);
+            view.hud_pinned = currently_on ? -1 : 1;
+            if (view.hud_pinned < 0) {
+                view.hud_timer = 0;
+            }
+        }
+    }
     if (k.pause) {
         tgg_pause(!tgg_paused());
         view.changed = 1;
+        view.hud_timer = HUD_AUTO_FRAMES;
         tgg_log(tgg_paused() ? "paused at frame %d" : "playing from frame %d",
                 tgg_paused() ? st.frame - 1 : st.frame);
     }
     if (k.step) {
+        view.hud_timer = HUD_AUTO_FRAMES;
         if (tgg_paused()) {
             tgg_step(1);
         } else {
@@ -387,6 +421,7 @@ static void on_frame(void)
         }
     }
     if (k.rewind) {
+        view.hud_timer = HUD_AUTO_FRAMES;
         takeover_rewind(st.frame);
     }
     if (k.take && !st.ended) {
@@ -395,12 +430,73 @@ static void on_frame(void)
     if (k.faster || k.slower || k.normal) {
         tgg_set_speed(k.normal ? 1.0f : tgg_speed() * (k.faster ? 2.0f : 0.5f));
         view.changed = 1;
+        view.hud_timer = HUD_AUTO_FRAMES;
         tgg_log("speed %gx", (double) tgg_speed());
     }
 }
 TGG_ON(frame, on_frame);
 
-/* What the viewer changed, in the corner; the controls, at first */
+static tgg_color timeline_port_color(int port)
+{
+    static const tgg_color colors[4] = {
+        TGG_RGBA(242, 78, 78, 255),
+        TGG_RGBA(88, 152, 255, 255),
+        TGG_RGBA(246, 206, 62, 255),
+        TGG_RGBA(82, 218, 118, 255),
+    };
+    return colors[port & 3];
+}
+
+static float clamp01(float v)
+{
+    return v < 0.0f ? 0.0f : v > 1.0f ? 1.0f : v;
+}
+
+static void draw_play_icon(float x, float cy, tgg_color c)
+{
+    const float tri[6] = {
+        x, cy - 4.5f,
+        x + 7.5f, cy,
+        x, cy + 4.5f,
+    };
+    tgg_draw_polygon(tri, 3, c);
+}
+
+static void draw_pause_icon(float x, float cy, tgg_color c)
+{
+    tgg_draw_rect(x, cy - 4.5f, 2.6f, 9.0f, c);
+    tgg_draw_rect(x + 4.4f, cy - 4.5f, 2.6f, 9.0f, c);
+}
+
+static void draw_skip_icon(float x, float cy, tgg_color c)
+{
+    const float t1[6] = { x, cy - 4.2f, x + 5.2f, cy, x, cy + 4.2f };
+    const float t2[6] = { x + 4.8f, cy - 4.2f, x + 10.0f, cy, x + 4.8f, cy + 4.2f };
+    tgg_draw_polygon(t1, 3, c);
+    tgg_draw_polygon(t2, 3, c);
+}
+
+static int timeline_visible(int paused, int skipping, float speed)
+{
+    if (paused || skipping) {
+        return 1;
+    }
+    if (view.hud_pinned == 1) {
+        return 1;
+    }
+    if (view.hud_pinned == -1) {
+        return 0;
+    }
+    if (setting_timeline == TIMELINE_ALWAYS) {
+        return 1;
+    }
+    if (setting_timeline == TIMELINE_HIDDEN) {
+        return speed != 1.0f;
+    }
+    return view.hud_timer > 0 || speed != 1.0f;
+}
+
+/* Top-center timeline scrubber with stock-loss markers, clock, and controls */
 static void on_hud(void)
 {
     if (!loaded || !tgg_in_match()) {
@@ -410,38 +506,170 @@ static void on_hud(void)
         takeover_draw();
         return;
     }
-    char text[48];
-    text[0] = '\0';
-    if (tgg_fast_forwarding() > 0) {
-        snprintf(text, sizeof text, "Skipping ahead");
-    } else if (tgg_paused()) {
-        snprintf(text, sizeof text, "Paused");
-    } else if (tgg_speed() != 1.0f) {
-        snprintf(text, sizeof text, tgg_speed() > 1 ? "%gx" : "1/%gx",
-                 (double) (tgg_speed() > 1 ? tgg_speed() : 1 / tgg_speed()));
+    if (gm_GetDbPauseFlag(1)) {
+        return;
     }
-    const tgg_rect b = tgg_draw_bounds();
-    if (text[0] != '\0') {
-        const float w = tgg_draw_text_width(19.0f, text) + 26.0f;
-        const float h = 30.0f;
-        tgg_ui_rounded_rect(b.x + 16.0f, 14.0f, w, h, h * 0.5f, TGG_UI_BG_BAND,
-                            TGG_UI_BORDER_BRIGHT, 1.2f);
-        tgg_draw_text(b.x + 16.0f + w * 0.5f, 19.0f, 19.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER,
-                      text);
+
+    const int paused = tgg_paused();
+    const int skipping = tgg_fast_forwarding() > 0;
+    const float speed = tgg_speed();
+    if (!timeline_visible(paused, skipping, speed)) {
+        return;
     }
-    if (from_screen && view.shown_frames < 240) {
-        const tgg_ui_hint hints[] = {
-            { TGG_UI_BTN_START, "Pause" },
-            { TGG_UI_BTN_LR, "Back/Ahead" },
-            { TGG_UI_BTN_X, "Take over" },
-            { TGG_UI_BTN_B, "Back" },
-        };
-        const float w = tgg_ui_hint_bar_width(hints, 4, 15.0f) + 28.0f;
-        const float h = 28.0f;
-        tgg_ui_rounded_rect(320.0f - w * 0.5f, 8.0f, w, h, h * 0.5f, TGG_UI_BG_BAND,
-                            TGG_UI_BORDER_SUBTLE, 1.15f);
-        tgg_ui_hint_bar(hints, 4, 320.0f, 8.0f + h * 0.5f, 15.0f);
+
+    const float bar_w = 556.0f;
+    const float bar_h = 44.0f;
+    const float bar_x = 320.0f - bar_w * 0.5f;
+    const float bar_y = 4.0f;
+
+    /* Shadow + main surface (sits cleanly above Melee's match timer at y ~52) */
+    tgg_ui_rounded_rect(bar_x, bar_y + 2.0f, bar_w, bar_h, TGG_UI_RADIUS_PANEL, TGG_UI_SHADOW,
+                        TGG_RGBA(0, 0, 0, 0), 0.0f);
+    tgg_ui_rounded_rect(bar_x, bar_y, bar_w, bar_h, TGG_UI_RADIUS_PANEL, TGG_UI_BG_PANEL_DEEP,
+                        (paused || skipping) ? TGG_UI_BORDER_BRIGHT : TGG_UI_BORDER_SUBTLE, 1.2f);
+
+    /* ---- Row 1: status pill, elapsed/total clock, compact button hints ---- */
+    const float row1_cy = bar_y + 13.5f;
+    char status[24];
+    tgg_color status_col = TGG_UI_TEXT_PRIMARY;
+    if (skipping) {
+        snprintf(status, sizeof status, "Skip");
+        status_col = TGG_UI_BG_FILL;
+    } else if (paused) {
+        snprintf(status, sizeof status, "Paused");
+        status_col = TGG_UI_TEXT_GOLD;
+    } else if (speed != 1.0f) {
+        snprintf(status, sizeof status, speed > 1.0f ? "%gx" : "1/%gx",
+                 (double) (speed > 1.0f ? speed : 1.0f / speed));
+        status_col = TGG_UI_TEXT_GOLD;
+    } else {
+        snprintf(status, sizeof status, "1x");
+        status_col = TGG_UI_TEXT_GOOD;
     }
+
+    const float status_sz = 12.5f;
+    const float icon_w = skipping ? 10.0f : 8.0f;
+    const float pill_x = bar_x + 10.0f;
+    const float pill_h = 18.0f;
+    const float pill_y = row1_cy - pill_h * 0.5f;
+    const float pill_w = 8.0f + icon_w + 5.0f + tgg_draw_text_width(status_sz, status) + 9.0f;
+    tgg_ui_rounded_rect(pill_x, pill_y, pill_w, pill_h, pill_h * 0.5f, TGG_UI_BG_CHIP,
+                        (paused || skipping) ? TGG_UI_BORDER_BRIGHT : TGG_UI_BORDER_ROW, 1.0f);
+    if (skipping) {
+        draw_skip_icon(pill_x + 8.0f, row1_cy, status_col);
+    } else if (paused) {
+        draw_pause_icon(pill_x + 8.0f, row1_cy, status_col);
+    } else {
+        draw_play_icon(pill_x + 8.0f, row1_cy, status_col);
+    }
+    tgg_draw_text(pill_x + 8.0f + icon_w + 5.0f, row1_cy - status_sz * 0.52f, status_sz,
+                  status_col, TGG_ALIGN_LEFT, status);
+
+    /* Elapsed / total clock (measured from playable frame 0) */
+    const int cur_idx = st.started ? st.frame - SLP_FIRST_FRAME : 0;
+    const int total_idx = slp.frame_count > 1 ? slp.frame_count - 1 : 1;
+    const int cur_play = st.started && st.frame > 0 ? st.frame : 0;
+    const int total_play = slp.frame_count + SLP_FIRST_FRAME > 0 ? slp.frame_count + SLP_FIRST_FRAME
+                                                                 : 0;
+    const int cur_sec = cur_play / 60;
+    const int tot_sec = total_play / 60;
+
+    char cur_str[16], tot_str[20], frame_str[20];
+    snprintf(cur_str, sizeof cur_str, "%d:%02d", cur_sec / 60, cur_sec % 60);
+    snprintf(tot_str, sizeof tot_str, " / %d:%02d", tot_sec / 60, tot_sec % 60);
+
+    float cx = pill_x + pill_w + 10.0f;
+    const float cur_sz = 14.0f;
+    const float tot_sz = 12.5f;
+    tgg_draw_text(cx, row1_cy - cur_sz * 0.52f, cur_sz, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_LEFT,
+                  cur_str);
+    cx += tgg_draw_text_width(cur_sz, cur_str);
+    tgg_draw_text(cx, row1_cy - tot_sz * 0.52f, tot_sz, TGG_UI_TEXT_MUTED, TGG_ALIGN_LEFT,
+                  tot_str);
+    cx += tgg_draw_text_width(tot_sz, tot_str);
+    if (paused) {
+        snprintf(frame_str, sizeof frame_str, "  F%d", cur_play);
+        const float fr_sz = 12.0f;
+        tgg_draw_text(cx, row1_cy - fr_sz * 0.52f, fr_sz, TGG_UI_TEXT_MUTED, TGG_ALIGN_LEFT,
+                      frame_str);
+        cx += tgg_draw_text_width(fr_sz, frame_str);
+    }
+
+    /* Right-aligned compact GameCube button hints (fit-checked against clock) */
+    tgg_ui_hint hints[4];
+    int n_hints = 0;
+    if (paused) {
+        hints[n_hints++] = (tgg_ui_hint) { TGG_UI_BTN_LR, "Step" };
+    } else {
+        hints[n_hints++] = (tgg_ui_hint) { TGG_UI_BTN_LR, "Seek" };
+    }
+    hints[n_hints++] = (tgg_ui_hint) { TGG_UI_BTN_X, "Take over" };
+    hints[n_hints++] = (tgg_ui_hint) { TGG_UI_BTN_Y, view.hud_pinned == 1 ? "Hide" : "Pin" };
+    if (from_screen) {
+        hints[n_hints++] = (tgg_ui_hint) { TGG_UI_BTN_B, "Back" };
+    }
+    const float hint_sz = 12.5f;
+    const float right_edge = bar_x + bar_w - 10.0f;
+    const float avail_w = right_edge - (cx + 10.0f);
+    while (n_hints > 0 && tgg_ui_hint_bar_width(hints, n_hints, hint_sz) > avail_w) {
+        n_hints--;
+    }
+    if (n_hints > 0) {
+        const float hw = tgg_ui_hint_bar_width(hints, n_hints, hint_sz);
+        tgg_ui_hint_bar(hints, n_hints, right_edge - hw * 0.5f, row1_cy, hint_sz);
+    }
+
+    /* ---- Row 2: timeline groove, rewind window, progress, stock ticks, playhead ---- */
+    const float track_x = bar_x + 12.0f;
+    const float track_w = bar_w - 24.0f;
+    const float track_h = 5.5f;
+    const float track_cy = bar_y + 33.5f;
+    const float track_y = track_cy - track_h * 0.5f;
+    const float frac = clamp01((float) cur_idx / (float) total_idx);
+
+    /* Base groove */
+    tgg_ui_rounded_rect(track_x, track_y, track_w, track_h, track_h * 0.5f, TGG_UI_BG_TRACK,
+                        TGG_UI_BORDER_ROW, 0.85f);
+
+    /* Played progress fill */
+    const float fill_w = track_w * frac;
+    if (fill_w > 0.5f) {
+        const float fw = fill_w < track_h ? track_h : fill_w;
+        tgg_ui_rounded_rect(track_x, track_y, fw, track_h, track_h * 0.5f, TGG_UI_BG_FILL,
+                            TGG_RGBA(0, 0, 0, 0), 0.0f);
+    }
+
+    /* Rewindable snapshot window highlight behind playhead */
+    const int oldest = takeover_rewind_oldest();
+    if (oldest >= SLP_FIRST_FRAME && st.started && oldest < st.frame) {
+        const float rf0 = clamp01((float) (oldest - SLP_FIRST_FRAME) / (float) total_idx);
+        const float rx0 = track_x + track_w * rf0;
+        const float rw = (track_x + track_w * frac) - rx0;
+        if (rw > 1.0f) {
+            tgg_ui_rounded_rect(rx0, track_y, rw, track_h, track_h * 0.5f,
+                                TGG_RGBA(164, 214, 255, 130), TGG_RGBA(0, 0, 0, 0), 0.0f);
+        }
+    }
+
+    /* Port-colored stock-loss markers */
+    for (int i = 0; i < slp.n_stock_events; i++) {
+        const float tf = clamp01((float) (slp.stock_events[i].frame - SLP_FIRST_FRAME) /
+                                 (float) total_idx);
+        const float tx = track_x + track_w * tf;
+        const tgg_color col = timeline_port_color(slp.stock_events[i].port);
+        tgg_draw_rect(tx - 1.4f, track_y - 2.5f, 2.8f, track_h + 5.0f, TGG_UI_BG_PANEL_DEEP);
+        tgg_draw_rect(tx - 0.9f, track_y - 2.0f, 1.8f, track_h + 4.0f, col);
+        tgg_draw_circle(tx, track_y - 3.0f, 2.8f, TGG_UI_BG_PANEL_DEEP);
+        tgg_draw_circle(tx, track_y - 3.0f, 2.0f, col);
+    }
+
+    /* Playhead thumb */
+    const float px = track_x + track_w * frac;
+    const float thumb_w = 7.0f;
+    const float thumb_h = 12.0f;
+    tgg_ui_rounded_rect(px - thumb_w * 0.5f, track_cy - thumb_h * 0.5f, thumb_w, thumb_h,
+                        thumb_w * 0.5f, TGG_UI_TEXT_PRIMARY,
+                        (paused || skipping) ? TGG_UI_TEXT_GOLD : TGG_UI_BORDER_BRIGHT, 1.25f);
 }
 TGG_ON(hud_draw, on_hud);
 

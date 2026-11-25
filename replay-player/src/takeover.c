@@ -192,6 +192,17 @@ int takeover_rewind(int replay_frame)
     return 0;
 }
 
+int takeover_rewind_oldest(void)
+{
+    int oldest = SLP_FIRST_FRAME - 1;
+    for (int i = 0; i < REWIND_KEEP; i++) {
+        if (ring[i].snap != NULL && (oldest < SLP_FIRST_FRAME || ring[i].frame < oldest)) {
+            oldest = ring[i].frame;
+        }
+    }
+    return oldest;
+}
+
 void takeover_skip(void)
 {
     if (!taken) {
@@ -327,20 +338,68 @@ static void choice_text(char* out, size_t cap, int v)
     }
 }
 
+static tgg_color port_color(int port)
+{
+    static const tgg_color colors[4] = {
+        TGG_RGBA(242, 78, 78, 255),
+        TGG_RGBA(88, 152, 255, 255),
+        TGG_RGBA(246, 206, 62, 255),
+        TGG_RGBA(82, 218, 118, 255),
+    };
+    return colors[port & 3];
+}
+
 void takeover_draw(void)
 {
     if (taken) {
-        if (help_frames < 300 && !gm_GetDbPauseFlag(1)) {
-            help_frames++;
-            const tgg_ui_hint hints[] = {
-                { TGG_UI_BTN_DPAD_LEFT, "Try again" },
-                { TGG_UI_BTN_QUIT_COMBO, "Leave" },
-            };
-            const float w = tgg_ui_hint_bar_width(hints, 2, 15.0f) + 28.0f;
-            const float h = 28.0f;
-            tgg_ui_rounded_rect(320.0f - w * 0.5f, 8.0f, w, h, h * 0.5f, TGG_UI_BG_BAND,
-                                TGG_UI_BORDER_SUBTLE, 1.15f);
-            tgg_ui_hint_bar(hints, 2, 320.0f, 8.0f + h * 0.5f, 15.0f);
+        if (gm_GetDbPauseFlag(1)) {
+            return;
+        }
+        help_frames++;
+        const tgg_rect b = tgg_draw_bounds();
+        /* Persistent compact top-left Takeover status pill: always shows which
+         * port(s) are live plus the D-Pad Left retry hint */
+        char ports[32] = "";
+        size_t plen = 0;
+        for (int p = 0; p < 4; p++) {
+            if (players[p].present && source[p] >= 0) {
+                plen += (size_t) snprintf(ports + plen, sizeof ports - plen, "%sP%d",
+                                          plen > 0 ? " " : "", p + 1);
+            }
+        }
+        char label[48];
+        if (ports[0] != '\0') {
+            snprintf(label, sizeof label, "TAKEOVER  %s", ports);
+        } else {
+            snprintf(label, sizeof label, "TAKEOVER");
+        }
+        const float badge_y = 10.0f;
+        const float badge_h = 26.0f;
+        const float badge_cy = badge_y + badge_h * 0.5f;
+        const float text_sz = 14.0f;
+        const float label_w = tgg_draw_text_width(text_sz, label);
+        const tgg_ui_hint retry_hint = { TGG_UI_BTN_DPAD_LEFT, "Retry" };
+        const float retry_w = tgg_ui_hint_bar_width(&retry_hint, 1, 13.5f);
+        const float badge_x = b.x + 12.0f;
+        const float badge_w = 12.0f + 8.0f + 7.0f + label_w + 14.0f + retry_w + 12.0f;
+        tgg_ui_rounded_rect(badge_x, badge_y, badge_w, badge_h, badge_h * 0.5f, TGG_UI_BG_PANEL_DEEP,
+                            TGG_UI_BORDER_BRIGHT, 1.15f);
+        tgg_draw_circle(badge_x + 15.0f, badge_cy, 3.8f, TGG_UI_TEXT_GOLD);
+        tgg_draw_text(badge_x + 25.0f, badge_cy - text_sz * 0.52f, text_sz, TGG_UI_TEXT_GOLD,
+                      TGG_ALIGN_LEFT, label);
+        tgg_draw_rect(badge_x + 25.0f + label_w + 7.0f, badge_y + 6.0f, 1.0f, badge_h - 12.0f,
+                      TGG_UI_DIVIDER);
+        tgg_ui_hint_bar(&retry_hint, 1,
+                        badge_x + 25.0f + label_w + 14.0f + retry_w * 0.5f, badge_cy, 13.5f);
+
+        /* Show the exit combo pill at top-right for the first 5 seconds */
+        if (help_frames < 300) {
+            const tgg_ui_hint leave_hint = { TGG_UI_BTN_QUIT_COMBO, "Leave" };
+            const float lw = tgg_ui_hint_bar_width(&leave_hint, 1, 13.5f) + 22.0f;
+            const float lx = b.x + b.w - 12.0f - lw;
+            tgg_ui_rounded_rect(lx, badge_y, lw, badge_h, badge_h * 0.5f, TGG_UI_BG_BAND,
+                                TGG_UI_BORDER_SUBTLE, 1.1f);
+            tgg_ui_hint_bar(&leave_hint, 1, lx + lw * 0.5f, badge_cy, 13.5f);
         }
         return;
     }
@@ -364,6 +423,8 @@ void takeover_draw(void)
         }
         const int on = p == panel_row;
         tgg_ui_row(x + 14.0f, y, w - 28.0f, row_h, on);
+        tgg_draw_circle(x + 28.0f, y + row_h * 0.5f, 4.5f,
+                        on ? TGG_UI_TEXT_INK : port_color(p));
         char who[48], what[32], shown[40];
         snprintf(who, sizeof who, "P%d  %s", p + 1, fighter_name(players[p].ckind));
         choice_text(what, sizeof what, panel_source[p]);
@@ -374,7 +435,7 @@ void takeover_draw(void)
         }
         const tgg_color text = on ? TGG_UI_TEXT_INK : TGG_UI_TEXT_PRIMARY;
         const tgg_color value = on ? TGG_UI_TEXT_INK : TGG_UI_TEXT_GOLD;
-        tgg_draw_text(x + 28.0f, y + 7.0f, 20.0f, text, TGG_ALIGN_LEFT, who);
+        tgg_draw_text(x + 40.0f, y + 7.0f, 20.0f, text, TGG_ALIGN_LEFT, who);
         tgg_draw_text(x + w - 28.0f, y + 7.0f, 20.0f, value, TGG_ALIGN_RIGHT, shown);
         y += row_h + 6.0f;
     }
