@@ -104,11 +104,14 @@ static void on_tick(void)
                 fn_8016EF98(p);
             }
         }
-        Fighter_GObj* p2 = Player_GetEntity(1);
-        if (p2 != NULL) {
-            Fighter* fp = p2->user_data;
-            fp->shield_health = p_ftCommonData->x260_startShieldHealth;
-            fp->dmg.x1830_percent = 0.0f;
+        for (int sub = 0; sub < 2; sub++) {
+            Fighter_GObj* p2 = Player_GetEntityAtIndex(1, sub);
+            if (p2 != NULL) {
+                Fighter* fp = p2->user_data;
+                fp->shield_health = p_ftCommonData->x260_startShieldHealth;
+                fp->dmg.x1830_percent = 0.0f;
+                Player_SetHPByIndex(fp->player_idx, fp->is_sub_fighter, 0);
+            }
         }
     } else if (want_alone()) {
         for (int p = 1; p < 4; p++) {
