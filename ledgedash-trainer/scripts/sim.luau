@@ -56,10 +56,15 @@ tgg.on.fighter_update(function(fighter)
 	local a = state.at[port + 1]
 	local action = fighter.action
 	if on_ledge(action) then
-		if a.phase ~= ledges.LEDGE then
+		if
+			a.phase ~= ledges.LEDGE
+			or fighter.facing ~= a.facing
+			or (action == tgg.action.CLIFF_CATCH and state.tick - a.grab > 10)
+		then
 			local fresh = ledges.attempt()
 			fresh.phase = ledges.LEDGE
 			fresh.grab = state.tick
+			fresh.facing = fighter.facing
 			state.at[port + 1] = fresh
 		end
 		return

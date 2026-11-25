@@ -24,6 +24,7 @@ export type Attempt = {
 	dodge: number,
 	jumps: number, -- jumps used when the fighter let go
 	gone: number, -- the tick the intangibility ran out, 0 while it lasts
+	facing: number, -- facing direction on the ledge (+1 left ledge, -1 right ledge)
 }
 
 -- An attempt's result, which sim.luau posts (tgg.post) and view.luau shows
@@ -37,7 +38,7 @@ export type Result = {
 }
 
 function ledges.attempt(): Attempt
-	return { phase = ledges.NONE, grab = 0, drop = 0, jump = 0, dodge = 0, jumps = 0, gone = 0 }
+	return { phase = ledges.NONE, grab = 0, drop = 0, jump = 0, dodge = 0, jumps = 0, gone = 0, facing = 0 }
 end
 
 function ledges.result(): Result

@@ -21,9 +21,16 @@
 #include "tgg/game/hooks.h"
 #include "tgg/draw.h"
 #include "tgg/events.h"
+#include "tgg/fighter.h"
+#include "tgg/input.h"
 #include "tgg/settings.h"
 #include "tgg/snapshot.h"
 
+#include <melee/cm/camera.h>
+#include <melee/cm/types.h>
+#include <melee/ft/fighter.h>
+#include <melee/ft/ftcliffcommon.h>
+#include <melee/ft/types.h>
 #include <melee/gm/forward.h>
 #include <melee/gm/gm_1884.h>
 #include <melee/gm/gm_1A3F.h>
@@ -33,7 +40,10 @@
 #include <melee/lb/lb_00B0.h>
 #include <melee/mn/mnmain.h>
 #include <melee/mn/mnstagesel.h>
+#include <melee/mp/forward.h>
+#include <melee/mp/mplib.h>
 #include <melee/pl/player.h>
+#include <sysdolphin/baselib/cobj.h>
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/sislib.h>
@@ -56,6 +66,12 @@ static struct {
     practice_how how;
 } drill;
 
+static int pending_ledge; /* -1 left, +1 right, 0 none */
+static int snap_camera;   /* nonzero: snap camera to target on tick_end */
+static int cpu_shield;    /* nonzero: keep P2 holding infinite full shield */
+static Camera* g_cam;
+TGG_GAME_SYMBOL(g_cam, "camera.c:game_camera");
+
 static int in_training(void)
 {
     return gm_GetCurrentGameMode() == GM_TRAINING;
@@ -63,6 +79,9 @@ static int in_training(void)
 
 static int want_alone(void)
 {
+    if (cpu_shield) {
+        return 0;
+    }
     return drill.on ? !drill.how.keep_cpu : setting_alone;
 }
 
@@ -73,24 +92,105 @@ static int want_clean(void)
 
 /* ---- The match --------------------------------------------------------------- */
 
-/* Simulation code reads want_alone() and want_clean(): they change only
- * between matches, from the menus. */
+/* Simulation code reads want_alone(), want_clean(), cpu_shield and pending_ledge. */
 static void on_tick(void)
 {
-    if (!tgg_in_match() || !in_training() || !want_alone()) {
+    if (!tgg_in_match() || !in_training()) {
         return;
     }
-    for (int p = 1; p < 4; p++) {
-        if (Player_GetEntity(p) != NULL) {
-            fn_8016EF98(p);
+    if (cpu_shield) {
+        for (int p = 2; p < 4; p++) {
+            if (Player_GetEntity(p) != NULL) {
+                fn_8016EF98(p);
+            }
+        }
+        Fighter_GObj* p2 = Player_GetEntity(1);
+        if (p2 != NULL) {
+            Fighter* fp = p2->user_data;
+            fp->shield_health = p_ftCommonData->x260_startShieldHealth;
+            fp->dmg.x1830_percent = 0.0f;
+        }
+    } else if (want_alone()) {
+        for (int p = 1; p < 4; p++) {
+            if (Player_GetEntity(p) != NULL) {
+                fn_8016EF98(p);
+            }
+        }
+    }
+    if (pending_ledge != 0) {
+        Fighter_GObj* p1 = Player_GetEntity(0);
+        if (p1 != NULL) {
+            const int side = pending_ledge;
+            pending_ledge = 0;
+            Vec3 ledge_pos;
+            const int ledge_id = mpLib_80051BA8_Floor(&ledge_pos, -1, -1, -1, side < 0 ? 1 : -1,
+                                                      -400.0f, -200.0f, 400.0f, 200.0f);
+            if (ledge_id != -1) {
+                Fighter* fp = p1->user_data;
+                fp->x2064_ledgeCooldown = 0;
+                fp->x1968_jumpsUsed = 0;
+                fp->self_vel.x = 0.0f;
+                fp->self_vel.y = 0.0f;
+                fp->self_vel.z = 0.0f;
+                fp->gr_vel = 0.0f;
+                fp->cur_pos = ledge_pos;
+                fp->coll_data.env_flags = side < 0 ? Collide_LeftLedgeGrab : Collide_RightLedgeGrab;
+                if (side < 0) {
+                    fp->coll_data.ledge_id_left = ledge_id;
+                } else {
+                    fp->coll_data.ledge_id_right = ledge_id;
+                }
+                ftCliffCommon_80081370(p1);
+                fp->coll_data.cur_pos = fp->cur_pos;
+                fp->coll_data.prev_pos = fp->cur_pos;
+                HSD_JObj* jobj = HSD_GObjGetHSDObj(p1);
+                if (jobj != NULL) {
+                    HSD_JObjSetTranslate(jobj, &fp->cur_pos);
+                }
+                if (fp->x890_cameraBox != NULL) {
+                    fp->x890_cameraBox->pos = fp->cur_pos;
+                    fp->x890_cameraBox->bone_pos = fp->cur_pos;
+                    fp->x890_cameraBox->facing_dir = fp->facing_dir;
+                }
+                snap_camera = 1;
+            }
         }
     }
 }
 TGG_ON(tick, on_tick);
 
+static void on_fighter_input(tgg_fighter fighter, tgg_input* in)
+{
+    if (!tgg_in_match() || !in_training() || !cpu_shield || tgg_fighter_port(fighter) != 1) {
+        return;
+    }
+    in->stick_x = 0.0f;
+    in->stick_y = 0.0f;
+    in->cstick_x = 0.0f;
+    in->cstick_y = 0.0f;
+    in->buttons = TGG_BUTTON_L;
+    in->trigger = 1.0f;
+}
+TGG_ON(fighter_input, on_fighter_input);
+
 static void on_tick_end(void)
 {
-    if (!tgg_in_match() || !in_training() || !want_clean()) {
+    if (!tgg_in_match() || !in_training()) {
+        return;
+    }
+    if (snap_camera && g_cam != NULL) {
+        snap_camera = 0;
+        g_cam->transform.interest = g_cam->transform.target_interest;
+        g_cam->transform.position = g_cam->transform.target_position;
+        g_cam->transform.fov = g_cam->transform.target_fov;
+        if (g_cam->gobj != NULL) {
+            HSD_CObj* cobj = HSD_GObjGetHSDObj(g_cam->gobj);
+            if (cobj != NULL) {
+                Camera_8002AF68(cobj, &g_cam->transform);
+            }
+        }
+    }
+    if (!want_clean()) {
         return;
     }
     HSD_GObj* gobj = gm_80473814.gobj;
@@ -127,6 +227,8 @@ TGG_AFTER(fn_80188EE8, after_training_hud);
 void practice_start(const practice_how* how)
 {
     memset(&drill, 0, sizeof drill);
+    pending_ledge = 0;
+    cpu_shield = 0;
     if (how != NULL) {
         drill.how = *how;
         if (how->drill != NULL) {
@@ -163,11 +265,24 @@ const char* practice_drill(void)
 #define FADE 12
 
 static tgg_snapshot* reset_point;
+static char message_buf[64];
 static const char* message;
 static int message_age = SHOW;
 static int was_in_match;
 
-void practice_reset_here(void)
+void practice_say(const char* text)
+{
+    if (text == NULL || text[0] == '\0') {
+        message_age = SHOW;
+        return;
+    }
+    strncpy(message_buf, text, sizeof message_buf - 1);
+    message_buf[sizeof message_buf - 1] = '\0';
+    message = message_buf;
+    message_age = 0;
+}
+
+void practice_keep_reset(int say)
 {
     if (!tgg_in_match()) {
         return;
@@ -175,10 +290,16 @@ void practice_reset_here(void)
     tgg_snapshot_free(reset_point);
     reset_point = tgg_snapshot_save();
     if (reset_point != NULL) {
-        message = "Ready";
         tgg_log("reset point kept");
-        message_age = 0;
+        if (say) {
+            practice_say("Ready");
+        }
     }
+}
+
+void practice_reset_here(void)
+{
+    practice_keep_reset(1);
 }
 
 int practice_reset(int say)
@@ -187,8 +308,7 @@ int practice_reset(int say)
         return 0;
     }
     if (say) {
-        message = "Reset";
-        message_age = 0;
+        practice_say("Reset");
     }
     return 1;
 }
@@ -196,6 +316,23 @@ int practice_reset(int say)
 int practice_has_reset(void)
 {
     return reset_point != NULL;
+}
+
+int practice_put_on_ledge(int side)
+{
+    if (!tgg_in_match() || !in_training()) {
+        return 0;
+    }
+    pending_ledge = side < 0 ? -1 : 1;
+    return 1;
+}
+
+void practice_set_cpu_shield(int on)
+{
+    cpu_shield = on != 0;
+    if (drill.on) {
+        drill.how.keep_cpu = cpu_shield;
+    }
 }
 
 /* ---- Presentation ------------------------------------------------------------ */
@@ -211,11 +348,15 @@ static void on_frame(void)
         drill.on = 1;
     } else if (drill.on && !in_training()) {
         memset(&drill, 0, sizeof drill);
+        pending_ledge = 0;
+        cpu_shield = 0;
     }
     const int in_match = tgg_in_match();
     if (!in_match && was_in_match) {
         tgg_snapshot_free(reset_point);
         reset_point = NULL;
+        pending_ledge = 0;
+        cpu_shield = 0;
     }
     was_in_match = in_match;
 }

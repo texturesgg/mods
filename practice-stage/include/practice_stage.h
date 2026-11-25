@@ -46,4 +46,18 @@ TGG_API(PRACTICE_STAGE, int, practice_reset, (int say));
 /* Nonzero once a reset point is kept in this match. */
 TGG_API(PRACTICE_STAGE, int, practice_has_reset, (void));
 
+/* Keeps this moment as the reset point; shows "Ready" only when `say` is nonzero. */
+TGG_API(PRACTICE_STAGE, void, practice_keep_reset, (int say));
+
+/* Queues P1 onto the stage's left ledge (side < 0) or right ledge (side >= 0)
+ * on the next simulation tick. Nonzero if queued. */
+TGG_API(PRACTICE_STAGE, int, practice_put_on_ledge, (int side));
+
+/* Sets Training Mode's P2 CPU: nonzero keeps P2 holding an infinite full shield
+ * with no AI; zero removes all CPUs for an empty stage. */
+TGG_API(PRACTICE_STAGE, void, practice_set_cpu_shield, (int on));
+
+/* Shows a brief status pill at top-center (empty string clears it). */
+TGG_API(PRACTICE_STAGE, void, practice_say, (const char* text));
+
 #endif

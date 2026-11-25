@@ -1,21 +1,21 @@
 --!strict
 -- Ledge dash drill: Practice > Ledge dash. Training Mode with nobody else and a clean screen
--- (tgg.practice-stage); the first time you hang on a ledge that's the reset point, and every try
--- goes back to it, so a rep is just the ledge dash itself.
+-- (tgg.practice-stage); puts you straight onto the left ledge at match start and keeps that as
+-- your reset point, so every rep is just the ledge dash itself.
 --
 -- A try starts when the fighter leaves the ledge and is over when they're standing on the stage
--- and can act, when they're KO'd, or after TRY_MAX displayed frames. A beat later (BEAT frames,
--- to read the result) it resets. D-pad left while hanging moves the reset point there; D-pad
--- right resets now.
---
--- It tells for itself when a try is over, so it works without tgg.ledgedash-trainer; with it
--- installed, the trainer's breakdown shows for each try.
+-- and can act, when they're KO'd, or after TRY_MAX displayed frames. A short beat later it puts
+-- you right back on the ledge (ledgedash-trainer keeps the previous card readable across resets).
+-- D-pad left swaps between left and right ledges; D-pad right resets immediately.
 local tgg = require("@tgg")
 
 local ID = "tgg.ledgedash-drill"
--- Displayed frames a try may take, and the beat before the reset
-local TRY_MAX = 150
-local BEAT = 40
+-- Displayed frames a try may take, and the beat before resetting (fast enough to keep flow;
+-- ledgedash-trainer's card stays visible across snapshot resets)
+local TRY_MAX = 120
+local BEAT_LAND = 15
+local BEAT_KO = 8
+local WARP_TIMEOUT = 24
 -- Displayed frames the controls hint / missing-trainer note stays up
 local HINT_SHOW = 240
 local HINT_FADE = 24
@@ -28,15 +28,20 @@ local practice = assert(tgg.mod("tgg.practice-stage"))
 
 tgg.menu.add("practice/ledgedash", {
 	label = "Ledge dash",
-	description = "Grab the ledge once. After each try you're put back on it.",
+	description = "Start on the ledge. Swap sides or reset fast between reps.",
 	action = function()
 		practice.start(ID, "melee/final-destination", false, false)
 	end,
 })
 
-local WAITING, HANGING, TRYING, DONE = 0, 1, 2, 3
-local phase = WAITING
+local BOOT, WARPING, WAITING, HANGING, TRYING, DONE = 0, 1, 2, 3, 4, 5
+local phase = BOOT
+local side = -1 -- -1 left ledge, +1 right ledge
 local frames = 0 -- displayed frames in this phase
+local match_frames = 0 -- displayed frames since match started
+local reset_clean = false -- true once the saved reset point is past Training's "GO!" banner
+local beat = BEAT_LAND
+local hint_shown = false
 local hint_age = HINT_SHOW
 local missing_age = MISSING_SHOW
 local was_mine = false
@@ -147,8 +152,13 @@ tgg.on.frame(function()
 	local fighter = if tgg.in_match() then tgg.fighter.at(0, false) else nil
 	local active = practice.drill() == ID and fighter ~= nil
 	if active and not was_mine then
+		side = -1
+		match_frames = 0
+		reset_clean = false
+		hint_shown = false
 		hint_age = HINT_SHOW
 		missing_age = if tgg.mod("tgg.ledgedash-trainer") ~= nil then MISSING_SHOW else 0
+		enter(BOOT)
 	end
 	was_mine = active
 	if hint_age < HINT_SHOW then
@@ -158,36 +168,81 @@ tgg.on.frame(function()
 		missing_age += 1
 	end
 	if not active or fighter == nil then
-		enter(WAITING)
+		enter(BOOT)
 		return
 	end
+
 	local action = fighter.action
 	local input = pressed()
 	frames += 1
-	if phase == WAITING then
-		-- the first hang: from the catch, which lasts a few frames
+	match_frames += 1
+
+	-- D-pad left swaps between left and right ledges at any time
+	if phase ~= BOOT and bit32.btest(input, tgg.button.LEFT) then
+		side = -side
+		if practice.put_on_ledge(side) then
+			practice.say(if side < 0 then "Left ledge" else "Right ledge")
+			enter(WARPING)
+			return
+		end
+	end
+
+	-- D-pad right resets immediately to the current ledge
+	if bit32.btest(input, tgg.button.RIGHT) and phase ~= BOOT and phase ~= WAITING and practice.reset(true) then
+		enter(HANGING)
+		return
+	end
+
+	if phase == BOOT then
+		if practice.put_on_ledge(side) then
+			enter(WARPING)
+		end
+	elseif phase == WARPING then
+		-- Wait until the queued tick puts P1 in CLIFF_CATCH on the requested side
+		local wanted_facing = if side < 0 then 1 else -1
+		if action == tgg.action.CLIFF_CATCH and fighter.facing == wanted_facing then
+			practice.keep_reset(false)
+			reset_clean = match_frames >= 65
+			if not hint_shown then
+				hint_shown = true
+				hint_age = 0
+			end
+			enter(HANGING)
+		elseif frames >= WARP_TIMEOUT then
+			-- Stage has no ledges (e.g. Flat Zone): fall back gracefully
+			enter(WAITING)
+		end
+	elseif phase == WAITING then
 		if on_ledge(action) then
-			practice.reset_here()
-			hint_age = 0
+			practice.keep_reset(true)
+			reset_clean = match_frames >= 65
+			if not hint_shown then
+				hint_shown = true
+				hint_age = 0
+			end
 			enter(HANGING)
 		end
 	elseif phase == HANGING then
 		if not on_ledge(action) then
 			enter(TRYING)
-		elseif bit32.btest(input, tgg.button.LEFT) and action == tgg.action.CLIFF_WAIT then
-			practice.reset_here()
 		end
 	elseif phase == TRYING then
-		if standing(fighter) or ko(action) or frames >= TRY_MAX then
+		if standing(fighter) then
+			beat = BEAT_LAND
+			enter(DONE)
+		elseif ko(action) or frames >= TRY_MAX then
+			beat = BEAT_KO
 			enter(DONE)
 		end
 	elseif phase == DONE then
-		if frames >= BEAT and practice.reset(false) then
-			enter(HANGING)
+		if frames >= beat then
+			if not reset_clean and match_frames >= 65 and practice.put_on_ledge(side) then
+				-- Replace the frame-1 reset point once "GO!" is gone so resets never replay "GO!"
+				enter(WARPING)
+			elseif practice.reset(false) then
+				enter(HANGING)
+			end
 		end
-	end
-	if bit32.btest(input, tgg.button.RIGHT) and phase ~= WAITING and practice.reset(true) then
-		enter(HANGING)
 	end
 end)
 
@@ -196,7 +251,6 @@ tgg.on.hud_draw(function()
 		return
 	end
 
-	-- Before the first ledge grab, prompt the player so the drill is self-explanatory
 	if phase == WAITING then
 		local text = "Grab the ledge to set your reset point"
 		local sz = 15
@@ -220,13 +274,12 @@ tgg.on.hud_draw(function()
 		tgg.draw.circle(x + 16, cy, 3.8, { r = 255, g = 210, b = 68, a = 255 })
 		tgg.draw.text(x + 26, cy - sz * 0.52, sz, { r = 244, g = 247, b = 255, a = 255 }, tgg.align.LEFT, text)
 	elseif hint_age < HINT_SHOW then
-		-- Compact D-pad controls hint right after the first ledge grab, auto-hiding cleanly
 		local left = HINT_SHOW - hint_age
 		local a = if left < HINT_FADE then left / HINT_FADE else 1
 		local sz = 14
 		local icon = 15
-		local w1 = tgg.draw.text_width(sz, "Move reset")
-		local w2 = tgg.draw.text_width(sz, "Reset now")
+		local w1 = tgg.draw.text_width(sz, "Swap ledge")
+		local w2 = tgg.draw.text_width(sz, "Reset")
 		local gap = 18
 		local igap = 6
 		local w = icon + igap + w1 + gap + icon + igap + w2 + 26
@@ -248,11 +301,11 @@ tgg.on.hud_draw(function()
 		local cx = x + 13
 		draw_dpad(cx + icon * 0.5, cy, icon, -1, a)
 		cx += icon + igap
-		tgg.draw.text(cx, cy - sz * 0.52, sz, { r = 232, g = 237, b = 252, a = alpha(255, a) }, tgg.align.LEFT, "Move reset")
+		tgg.draw.text(cx, cy - sz * 0.52, sz, { r = 232, g = 237, b = 252, a = alpha(255, a) }, tgg.align.LEFT, "Swap ledge")
 		cx += w1 + gap
 		draw_dpad(cx + icon * 0.5, cy, icon, 1, a)
 		cx += icon + igap
-		tgg.draw.text(cx, cy - sz * 0.52, sz, { r = 232, g = 237, b = 252, a = alpha(255, a) }, tgg.align.LEFT, "Reset now")
+		tgg.draw.text(cx, cy - sz * 0.52, sz, { r = 232, g = 237, b = 252, a = alpha(255, a) }, tgg.align.LEFT, "Reset")
 	end
 
 	if missing_age < MISSING_SHOW then

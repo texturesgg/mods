@@ -34,6 +34,34 @@
       "returns": "bool",
       "params": [],
       "doc": "True once a reset point is kept in this match."
+    },
+    {
+      "name": "keep_reset",
+      "export": "practice_keep_reset@1",
+      "returns": "void",
+      "params": [["say", "bool"]],
+      "doc": "Keeps this moment as the reset point; shows \"Ready\" only when `say` is true."
+    },
+    {
+      "name": "put_on_ledge",
+      "export": "practice_put_on_ledge@1",
+      "returns": "bool",
+      "params": [["side", "int"]],
+      "doc": "Queues P1 onto the stage's left ledge (side < 0) or right ledge (side >= 0) on the next tick."
+    },
+    {
+      "name": "set_cpu_shield",
+      "export": "practice_set_cpu_shield@1",
+      "returns": "void",
+      "params": [["on", "bool"]],
+      "doc": "Keeps Training Mode's P2 CPU holding an infinite full shield (true) or clears CPUs for an empty stage (false)."
+    },
+    {
+      "name": "say",
+      "export": "practice_say@1",
+      "returns": "void",
+      "params": [["text", "string"]],
+      "doc": "Shows a brief status pill at top-center."
     }
   ]
 }
