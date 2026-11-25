@@ -221,6 +221,36 @@ static void on_frame(void)
 }
 TGG_ON(frame, on_frame);
 
+static void draw_toast_pill(float x, float y, float w, float h, tgg_color fill, tgg_color border,
+                            float border_w)
+{
+    static const float c[4] = { 1.0f, 0.8660254f, 0.5f, 0.0f };
+    static const float s[4] = { 0.0f, 0.5f, 0.8660254f, 1.0f };
+    const float r = (w < h ? w : h) * 0.5f;
+    float pts[32];
+    int n = 0;
+    for (int i = 0; i < 4; i++) {
+        pts[n++] = (x + w - r) + r * s[i];
+        pts[n++] = (y + r) - r * c[i];
+    }
+    for (int i = 0; i < 4; i++) {
+        pts[n++] = (x + w - r) + r * c[i];
+        pts[n++] = (y + h - r) + r * s[i];
+    }
+    for (int i = 0; i < 4; i++) {
+        pts[n++] = (x + r) - r * s[i];
+        pts[n++] = (y + h - r) + r * c[i];
+    }
+    for (int i = 0; i < 4; i++) {
+        pts[n++] = (x + r) - r * c[i];
+        pts[n++] = (y + r) - r * s[i];
+    }
+    tgg_draw_polygon(pts, 16, fill);
+    if (border.a > 0 && border_w > 0.0f) {
+        tgg_draw_polygon_outline(pts, 16, border_w, border);
+    }
+}
+
 static void on_hud(void)
 {
     if (message_age >= SHOW || !tgg_in_match()) {
@@ -228,9 +258,20 @@ static void on_hud(void)
     }
     const int left = SHOW - message_age;
     const float a = left < FADE ? (float) left / FADE : 1.0f;
-    const float w = tgg_draw_text_width(22, message) + 28;
-    tgg_draw_rect(320 - w / 2, 96, w, 32, TGG_RGBA(0, 0, 0, 150 * a));
-    tgg_draw_text(320, 100, 22, TGG_RGBA(255, 255, 255, 255 * a), TGG_ALIGN_CENTER, message);
+    const float sz = 17.0f;
+    const float tw = tgg_draw_text_width(sz, message);
+    const float h = 30.0f;
+    const float w = 14.0f + 8.0f + 8.0f + tw + 16.0f;
+    const float x = 320.0f - w * 0.5f;
+    const float y = 66.0f;
+    const float cy = y + h * 0.5f;
+    draw_toast_pill(x, y + 2.0f, w, h, TGG_RGBA(0, 0, 0, (int) (115.0f * a)),
+                    TGG_RGBA(0, 0, 0, 0), 0.0f);
+    draw_toast_pill(x, y, w, h, TGG_RGBA(12, 17, 42, (int) (230.0f * a)),
+                    TGG_RGBA(154, 182, 255, (int) (180.0f * a)), 1.2f);
+    tgg_draw_circle(x + 17.0f, cy, 4.0f, TGG_RGBA(108, 148, 255, (int) (255.0f * a)));
+    tgg_draw_text(x + 28.0f, cy - sz * 0.52f, sz, TGG_RGBA(244, 247, 255, (int) (255.0f * a)),
+                  TGG_ALIGN_LEFT, message);
 }
 TGG_ON(hud_draw, on_hud);
 

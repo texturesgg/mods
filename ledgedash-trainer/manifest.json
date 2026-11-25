@@ -18,6 +18,12 @@
       "key": "where",
       "label": "Show in",
       "local": true
+    },
+    {
+      "default": true,
+      "key": "flash",
+      "label": "Flash fighter",
+      "local": true
     }
   ],
   "script": true

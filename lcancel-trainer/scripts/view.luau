@@ -13,6 +13,52 @@ local FLASH_MISS = 14
 -- The gap above the percent
 local HUD_ABOVE = 95
 
+local COS4 = { 1, 0.8660254, 0.5, 0 }
+local SIN4 = { 0, 0.5, 0.8660254, 1 }
+
+local function rounded_rect(
+	x: number,
+	y: number,
+	w: number,
+	h: number,
+	r: number,
+	fill: tgg.Color,
+	border: tgg.Color?,
+	border_w: number
+)
+	local rr = math.clamp(r, 0, math.min(w, h) * 0.5)
+	local pts = table.create(32)
+	local n = 0
+	for i = 1, 4 do
+		n += 1
+		pts[n] = (x + w - rr) + rr * SIN4[i]
+		n += 1
+		pts[n] = (y + rr) - rr * COS4[i]
+	end
+	for i = 1, 4 do
+		n += 1
+		pts[n] = (x + w - rr) + rr * COS4[i]
+		n += 1
+		pts[n] = (y + h - rr) + rr * SIN4[i]
+	end
+	for i = 1, 4 do
+		n += 1
+		pts[n] = (x + rr) - rr * SIN4[i]
+		n += 1
+		pts[n] = (y + h - rr) + rr * COS4[i]
+	end
+	for i = 1, 4 do
+		n += 1
+		pts[n] = (x + rr) - rr * COS4[i]
+		n += 1
+		pts[n] = (y + rr) - rr * SIN4[i]
+	end
+	tgg.draw.polygon(pts, fill)
+	if border and border_w > 0 then
+		tgg.draw.polygon_outline(pts, border_w, border)
+	end
+end
+
 local function fresh()
 	return {
 		hits = { 0, 0, 0, 0 }, -- L-cancels
@@ -118,20 +164,27 @@ tgg.on.hud_draw(function()
 		if tgg.settings.rate and view.tries[p] > 0 then
 			rate = `{view.hits[p]}/{view.tries[p]}  {view.hits[p] * 100 // view.tries[p]}%`
 		end
-		local w = tgg.f32(24 + math.max(tgg.draw.text_width(19, text), tgg.draw.text_width(15, rate)))
-		local h = if rate ~= "" then 46 else 28
+		local w = tgg.f32(28 + math.max(tgg.draw.text_width(19, text), tgg.draw.text_width(15, rate)))
+		local h = if rate ~= "" then 54 else 32
 		local top = tgg.f32(tgg.f32(y - HUD_ABOVE) - h)
 		local box_x = tgg.f32(x - w / 2)
-		tgg.draw.rect(box_x, top, w, h, { r = 12, g = 17, b = 42, a = alpha(215, a) })
 		local border = if hit
-			then { r = 116, g = 234, b = 144, a = alpha(150, a) }
-			else { r = 255, g = 114, b = 102, a = alpha(165, a) }
-		tgg.draw.rect_outline(box_x, top, w, h, 1.25, border)
+			then { r = 116, g = 234, b = 144, a = alpha(165, a) }
+			else { r = 255, g = 114, b = 102, a = alpha(170, a) }
+		rounded_rect(box_x, top + 2, w, h, 7, { r = 0, g = 0, b = 0, a = alpha(110, a) }, nil, 0)
+		rounded_rect(box_x, top, w, h, 7, { r = 12, g = 17, b = 42, a = alpha(224, a) }, border, 1.25)
 		local good = { r = 124, g = 238, b = 148, a = alpha(255, a) }
 		local bad = { r = 255, g = 118, b = 104, a = alpha(255, a) }
-		tgg.draw.text(x, top + 5, 19, if hit then good else bad, tgg.align.CENTER, text)
+		tgg.draw.text(x, tgg.f32(top + 6), 19, if hit then good else bad, tgg.align.CENTER, text)
 		if rate ~= "" then
-			tgg.draw.text(x, top + 26, 15, { r = 224, g = 230, b = 246, a = alpha(255, a) }, tgg.align.CENTER, rate)
+			tgg.draw.rect(
+				tgg.f32(box_x + 10),
+				tgg.f32(top + 28),
+				tgg.f32(w - 20),
+				1,
+				{ r = 128, g = 152, b = 230, a = alpha(68, a) }
+			)
+			tgg.draw.text(x, tgg.f32(top + 32), 15, { r = 220, g = 228, b = 246, a = alpha(255, a) }, tgg.align.CENTER, rate)
 		end
 	end
 end)
