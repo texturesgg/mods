@@ -18,6 +18,7 @@
  * input.
  */
 #include "player.h"
+#include "ui.h"
 
 #include "tgg/control.h"
 #include "tgg/draw.h"
@@ -331,10 +332,15 @@ void takeover_draw(void)
     if (taken) {
         if (help_frames < 300 && !gm_GetDbPauseFlag(1)) {
             help_frames++;
-            const char* help = "D-pad left: Try again    L+R+A+Start: Leave";
-            const float w = tgg_draw_text_width(18, help) + 24;
-            tgg_draw_rect(320 - w / 2, 4, w, 26, TGG_RGBA(0, 0, 0, 150));
-            tgg_draw_text(320, 8, 18, TGG_RGBA(220, 225, 240, 255), TGG_ALIGN_CENTER, help);
+            const tgg_ui_hint hints[] = {
+                { TGG_UI_BTN_DPAD_LEFT, "Try again" },
+                { TGG_UI_BTN_QUIT_COMBO, "Leave" },
+            };
+            const float w = tgg_ui_hint_bar_width(hints, 2, 15.0f) + 28.0f;
+            const float h = 28.0f;
+            tgg_ui_rounded_rect(320.0f - w * 0.5f, 8.0f, w, h, h * 0.5f, TGG_UI_BG_BAND,
+                                TGG_UI_BORDER_SUBTLE, 1.15f);
+            tgg_ui_hint_bar(hints, 2, 320.0f, 8.0f + h * 0.5f, 15.0f);
         }
         return;
     }
@@ -345,29 +351,37 @@ void takeover_draw(void)
     for (int p = 0; p < 4; p++) {
         rows += players[p].present;
     }
-    const float w = 470, row_h = 34, x = 320 - w / 2;
-    const float h = 48 + rows * (row_h + 6) + 36;
-    float y = 240 - h / 2;
-    tgg_draw_rect(x, y, w, h, TGG_RGBA(8, 12, 30, 220));
-    tgg_draw_rect(x, y, w, 40, TGG_RGBA(0, 0, 0, 200));
-    tgg_draw_text(320, y + 8, 26, TGG_RGBA(255, 255, 255, 255), TGG_ALIGN_CENTER, "Take over");
-    y += 48;
+    const float w = 480.0f, row_h = 36.0f, x = 320.0f - w * 0.5f;
+    const float h = 56.0f + (float) rows * (row_h + 6.0f) + 42.0f;
+    float y = 240.0f - h * 0.5f;
+    tgg_ui_modal(x, y, w, h);
+    tgg_draw_text(320.0f, y + 14.0f, 24.0f, TGG_UI_TEXT_TITLE, TGG_ALIGN_CENTER, "Take over");
+    tgg_draw_rect(x + 14.0f, y + 46.0f, w - 28.0f, 1.0f, TGG_UI_DIVIDER);
+    y += 56.0f;
     for (int p = 0; p < 4; p++) {
         if (!players[p].present) {
             continue;
         }
         const int on = p == panel_row;
-        tgg_draw_rect(x + 10, y, w - 20, row_h,
-                      on ? TGG_RGBA(230, 190, 60, 255) : TGG_RGBA(30, 45, 100, 230));
-        char who[48], what[24];
-        snprintf(who, sizeof who, "P%d %s", p + 1, fighter_name(players[p].ckind));
+        tgg_ui_row(x + 14.0f, y, w - 28.0f, row_h, on);
+        char who[48], what[32], shown[40];
+        snprintf(who, sizeof who, "P%d  %s", p + 1, fighter_name(players[p].ckind));
         choice_text(what, sizeof what, panel_source[p]);
-        const tgg_color text = on ? TGG_RGBA(20, 20, 30, 255) : TGG_RGBA(255, 255, 255, 255);
-        const tgg_color value = on ? TGG_RGBA(20, 20, 30, 255) : TGG_RGBA(240, 200, 80, 255);
-        tgg_draw_text(x + 22, y + 6, 22, text, TGG_ALIGN_LEFT, who);
-        tgg_draw_text(x + w - 22, y + 6, 22, value, TGG_ALIGN_RIGHT, what);
-        y += row_h + 6;
+        if (on) {
+            snprintf(shown, sizeof shown, "< %s >", what);
+        } else {
+            snprintf(shown, sizeof shown, "%s", what);
+        }
+        const tgg_color text = on ? TGG_UI_TEXT_INK : TGG_UI_TEXT_PRIMARY;
+        const tgg_color value = on ? TGG_UI_TEXT_INK : TGG_UI_TEXT_GOLD;
+        tgg_draw_text(x + 28.0f, y + 7.0f, 20.0f, text, TGG_ALIGN_LEFT, who);
+        tgg_draw_text(x + w - 28.0f, y + 7.0f, 20.0f, value, TGG_ALIGN_RIGHT, shown);
+        y += row_h + 6.0f;
     }
-    tgg_draw_text(320, y + 6, 18, TGG_RGBA(220, 225, 240, 255), TGG_ALIGN_CENTER,
-                  "Left/Right: Who plays    A: Play from here    B: Back");
+    const tgg_ui_hint hints[] = {
+        { TGG_UI_BTN_LR, "Who plays" },
+        { TGG_UI_BTN_A, "Play from here" },
+        { TGG_UI_BTN_B, "Back" },
+    };
+    tgg_ui_hint_bar(hints, 3, 320.0f, y + 16.0f, 15.0f);
 }

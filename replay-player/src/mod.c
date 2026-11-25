@@ -27,6 +27,7 @@
  */
 #include "player.h"
 #include "replay_player.h"
+#include "ui.h"
 
 #include "tgg/control.h"
 #include "tgg/draw.h"
@@ -421,15 +422,25 @@ static void on_hud(void)
     }
     const tgg_rect b = tgg_draw_bounds();
     if (text[0] != '\0') {
-        const float w = tgg_draw_text_width(22, text) + 20;
-        tgg_draw_rect(b.x + 16, 16, w, 30, TGG_RGBA(0, 0, 0, 150));
-        tgg_draw_text(b.x + 26, 20, 22, TGG_RGBA(255, 255, 255, 255), TGG_ALIGN_LEFT, text);
+        const float w = tgg_draw_text_width(19.0f, text) + 26.0f;
+        const float h = 30.0f;
+        tgg_ui_rounded_rect(b.x + 16.0f, 14.0f, w, h, h * 0.5f, TGG_UI_BG_BAND,
+                            TGG_UI_BORDER_BRIGHT, 1.2f);
+        tgg_draw_text(b.x + 16.0f + w * 0.5f, 19.0f, 19.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER,
+                      text);
     }
     if (from_screen && view.shown_frames < 240) {
-        const char* help = "Start: Pause    Left/Right: Back/Ahead    X: Take over    B: Back";
-        const float w = tgg_draw_text_width(18, help) + 24;
-        tgg_draw_rect(320 - w / 2, 4, w, 26, TGG_RGBA(0, 0, 0, 150));
-        tgg_draw_text(320, 8, 18, TGG_RGBA(220, 225, 240, 255), TGG_ALIGN_CENTER, help);
+        const tgg_ui_hint hints[] = {
+            { TGG_UI_BTN_START, "Pause" },
+            { TGG_UI_BTN_LR, "Back/Ahead" },
+            { TGG_UI_BTN_X, "Take over" },
+            { TGG_UI_BTN_B, "Back" },
+        };
+        const float w = tgg_ui_hint_bar_width(hints, 4, 15.0f) + 28.0f;
+        const float h = 28.0f;
+        tgg_ui_rounded_rect(320.0f - w * 0.5f, 8.0f, w, h, h * 0.5f, TGG_UI_BG_BAND,
+                            TGG_UI_BORDER_SUBTLE, 1.15f);
+        tgg_ui_hint_bar(hints, 4, 320.0f, 8.0f + h * 0.5f, 15.0f);
     }
 }
 TGG_ON(hud_draw, on_hud);

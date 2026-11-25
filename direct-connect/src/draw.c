@@ -1,66 +1,46 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* The screen, in the menus' look: the title in a dark band, rows on dark
- * blue panels, the selected one gold, the buttons' help at the bottom. */
+/* The screen, using the shared Melee UI kit: edge-to-edge header and footer,
+ * rounded dark-navy panels, gold focus states, and drawn GameCube button pills. */
 #include "dc.h"
+#include "ui.h"
 
 #include "tgg/draw.h"
 
 #include <stdio.h>
 #include <string.h>
 
-#define WHITE TGG_RGBA(255, 255, 255, 255)
-#define GOLD TGG_RGBA(255, 200, 0, 255)
-#define DIM TGG_RGBA(170, 180, 210, 255)
-#define INK TGG_RGBA(20, 20, 30, 255)
-#define PANEL TGG_RGBA(10, 12, 40, 200)
-#define BAND TGG_RGBA(0, 0, 0, 130)
-#define RED TGG_RGBA(230, 70, 60, 255)
-#define BLUE TGG_RGBA(80, 120, 255, 255)
-#define GREEN TGG_RGBA(90, 220, 110, 255)
-
 static void band(const char* title, const char* status)
 {
-    tgg_draw_rect(-200, 0, 1040, 64, BAND);
-    tgg_draw_text(40, 16, 32, WHITE, TGG_ALIGN_LEFT, title);
-    if (status != NULL) {
-        tgg_draw_text(600, 24, 18, DIM, TGG_ALIGN_RIGHT, status);
-    }
+    tgg_ui_header(title, status);
 }
 
-static void footer(const char* help)
+static void footer_hints(const tgg_ui_hint* hints, int n)
 {
-    tgg_draw_rect(-200, 440, 1040, 40, BAND);
-    tgg_draw_text(320, 450, 18, DIM, TGG_ALIGN_CENTER, help);
     if (dc.message_frames > 0) {
-        tgg_draw_rect(60, 396, 520, 34, PANEL);
-        tgg_draw_text(320, 404, 18, GOLD, TGG_ALIGN_CENTER, dc.message);
+        tgg_ui_panel(60.0f, 394.0f, 520.0f, 36.0f);
+        tgg_draw_text(320.0f, 403.0f, 18.0f, TGG_UI_TEXT_GOLD, TGG_ALIGN_CENTER, dc.message);
     }
-}
-
-static void status_text(char* out, int cap)
-{
-    netplay_info info;
-    netplay_status(&info);
-    if (info.rtt_ms > 0) {
-        snprintf(out, (size_t) cap, "%s  %.0f ms", info.peer, info.rtt_ms);
-    } else {
-        snprintf(out, (size_t) cap, "%s", info.peer);
-    }
+    tgg_ui_footer_hints(hints, n);
 }
 
 /* The room's code and who's in it, from `y` */
 static void draw_room_code(float y)
 {
     const meet_status* m = &dc.meet;
-    tgg_draw_text(320, y, 18, DIM, TGG_ALIGN_CENTER, "Room code");
-    tgg_draw_rect(200, y + 26, 240, 56, PANEL);
-    tgg_draw_text(320, y + 36, 36, GOLD, TGG_ALIGN_CENTER, m->code);
-    y += 100;
+    tgg_draw_text(320.0f, y, 17.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_CENTER, "Room code");
+    tgg_ui_modal(190.0f, y + 26.0f, 260.0f, 60.0f);
+    tgg_draw_text(320.0f, y + 38.0f, 36.0f, TGG_UI_TEXT_GOLD, TGG_ALIGN_CENTER, m->code);
+    y += 106.0f;
     for (int i = 0; i < m->n_members && i < MEET_MEMBERS; i++) {
         char fit[64];
-        tgg_draw_text_fit(fit, sizeof fit, 20, 330, m->members[i]);
-        tgg_draw_text(320, y, 20, i == 0 ? WHITE : DIM, TGG_ALIGN_CENTER, fit);
-        y += 28;
+        tgg_draw_text_fit(fit, sizeof fit, 19.0f, 320.0f, m->members[i]);
+        const float w = tgg_draw_text_width(19.0f, fit) + 28.0f;
+        tgg_ui_chip(320.0f - w * 0.5f, y, w, 28.0f,
+                    i == 0 ? TGG_UI_BG_ROW : TGG_UI_BG_CHIP,
+                    i == 0 ? TGG_UI_BORDER_BRIGHT : TGG_UI_BORDER_ROW);
+        tgg_draw_text(320.0f, y + 4.0f, 19.0f,
+                      i == 0 ? TGG_UI_TEXT_PRIMARY : TGG_UI_TEXT_MUTED, TGG_ALIGN_CENTER, fit);
+        y += 34.0f;
     }
 }
 
@@ -72,42 +52,54 @@ static void draw_room(void)
     char line[320];
     switch (m->state) {
     case MEET_SIGN_IN:
-        tgg_draw_text(320, 120, 24, WHITE, TGG_ALIGN_CENTER, "Sign in to textures.gg");
-        tgg_draw_text(320, 168, 18, DIM, TGG_ALIGN_CENTER, "On your phone or computer, go to");
-        tgg_draw_text_fit(line, sizeof line, 20, 560, m->signin_url);
-        tgg_draw_text(320, 196, 20, WHITE, TGG_ALIGN_CENTER, line);
-        tgg_draw_text(320, 240, 18, DIM, TGG_ALIGN_CENTER, "and enter");
-        tgg_draw_rect(200, 266, 240, 56, PANEL);
-        tgg_draw_text(320, 276, 36, GOLD, TGG_ALIGN_CENTER, m->signin_code);
+        tgg_ui_panel(80.0f, 98.0f, 480.0f, 260.0f);
+        tgg_draw_text(320.0f, 118.0f, 24.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER,
+                      "Sign in to textures.gg");
+        tgg_draw_text(320.0f, 162.0f, 17.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_CENTER,
+                      "On your phone or computer, go to");
+        tgg_draw_text_fit(line, sizeof line, 20.0f, 440.0f, m->signin_url);
+        tgg_draw_text(320.0f, 190.0f, 20.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER, line);
+        tgg_draw_text(320.0f, 232.0f, 17.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_CENTER, "and enter");
+        tgg_ui_modal(195.0f, 260.0f, 250.0f, 60.0f);
+        tgg_draw_text(320.0f, 272.0f, 36.0f, TGG_UI_TEXT_GOLD, TGG_ALIGN_CENTER, m->signin_code);
         break;
     case MEET_IN_ROOM:
-        draw_room_code(110);
-        tgg_draw_text(320, 330, 18, DIM, TGG_ALIGN_CENTER,
+        draw_room_code(102.0f);
+        tgg_draw_text(320.0f, 342.0f, 18.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_CENTER,
                       m->n_members < 2 ? "Give your friends this code."
                                        : "Waiting for everyone to connect.");
         break;
     case MEET_PUNCHING:
-        draw_room_code(110);
-        tgg_draw_text(320, 330, 22, WHITE, TGG_ALIGN_CENTER, "Connecting");
+        draw_room_code(102.0f);
+        tgg_draw_text(320.0f, 342.0f, 21.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER, "Connecting");
         break;
     case MEET_CONNECTED:
-        draw_room_code(110);
-        tgg_draw_text(320, 330, 22, WHITE, TGG_ALIGN_CENTER, "Connected");
+        draw_room_code(102.0f);
+        tgg_draw_text(320.0f, 342.0f, 21.0f, TGG_UI_TEXT_GOOD, TGG_ALIGN_CENTER, "Connected");
         break;
     default:
-        tgg_draw_text(320, 200, 22, WHITE, TGG_ALIGN_CENTER, "Getting a room on textures.gg");
+        tgg_ui_panel(110.0f, 176.0f, 420.0f, 84.0f);
+        tgg_draw_text(320.0f, 207.0f, 21.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER,
+                      "Getting a room on textures.gg");
         break;
     }
-    footer("B  Leave");
+    const tgg_ui_hint hints[] = { { TGG_UI_BTN_B, "Leave" } };
+    footer_hints(hints, 1);
 }
 
 static void draw_address(void)
 {
     band(dc.typing_code ? "Join a room" : "Join", NULL);
-    tgg_draw_text(320, 72, 18, DIM, TGG_ALIGN_CENTER,
+    tgg_draw_text(320.0f, 70.0f, 17.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_CENTER,
                   dc.typing_code ? "Room code" : "Host address");
     keyboard_draw();
-    footer("A  Type    X  Delete    Start  Connect    B  Back");
+    const tgg_ui_hint hints[] = {
+        { TGG_UI_BTN_A, "Type" },
+        { TGG_UI_BTN_X, "Delete" },
+        { TGG_UI_BTN_START, "Connect" },
+        { TGG_UI_BTN_B, "Back" },
+    };
+    footer_hints(hints, 4);
 }
 
 static void draw_connecting(void)
@@ -115,44 +107,52 @@ static void draw_connecting(void)
     band("Join", NULL);
     netplay_info info;
     netplay_status(&info);
-    char line[128];
+    tgg_ui_panel(80.0f, 168.0f, 480.0f, 116.0f);
+    char line[128], fit[128];
     snprintf(line, sizeof line, "Connecting to %s", info.peer[0] != '\0' ? info.peer : "...");
-    tgg_draw_text(320, 200, 26, WHITE, TGG_ALIGN_CENTER, line);
-    tgg_draw_text(320, 240, 18, DIM, TGG_ALIGN_CENTER, "The host needs to be on the Hosting screen.");
-    footer("B  Cancel");
+    tgg_draw_text_fit(fit, sizeof fit, 24.0f, 444.0f, line);
+    tgg_draw_text(320.0f, 194.0f, 24.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER, fit);
+    tgg_draw_text(320.0f, 236.0f, 17.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_CENTER,
+                  "The host needs to be on the Hosting screen.");
+    const tgg_ui_hint hints[] = { { TGG_UI_BTN_B, "Cancel" } };
+    footer_hints(hints, 1);
 }
 
 static void draw_failed(void)
 {
     band("Online", NULL);
-    tgg_draw_rect(60, 170, 520, 100, PANEL);
+    tgg_ui_modal(64.0f, 164.0f, 512.0f, 112.0f);
     char fit[160];
-    tgg_draw_text_fit(fit, sizeof fit, 20, 500, dc.why);
-    tgg_draw_text(320, 190, 22, GOLD, TGG_ALIGN_CENTER, "Disconnected");
-    tgg_draw_text(320, 228, 20, WHITE, TGG_ALIGN_CENTER, fit);
-    footer(dc.for_netplay ? "A  Back to your game" : "A  OK");
+    tgg_draw_text_fit(fit, sizeof fit, 19.0f, 476.0f, dc.why);
+    tgg_draw_text(320.0f, 186.0f, 22.0f, TGG_UI_TEXT_GOLD, TGG_ALIGN_CENTER, "Disconnected");
+    tgg_draw_text(320.0f, 224.0f, 19.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER, fit);
+    const tgg_ui_hint hints[] = {
+        { TGG_UI_BTN_A, dc.for_netplay ? "Back to your game" : "OK" },
+    };
+    footer_hints(hints, 1);
 }
 
 /* ---- The host has other mods */
 
 static void draw_list(float x, const char* title, char lines[][DIFF_TEXT], int n)
 {
-    tgg_draw_rect(x, 150, 270, 230, PANEL);
-    tgg_draw_text(x + 12, 158, 18, DIM, TGG_ALIGN_LEFT, title);
-    float y = 186;
+    tgg_ui_panel(x, 148.0f, 270.0f, 234.0f);
+    tgg_draw_text(x + 14.0f, 158.0f, 17.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_LEFT, title);
+    tgg_draw_rect(x + 12.0f, 182.0f, 246.0f, 1.0f, TGG_UI_DIVIDER);
+    float y = 192.0f;
     const int shown = n < DIFF_LINES ? n : DIFF_LINES;
     for (int i = 0; i < shown; i++) {
         char fit[DIFF_TEXT];
-        tgg_draw_text_fit(fit, sizeof fit, 17, 246, lines[i]);
-        tgg_draw_text(x + 12, y, 17, WHITE, TGG_ALIGN_LEFT, fit);
-        y += 23;
+        tgg_draw_text_fit(fit, sizeof fit, 17.0f, 242.0f, lines[i]);
+        tgg_draw_text(x + 14.0f, y, 17.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_LEFT, fit);
+        y += 23.0f;
     }
     if (n > shown) {
         char more[32];
         snprintf(more, sizeof more, "and %d more", n - shown);
-        tgg_draw_text(x + 12, y, 17, DIM, TGG_ALIGN_LEFT, more);
+        tgg_draw_text(x + 14.0f, y, 17.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_LEFT, more);
     } else if (n == 0) {
-        tgg_draw_text(x + 12, y, 17, DIM, TGG_ALIGN_LEFT, "Nothing else");
+        tgg_draw_text(x + 14.0f, y, 17.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_LEFT, "Nothing else");
     }
 }
 
@@ -161,35 +161,46 @@ static void draw_different(void)
     band("Join", NULL);
     netplay_info info;
     netplay_status(&info);
-    tgg_draw_text(320, 80, 24, GOLD, TGG_ALIGN_CENTER, info.why);
+    tgg_draw_text(320.0f, 76.0f, 23.0f, TGG_UI_TEXT_GOLD, TGG_ALIGN_CENTER, info.why);
     if (dc.bad_profile) {
-        tgg_draw_text(320, 200, 18, WHITE, TGG_ALIGN_CENTER, "Can't read the host's list of mods.");
-        footer("B  Leave");
+        tgg_ui_panel(110.0f, 176.0f, 420.0f, 84.0f);
+        tgg_draw_text(320.0f, 208.0f, 18.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER,
+                      "Can't read the host's list of mods.");
+        const tgg_ui_hint hints[] = { { TGG_UI_BTN_B, "Leave" } };
+        footer_hints(hints, 1);
         return;
     }
     if (!dc.have_diff) {
-        tgg_draw_text(320, 200, 18, DIM, TGG_ALIGN_CENTER, "Checking the host's mods...");
-        footer("B  Leave");
+        tgg_ui_panel(110.0f, 176.0f, 420.0f, 84.0f);
+        tgg_draw_text(320.0f, 208.0f, 18.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_CENTER,
+                      "Checking the host's mods...");
+        const tgg_ui_hint hints[] = { { TGG_UI_BTN_B, "Leave" } };
+        footer_hints(hints, 1);
         return;
     }
     const Diff* d = &dc.diff;
     if (strcmp(d->game_there, d->game_here) != 0) {
         char line[128];
         snprintf(line, sizeof line, "Game: %s there, %s here", d->game_there, d->game_here);
-        tgg_draw_text(320, 116, 18, WHITE, TGG_ALIGN_CENTER, line);
+        tgg_draw_text(320.0f, 112.0f, 18.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER, line);
     } else if (d->n_there == 0 && d->n_here == 0) {
-        tgg_draw_text(320, 116, 18, WHITE, TGG_ALIGN_CENTER,
+        tgg_draw_text(320.0f, 112.0f, 18.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER,
                       "Same versions, but the builds differ.");
     }
-    draw_list(40, "The host has", dc.diff.there, d->n_there);
-    draw_list(330, "You have", dc.diff.here, d->n_here);
+    draw_list(40.0f, "The host has", dc.diff.there, d->n_there);
+    draw_list(330.0f, "You have", dc.diff.here, d->n_here);
     if (dc.for_netplay) {
-        tgg_draw_text(320, 398, 18, DIM, TGG_ALIGN_CENTER,
+        tgg_draw_text(320.0f, 398.0f, 17.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_CENTER,
                       "The host's mods changed. Leave, then join again.");
-        footer("B  Leave");
+        const tgg_ui_hint hints[] = { { TGG_UI_BTN_B, "Leave" } };
+        footer_hints(hints, 1);
         return;
     }
-    footer("A  Get them and restart     B  Leave");
+    const tgg_ui_hint hints[] = {
+        { TGG_UI_BTN_A, "Get them and restart" },
+        { TGG_UI_BTN_B, "Leave" },
+    };
+    footer_hints(hints, 2);
 }
 
 /* While tgg gets the host's mods */
@@ -197,33 +208,37 @@ static void draw_restarting(void)
 {
     band("Join", NULL);
     const tgg_restart_status* r = &dc.restart;
-    tgg_draw_rect(60, 150, 520, 170, PANEL);
-    tgg_draw_rect(60, 150, 520, 2, BLUE);
+    tgg_ui_modal(60.0f, 146.0f, 520.0f, 178.0f);
     char text[300];
     if (r->state == TGG_RESTART_NEEDS_TRUST) {
         /* tgg only asks about native code from publishers who aren't official */
-        tgg_draw_text(80, 166, 20, WHITE, TGG_ALIGN_LEFT, "The host's mods run native code by");
-        tgg_draw_text_fit(text, sizeof text, 20, 480, r->trust);
-        tgg_draw_text(80, 194, 20, GOLD, TGG_ALIGN_LEFT, text);
-        tgg_draw_text(80, 228, 18, DIM, TGG_ALIGN_LEFT, "It runs on your computer. Download it?");
-        footer("A  Yes, always     B  No");
+        tgg_draw_text(82.0f, 168.0f, 20.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_LEFT,
+                      "The host's mods run native code by");
+        tgg_draw_text_fit(text, sizeof text, 20.0f, 476.0f, r->trust);
+        tgg_draw_text(82.0f, 198.0f, 20.0f, TGG_UI_TEXT_GOLD, TGG_ALIGN_LEFT, text);
+        tgg_draw_text(82.0f, 236.0f, 18.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_LEFT,
+                      "It runs on your computer. Download it?");
+        const tgg_ui_hint hints[] = {
+            { TGG_UI_BTN_A, "Yes, always" },
+            { TGG_UI_BTN_B, "No" },
+        };
+        footer_hints(hints, 2);
         return;
     }
-    tgg_draw_text(80, 166, 20, WHITE, TGG_ALIGN_LEFT, "Downloading the host's mods");
-    tgg_draw_text_fit(text, sizeof text, 18, 480, r->label);
-    tgg_draw_text(80, 200, 18, DIM, TGG_ALIGN_LEFT, text);
-    /* This step's bytes, when tgg knows the size */
-    tgg_draw_rect(80, 234, 480, 10, TGG_RGBA(255, 255, 255, 40));
-    if (r->total > 0) {
-        const float done = (float) (r->bytes / r->total);
-        tgg_draw_rect(80, 234, 480 * (done > 1 ? 1 : done), 10, BLUE);
-    }
+    tgg_draw_text(82.0f, 166.0f, 20.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_LEFT,
+                  "Downloading the host's mods");
+    tgg_draw_text_fit(text, sizeof text, 18.0f, 476.0f, r->label);
+    tgg_draw_text(82.0f, 198.0f, 18.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_LEFT, text);
+    const float done = r->total > 0 ? (float) (r->bytes / r->total) : 0.0f;
+    tgg_ui_progress(82.0f, 232.0f, 476.0f, 12.0f, done);
     if (r->steps > 0) {
         snprintf(text, sizeof text, "%d of %d", r->step + 1, r->steps);
-        tgg_draw_text(560, 252, 16, DIM, TGG_ALIGN_RIGHT, text);
+        tgg_draw_text(558.0f, 252.0f, 16.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_RIGHT, text);
     }
-    tgg_draw_text(80, 290, 16, DIM, TGG_ALIGN_LEFT, "Then the game restarts and joins the host.");
-    footer("B  Stop");
+    tgg_draw_text(82.0f, 286.0f, 16.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_LEFT,
+                  "Then the game restarts and joins the host.");
+    const tgg_ui_hint hints[] = { { TGG_UI_BTN_B, "Stop" } };
+    footer_hints(hints, 1);
 }
 
 void dc_draw(void)

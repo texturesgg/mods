@@ -2,6 +2,7 @@
 /* Typing the host's address: an on-screen keyboard for a controller, and the
  * real keyboard too. */
 #include "dc.h"
+#include "ui.h"
 
 #include "tgg/draw.h"
 #include "tgg/input.h"
@@ -131,47 +132,44 @@ int keyboard_frame(void)
     return 0;
 }
 
-#define WHITE TGG_RGBA(255, 255, 255, 255)
-#define GOLD TGG_RGBA(255, 200, 0, 255)
-#define DIM TGG_RGBA(170, 180, 210, 255)
-#define INK TGG_RGBA(20, 20, 30, 255)
-#define PANEL TGG_RGBA(10, 12, 40, 200)
-
 void keyboard_draw(void)
 {
     /* The address being typed */
-    tgg_draw_rect(70, 96, 500, 48, PANEL);
+    tgg_ui_modal(70.0f, 94.0f, 500.0f, 50.0f);
     /* The text, centered, and a caret after it */
-    const float width = tgg_draw_text_width(28, dc.address);
-    tgg_draw_text(320 - 4, 106, 28, WHITE, TGG_ALIGN_CENTER, dc.address);
-    tgg_draw_rect(320 - 4 + width / 2 + 3, 108, 3, 28, GOLD);
+    const float width = tgg_draw_text_width(28.0f, dc.address);
+    tgg_draw_text(316.0f, 105.0f, 28.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER, dc.address);
+    tgg_draw_rect(316.0f + width * 0.5f + 3.0f, 107.0f, 3.0f, 26.0f, TGG_UI_TEXT_GOLD);
     char full[ADDRESS_MAX + 8];
     dc_full_address(dc.address, full, sizeof full);
     if (dc.address[0] != '\0' && strcmp(full, dc.address) != 0) {
         char note[ADDRESS_MAX + 24];
         snprintf(note, sizeof note, "Connects to %s", full);
-        tgg_draw_text(320, 150, 18, DIM, TGG_ALIGN_CENTER, note);
+        tgg_draw_text(320.0f, 151.0f, 17.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_CENTER, note);
     }
 
-    const float key_w = 46, key_h = 42, gap = 4;
-    const float x0 = 320 - (COLS * (key_w + gap) - gap) / 2;
-    const float y0 = 180;
+    const float key_w = 46.0f, key_h = 41.0f, gap = 5.0f;
+    const float x0 = 320.0f - (COLS * (key_w + gap) - gap) * 0.5f;
+    const float y0 = 178.0f;
     for (int r = 0; r < ROWS; r++) {
         for (int c = 0; c < COLS; c++) {
             const int k = r * COLS + c;
-            const float x = x0 + c * (key_w + gap), y = y0 + r * (key_h + gap);
+            const float x = x0 + (float) c * (key_w + gap);
+            const float y = y0 + (float) r * (key_h + gap);
             const int on = k == dc.key;
-            tgg_draw_rect(x, y, key_w, key_h, on ? GOLD : PANEL);
+            tgg_ui_row(x, y, key_w, key_h, on);
             char label[2] = { layout[r][c], '\0' };
-            tgg_draw_text(x + key_w / 2, y + 9, 24, on ? INK : WHITE, TGG_ALIGN_CENTER, label);
+            tgg_draw_text(x + key_w * 0.5f, y + 9.0f, 23.0f,
+                          on ? TGG_UI_TEXT_INK : TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER, label);
         }
     }
-    const float y = y0 + ROWS * (key_h + gap);
-    const float half = (COLS * (key_w + gap) - gap - gap) / 2;
+    const float y = y0 + (float) ROWS * (key_h + gap);
+    const float half = (COLS * (key_w + gap) - gap - gap) * 0.5f;
     const int del = dc.key == KEY_DELETE, go = dc.key == KEY_CONNECT;
-    tgg_draw_rect(x0, y, half, key_h, del ? GOLD : PANEL);
-    tgg_draw_text(x0 + half / 2, y + 10, 22, del ? INK : WHITE, TGG_ALIGN_CENTER, "Delete");
-    tgg_draw_rect(x0 + half + gap, y, half, key_h, go ? GOLD : PANEL);
-    tgg_draw_text(x0 + half + gap + half / 2, y + 10, 22, go ? INK : WHITE, TGG_ALIGN_CENTER,
-                  "Connect");
+    tgg_ui_row(x0, y, half, key_h, del);
+    tgg_draw_text(x0 + half * 0.5f, y + 10.0f, 21.0f,
+                  del ? TGG_UI_TEXT_INK : TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER, "Delete");
+    tgg_ui_row(x0 + half + gap, y, half, key_h, go);
+    tgg_draw_text(x0 + half + gap + half * 0.5f, y + 10.0f, 21.0f,
+                  go ? TGG_UI_TEXT_INK : TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER, "Connect");
 }

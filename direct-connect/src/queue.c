@@ -22,6 +22,7 @@
  *   qagain                         this player wants another match
  */
 #include "dc.h"
+#include "ui.h"
 
 #include "tgg/draw.h"
 #include "tgg/events.h"
@@ -562,15 +563,9 @@ static void enter(int from_match)
 
 /* ---- Drawing */
 
-#define WHITE TGG_RGBA(255, 255, 255, 255)
-#define GOLD TGG_RGBA(255, 200, 0, 255)
-#define DIM TGG_RGBA(170, 180, 210, 255)
-#define PANEL TGG_RGBA(10, 12, 40, 200)
-#define BAND TGG_RGBA(0, 0, 0, 130)
-
 static void lines(float y, const char* text)
 {
-    /* Word by word, a line at a time, up to 520 wide */
+    /* Word by word, a line at a time, up to 480 wide */
     char line[160];
     const char* p = text;
     while (*p != '\0') {
@@ -578,7 +573,7 @@ static void lines(float y, const char* text)
         for (int i = 0;; i++) {
             if (p[i] == ' ' || p[i] == '\0') {
                 snprintf(line, sizeof line, "%.*s", i, p);
-                if (cut > 0 && tgg_draw_text_width(20, line) > 520) {
+                if (cut > 0 && tgg_draw_text_width(19.0f, line) > 480.0f) {
                     break;
                 }
                 cut = i;
@@ -591,8 +586,8 @@ static void lines(float y, const char* text)
             break;
         }
         snprintf(line, sizeof line, "%.*s", cut, p);
-        tgg_draw_text(320, y, 20, WHITE, TGG_ALIGN_CENTER, line);
-        y += 28;
+        tgg_draw_text(320.0f, y, 19.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER, line);
+        y += 28.0f;
         p += cut;
         while (*p == ' ') {
             p++;
@@ -602,90 +597,121 @@ static void lines(float y, const char* text)
 
 static void draw(void)
 {
-    tgg_draw_rect(-200, 0, 1040, 64, BAND);
-    tgg_draw_text(40, 16, 32, WHITE, TGG_ALIGN_LEFT, "Find a match");
-    const char* help = "B: back";
+    tgg_ui_header("Find a match", NULL);
+    tgg_ui_hint hints[3];
+    int n_hints = 0;
     char text[320];
     switch (q.view) {
     case Q_CONNECT:
         if (dc.meet.state == MEET_SIGN_IN) {
-            snprintf(text, sizeof text, "Sign in at %s with the code %s.", dc.meet.signin_url,
-                     dc.meet.signin_code);
-            lines(200, text);
+            tgg_ui_panel(80.0f, 98.0f, 480.0f, 260.0f);
+            tgg_draw_text(320.0f, 118.0f, 24.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER,
+                          "Sign in to textures.gg");
+            tgg_draw_text(320.0f, 162.0f, 17.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_CENTER,
+                          "On your phone or computer, go to");
+            tgg_draw_text_fit(text, sizeof text, 20.0f, 440.0f, dc.meet.signin_url);
+            tgg_draw_text(320.0f, 190.0f, 20.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER, text);
+            tgg_draw_text(320.0f, 232.0f, 17.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_CENTER, "and enter");
+            tgg_ui_modal(195.0f, 260.0f, 250.0f, 60.0f);
+            tgg_draw_text(320.0f, 272.0f, 36.0f, TGG_UI_TEXT_GOLD, TGG_ALIGN_CENTER,
+                          dc.meet.signin_code);
         } else {
-            lines(200, "Connecting to textures.gg.");
+            tgg_ui_panel(110.0f, 176.0f, 420.0f, 84.0f);
+            tgg_draw_text(320.0f, 207.0f, 21.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER,
+                          "Connecting to textures.gg");
         }
+        hints[n_hints++] = (tgg_ui_hint) { TGG_UI_BTN_B, "Back" };
         break;
     case Q_MODES:
         for (int i = 0; i < q.n_modes; i++) {
-            const float y = 110 + (float) i * 64;
-            tgg_draw_rect(80, y, 480, 52, PANEL);
-            tgg_draw_text(100, y + 6, 24, i == q.cursor ? GOLD : WHITE, TGG_ALIGN_LEFT,
+            const float y = 96.0f + (float) i * 66.0f;
+            const int on = i == q.cursor;
+            tgg_ui_row(72.0f, y, 496.0f, 56.0f, on);
+            tgg_draw_text(92.0f, y + 7.0f, 22.0f,
+                          on ? TGG_UI_TEXT_INK : TGG_UI_TEXT_PRIMARY, TGG_ALIGN_LEFT,
                           q.modes[i].label);
             char label[64] = "";
             const int n = meet_count(q.modes[i].id, label, sizeof label);
             if (n >= 0) {
-                snprintf(text, sizeof text, "%s: %d searching", label, n);
+                snprintf(text, sizeof text, "%s  %d searching", label, n);
             } else {
                 snprintf(text, sizeof text, "Players with your mods");
             }
             char fit[96];
-            tgg_draw_text_fit(fit, sizeof fit, 16, 440, text);
-            tgg_draw_text(100, y + 32, 16, DIM, TGG_ALIGN_LEFT, fit);
+            tgg_draw_text_fit(fit, sizeof fit, 15.0f, 444.0f, text);
+            tgg_draw_text(92.0f, y + 33.0f, 15.0f,
+                          on ? TGG_UI_TEXT_INK : TGG_UI_TEXT_MUTED, TGG_ALIGN_LEFT, fit);
         }
-        help = "A: search   B: back";
+        hints[n_hints++] = (tgg_ui_hint) { TGG_UI_BTN_A, "Search" };
+        hints[n_hints++] = (tgg_ui_hint) { TGG_UI_BTN_B, "Back" };
         break;
     case Q_NOTICE:
-        lines(150, "Find a match pairs you with someone you might not know. Like anyone you "
-                   "play online, they can see your IP address.");
-        help = "A: OK   B: back";
+        tgg_ui_modal(64.0f, 134.0f, 512.0f, 166.0f);
+        tgg_draw_text(320.0f, 154.0f, 22.0f, TGG_UI_TEXT_GOLD, TGG_ALIGN_CENTER, "Before you search");
+        lines(196.0f, "Find a match pairs you with someone you might not know. Like anyone you "
+                      "play online, they can see your IP address.");
+        hints[n_hints++] = (tgg_ui_hint) { TGG_UI_BTN_A, "OK" };
+        hints[n_hints++] = (tgg_ui_hint) { TGG_UI_BTN_B, "Back" };
         break;
     case Q_CHARACTER:
+        hints[n_hints++] = (tgg_ui_hint) { TGG_UI_BTN_B, "Back" };
         break;
     case Q_SEARCH: {
         const int s = (int) (dc.meet.search_ms / 1000);
+        tgg_ui_panel(76.0f, 126.0f, 488.0f, 198.0f);
         if (dc.meet.state == MEET_PUNCHING) {
-            snprintf(text, sizeof text, "Found %s. Connecting.",
+            snprintf(text, sizeof text, "Found %s",
                      dc.meet.n_peers > 0 ? dc.meet.peers[0] : "someone");
+            tgg_draw_text(320.0f, 152.0f, 28.0f, TGG_UI_TEXT_GOLD, TGG_ALIGN_CENTER, text);
+            tgg_draw_text(320.0f, 194.0f, 19.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER,
+                          "Connecting");
         } else if (dc.meet.state == MEET_CONNECTED) {
-            snprintf(text, sizeof text, "Connected.");
+            tgg_draw_text(320.0f, 162.0f, 28.0f, TGG_UI_TEXT_GOOD, TGG_ALIGN_CENTER, "Connected");
         } else {
-            snprintf(text, sizeof text, "Searching %d:%02d", s / 60, s % 60);
-        }
-        tgg_draw_text(320, 150, 32, WHITE, TGG_ALIGN_CENTER, text);
-        if (dc.meet.label[0] != '\0') {
-            snprintf(text, sizeof text, "%s: %d searching", dc.meet.label,
-                     dc.meet.searching > 0 ? dc.meet.searching : 1);
-            tgg_draw_text(320, 200, 20, DIM, TGG_ALIGN_CENTER, text);
+            snprintf(text, sizeof text, "Searching  %d:%02d", s / 60, s % 60);
+            tgg_draw_text(320.0f, 152.0f, 28.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER, text);
+            if (dc.meet.label[0] != '\0') {
+                snprintf(text, sizeof text, "%s  %d searching", dc.meet.label,
+                         dc.meet.searching > 0 ? dc.meet.searching : 1);
+                tgg_draw_text(320.0f, 200.0f, 18.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_CENTER, text);
+            }
         }
         if (dc.meet.note[0] != '\0') {
-            lines(260, dc.meet.note);
+            lines(248.0f, dc.meet.note);
         }
-        help = "B: stop searching";
+        hints[n_hints++] = (tgg_ui_hint) { TGG_UI_BTN_B, "Stop searching" };
         break;
     }
     case Q_LOBBY:
-        snprintf(text, sizeof text, "Playing %s.", q.opponent[0] != '\0' ? q.opponent : "someone");
-        lines(200, text);
+        tgg_ui_panel(110.0f, 176.0f, 420.0f, 84.0f);
+        snprintf(text, sizeof text, "Playing %s", q.opponent[0] != '\0' ? q.opponent : "someone");
+        tgg_draw_text(320.0f, 207.0f, 22.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER, text);
+        hints[n_hints++] = (tgg_ui_hint) { TGG_UI_BTN_B, "Back" };
         break;
     case Q_PLAYING:
+        hints[n_hints++] = (tgg_ui_hint) { TGG_UI_BTN_B, "Back" };
         break;
     case Q_AFTER:
+        tgg_ui_modal(90.0f, 162.0f, 460.0f, 108.0f);
         if (q.again_me) {
-            snprintf(text, sizeof text, "Waiting for %s.", q.opponent[0] != '\0' ? q.opponent : "them");
+            snprintf(text, sizeof text, "Waiting for %s",
+                     q.opponent[0] != '\0' ? q.opponent : "them");
         } else {
-            snprintf(text, sizeof text, "Play %s again?", q.opponent[0] != '\0' ? q.opponent : "them");
+            snprintf(text, sizeof text, "Play %s again?",
+                     q.opponent[0] != '\0' ? q.opponent : "them");
         }
-        lines(180, text);
-        help = "A: play again   B: find someone else";
+        tgg_draw_text(320.0f, 202.0f, 24.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER, text);
+        hints[n_hints++] = (tgg_ui_hint) { TGG_UI_BTN_A, "Play again" };
+        hints[n_hints++] = (tgg_ui_hint) { TGG_UI_BTN_B, "Find someone else" };
         break;
     case Q_FAILED:
-        lines(180, q.why);
-        help = "A: OK";
+        tgg_ui_modal(72.0f, 158.0f, 496.0f, 120.0f);
+        tgg_draw_text(320.0f, 178.0f, 21.0f, TGG_UI_TEXT_GOLD, TGG_ALIGN_CENTER, "Match ended");
+        lines(216.0f, q.why);
+        hints[n_hints++] = (tgg_ui_hint) { TGG_UI_BTN_A, "OK" };
         break;
     }
-    tgg_draw_rect(-200, 440, 1040, 40, BAND);
-    tgg_draw_text(320, 450, 18, DIM, TGG_ALIGN_CENTER, help);
+    tgg_ui_footer_hints(hints, n_hints);
 }
 
 static const tgg_screen screen = {

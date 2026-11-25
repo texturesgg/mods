@@ -25,6 +25,12 @@
       "label": "Show the rate",
       "default": true,
       "local": true
+    },
+    {
+      "key": "flash",
+      "label": "Flash fighter",
+      "default": true,
+      "local": true
     }
   ]
 }
