@@ -1,8 +1,8 @@
 --!strict
 -- L-cancel drill: Practice > L-cancel. Training Mode with a clean screen (tgg.practice-stage),
 -- starting on Final Destination with a stationary infinite-shield CPU so you practice real
--- shield-hitlag L-cancel timing. D-pad left toggles between Shield CPU and Empty stage;
--- D-pad right resets positions back to center.
+-- shield-hitlag L-cancel timing. D-pad left toggles Shield CPU / Empty stage; D-pad up toggles
+-- Pinned / Pushback (so you can throw or push the CPU anywhere, then pin them); D-pad right resets.
 local tgg = require("@tgg")
 
 local ID = "tgg.lcancel-drill"
@@ -27,6 +27,7 @@ tgg.menu.add("practice/lcancel", {
 })
 
 local shield_on = true
+local pin_on = true
 local setup_frames = 0
 local saved_reset = false
 local hint_age = HINT_SHOW
@@ -95,7 +96,7 @@ local function rounded_rect(
 	end
 end
 
-local function draw_dpad(cx: number, cy: number, size: number, dir: number, a: number)
+local function draw_dpad(cx: number, cy: number, size: number, dir: string, a: number)
 	local r = size * 0.5
 	local arm = size * 0.28
 	local span = size * 0.72
@@ -105,8 +106,10 @@ local function draw_dpad(cx: number, cy: number, size: number, dir: number, a: n
 	tgg.draw.rect(cx - arm * 0.5, cy - half, arm, span, { r = 112, g = 122, b = 154, a = alpha(255, a) })
 	tgg.draw.rect(cx - half, cy - arm * 0.5, span, arm, { r = 112, g = 122, b = 154, a = alpha(255, a) })
 	local lit = { r = 236, g = 240, b = 252, a = alpha(255, a) }
-	if dir < 0 then
+	if dir == "left" then
 		tgg.draw.rect(cx - half, cy - arm * 0.5, half + arm * 0.2, arm, lit)
+	elseif dir == "up" then
+		tgg.draw.rect(cx - arm * 0.5, cy - half, arm, half + arm * 0.2, lit)
 	else
 		tgg.draw.rect(cx - arm * 0.2, cy - arm * 0.5, half + arm * 0.2, arm, lit)
 	end
@@ -116,9 +119,11 @@ tgg.on.frame(function()
 	local in_match = mine()
 	if in_match and not was_in_match then
 		shield_on = true
+		pin_on = true
 		setup_frames = 0
 		saved_reset = false
 		practice.set_cpu_shield(true)
+		practice.set_cpu_pin(true)
 		hint_age = 0
 		missing_age = if tgg.mod("tgg.lcancel-trainer") ~= nil then MISSING_SHOW else 0
 	end
@@ -134,10 +139,11 @@ tgg.on.frame(function()
 	end
 
 	-- Keep the center-stage snapshot once "GO!" is gone and P2 is in active Guard
+	-- (fallback after +10 frames covers Yoshi's custom egg shield action id)
 	if not saved_reset then
 		setup_frames += 1
 		local p2 = tgg.fighter.at(1, false)
-		if setup_frames >= MIN_RESET_FRAME and p2 ~= nil and p2.action == tgg.action.GUARD then
+		if setup_frames >= MIN_RESET_FRAME and p2 ~= nil and (p2.action == tgg.action.GUARD or setup_frames >= MIN_RESET_FRAME + 10) then
 			practice.keep_reset(false)
 			saved_reset = true
 		end
@@ -149,11 +155,16 @@ tgg.on.frame(function()
 		shield_on = not shield_on
 		practice.set_cpu_shield(shield_on)
 		if shield_on then
+			practice.set_cpu_pin(pin_on)
 			practice.reset(false)
-			practice.say("Shield CPU: On")
+			practice.say(if pin_on then "Shield CPU: Pinned" else "Shield CPU: Pushback")
 		else
 			practice.say("Empty stage")
 		end
+	elseif bit32.btest(input, tgg.button.UP) and shield_on then
+		pin_on = not pin_on
+		practice.set_cpu_pin(pin_on)
+		practice.say(if pin_on then "CPU: Pinned" else "CPU: Pushback")
 	elseif bit32.btest(input, tgg.button.RIGHT) then
 		practice.reset(true)
 	end
@@ -170,12 +181,14 @@ tgg.on.hud_draw(function()
 		local sz = 14
 		local icon = 15
 		local label1 = "Shield CPU"
-		local label2 = "Reset"
+		local label2 = "Pin CPU"
+		local label3 = "Reset"
 		local w1 = tgg.draw.text_width(sz, label1)
 		local w2 = tgg.draw.text_width(sz, label2)
-		local gap = 18
+		local w3 = tgg.draw.text_width(sz, label3)
+		local gap = 16
 		local igap = 6
-		local w = icon + igap + w1 + gap + icon + igap + w2 + 26
+		local w = (icon + igap + w1) + gap + (icon + igap + w2) + gap + (icon + igap + w3) + 26
 		local h = 26
 		local x = 320 - w * 0.5
 		local y = 10
@@ -192,13 +205,17 @@ tgg.on.hud_draw(function()
 			1.1
 		)
 		local cx = x + 13
-		draw_dpad(cx + icon * 0.5, cy, icon, -1, a)
+		draw_dpad(cx + icon * 0.5, cy, icon, "left", a)
 		cx += icon + igap
 		tgg.draw.text(cx, cy - sz * 0.52, sz, { r = 232, g = 237, b = 252, a = alpha(255, a) }, tgg.align.LEFT, label1)
 		cx += w1 + gap
-		draw_dpad(cx + icon * 0.5, cy, icon, 1, a)
+		draw_dpad(cx + icon * 0.5, cy, icon, "up", a)
 		cx += icon + igap
 		tgg.draw.text(cx, cy - sz * 0.52, sz, { r = 232, g = 237, b = 252, a = alpha(255, a) }, tgg.align.LEFT, label2)
+		cx += w2 + gap
+		draw_dpad(cx + icon * 0.5, cy, icon, "right", a)
+		cx += icon + igap
+		tgg.draw.text(cx, cy - sz * 0.52, sz, { r = 232, g = 237, b = 252, a = alpha(255, a) }, tgg.align.LEFT, label3)
 	end
 
 	if missing_age < MISSING_SHOW then

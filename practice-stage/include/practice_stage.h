@@ -57,6 +57,12 @@ TGG_API(PRACTICE_STAGE, int, practice_put_on_ledge, (int side));
  * with no AI; zero removes all CPUs for an empty stage. */
 TGG_API(PRACTICE_STAGE, void, practice_set_cpu_shield, (int on));
 
+/* Sets Training Mode's P2 horizontal shield movement when shield CPU is active:
+ * nonzero pins P2 (and Nana) at their current shielding position with zero
+ * shield pushback (re-anchoring after grabs/throws); zero allows authentic
+ * shield pushback clamped inside the current floor/platform edges. */
+TGG_API(PRACTICE_STAGE, void, practice_set_cpu_pin, (int on));
+
 /* Shows a brief status pill at top-center (empty string clears it). */
 TGG_API(PRACTICE_STAGE, void, practice_say, (const char* text));
 

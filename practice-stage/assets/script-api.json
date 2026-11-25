@@ -57,6 +57,13 @@
       "doc": "Keeps Training Mode's P2 CPU holding an infinite full shield (true) or clears CPUs for an empty stage (false)."
     },
     {
+      "name": "set_cpu_pin",
+      "export": "practice_set_cpu_pin@1",
+      "returns": "void",
+      "params": [["on", "bool"]],
+      "doc": "Pins Training Mode's shielding P2 CPU horizontally in place (true, re-anchoring after throws) or allows ledge-clamped shield pushback (false)."
+    },
+    {
       "name": "say",
       "export": "practice_say@1",
       "returns": "void",

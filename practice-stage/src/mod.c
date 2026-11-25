@@ -18,6 +18,7 @@
 #include "practice_stage.h"
 #include "tgg/content.h"
 
+#include "tgg/game/fighters.h"
 #include "tgg/game/hooks.h"
 #include "tgg/draw.h"
 #include "tgg/events.h"
@@ -30,6 +31,8 @@
 #include <melee/cm/types.h>
 #include <melee/ft/fighter.h>
 #include <melee/ft/ftcliffcommon.h>
+#include <melee/ft/kinds/ftCommon/forward.h>
+#include <melee/ft/kinds/ftYoshi/forward.h>
 #include <melee/ft/types.h>
 #include <melee/gm/forward.h>
 #include <melee/gm/gm_1884.h>
@@ -66,11 +69,106 @@ static struct {
     practice_how how;
 } drill;
 
-static int pending_ledge; /* -1 left, +1 right, 0 none */
-static int snap_camera;   /* nonzero: snap camera to target on tick_end */
-static int cpu_shield;    /* nonzero: keep P2 holding infinite full shield */
+static int pending_ledge;   /* -1 left, +1 right, 0 none */
+static int snap_camera;     /* nonzero: snap camera to target on tick_end */
+static int cpu_shield;      /* nonzero: keep P2 holding infinite full shield */
+static int cpu_pin;         /* nonzero: anchor P2 horizontally (zero pushback) */
+static int cpu_pin_have[2]; /* nonzero: cpu_pin_x[sub] is captured */
+static float cpu_pin_x[2];  /* anchored X for main (0) and follower/Nana (1) */
 static Camera* g_cam;
 TGG_GAME_SYMBOL(g_cam, "camera.c:game_camera");
+
+static int is_guarding(const Fighter* fp)
+{
+    if (fp->ground_or_air != GA_Ground) {
+        return 0;
+    }
+    switch (fp->motion_id) {
+    case ftCo_MS_GuardOn:
+    case ftCo_MS_Guard:
+    case ftCo_MS_GuardSetOff:
+    case ftCo_MS_GuardReflect:
+        return 1;
+    default:
+        break;
+    }
+    if (FT_CODE(fp->kind) == Ft_Kind_Yoshi) {
+        switch (fp->motion_id) {
+        case ftYs_MS_GuardOn_0:
+        case ftYs_MS_GuardHold:
+        case ftYs_MS_GuardDamage:
+        case ftYs_MS_GuardOn_1:
+            return 1;
+        default:
+            break;
+        }
+    }
+    return 0;
+}
+
+static void apply_cpu_position(Fighter_GObj* gobj, int sub)
+{
+    Fighter* fp = gobj->user_data;
+    if (!is_guarding(fp)) {
+        cpu_pin_have[sub] = 0;
+        return;
+    }
+    if (cpu_pin) {
+        if (!cpu_pin_have[sub]) {
+            cpu_pin_x[sub] = fp->cur_pos.x;
+            cpu_pin_have[sub] = 1;
+        }
+        fp->gr_vel = 0.0f;
+        fp->self_vel.x = 0.0f;
+        fp->cur_pos.x = cpu_pin_x[sub];
+        fp->coll_data.cur_pos.x = cpu_pin_x[sub];
+        fp->coll_data.prev_pos.x = cpu_pin_x[sub];
+        HSD_JObj* jobj = HSD_GObjGetHSDObj(gobj);
+        if (jobj != NULL) {
+            HSD_JObjSetTranslate(jobj, &fp->cur_pos);
+        }
+        return;
+    }
+    const int fid = fp->coll_data.floor.index;
+    if (fid == -1) {
+        return;
+    }
+    Vec3 left, right;
+    mpFloorGetLeft(fid, &left);
+    mpFloorGetRight(fid, &right);
+    const float span = right.x - left.x;
+    const float margin = span > 8.0f ? 3.5f : span * 0.25f;
+    const float min_x = left.x + margin;
+    const float max_x = right.x - margin;
+    int clamped = 0;
+    if (fp->cur_pos.x < min_x) {
+        fp->cur_pos.x = min_x;
+        if (fp->gr_vel < 0.0f) {
+            fp->gr_vel = 0.0f;
+        }
+        if (fp->self_vel.x < 0.0f) {
+            fp->self_vel.x = 0.0f;
+        }
+        clamped = 1;
+    } else if (fp->cur_pos.x > max_x) {
+        fp->cur_pos.x = max_x;
+        if (fp->gr_vel > 0.0f) {
+            fp->gr_vel = 0.0f;
+        }
+        if (fp->self_vel.x > 0.0f) {
+            fp->self_vel.x = 0.0f;
+        }
+        clamped = 1;
+    }
+    if (clamped) {
+        fp->coll_data.cur_pos.x = fp->cur_pos.x;
+        fp->coll_data.prev_pos.x = fp->cur_pos.x;
+        HSD_JObj* jobj = HSD_GObjGetHSDObj(gobj);
+        if (jobj != NULL) {
+            HSD_JObjSetTranslate(jobj, &fp->cur_pos);
+        }
+    }
+}
 
 static int in_training(void)
 {
@@ -111,6 +209,9 @@ static void on_tick(void)
                 fp->shield_health = p_ftCommonData->x260_startShieldHealth;
                 fp->dmg.x1830_percent = 0.0f;
                 Player_SetHPByIndex(fp->player_idx, fp->is_sub_fighter, 0);
+                apply_cpu_position(p2, sub);
+            } else {
+                cpu_pin_have[sub] = 0;
             }
         }
     } else if (want_alone()) {
@@ -167,6 +268,14 @@ static void on_fighter_input(tgg_fighter fighter, tgg_input* in)
     if (!tgg_in_match() || !in_training() || !cpu_shield || tgg_fighter_port(fighter) != 1) {
         return;
     }
+    /* When repositioning Ice Climbers (e.g. grabbing/throwing Popo), let Nana
+     * follow Popo until Popo is grounded and guarding again. */
+    if (tgg_fighter_follower(fighter)) {
+        Fighter_GObj* popo = Player_GetEntityAtIndex(1, 0);
+        if (popo != NULL && !is_guarding(popo->user_data)) {
+            return;
+        }
+    }
     in->stick_x = 0.0f;
     in->stick_y = 0.0f;
     in->cstick_x = 0.0f;
@@ -180,6 +289,14 @@ static void on_tick_end(void)
 {
     if (!tgg_in_match() || !in_training()) {
         return;
+    }
+    if (cpu_shield) {
+        for (int sub = 0; sub < 2; sub++) {
+            Fighter_GObj* p2 = Player_GetEntityAtIndex(1, sub);
+            if (p2 != NULL) {
+                apply_cpu_position(p2, sub);
+            }
+        }
     }
     if (snap_camera && g_cam != NULL) {
         snap_camera = 0;
@@ -310,6 +427,8 @@ int practice_reset(int say)
     if (reset_point == NULL || tgg_snapshot_load(reset_point) != TGG_SNAPSHOT_OK) {
         return 0;
     }
+    cpu_pin_have[0] = 0;
+    cpu_pin_have[1] = 0;
     if (say) {
         practice_say("Reset");
     }
@@ -333,9 +452,18 @@ int practice_put_on_ledge(int side)
 void practice_set_cpu_shield(int on)
 {
     cpu_shield = on != 0;
+    cpu_pin_have[0] = 0;
+    cpu_pin_have[1] = 0;
     if (drill.on) {
         drill.how.keep_cpu = cpu_shield;
     }
+}
+
+void practice_set_cpu_pin(int on)
+{
+    cpu_pin = on != 0;
+    cpu_pin_have[0] = 0;
+    cpu_pin_have[1] = 0;
 }
 
 /* ---- Presentation ------------------------------------------------------------ */
@@ -353,6 +481,9 @@ static void on_frame(void)
         memset(&drill, 0, sizeof drill);
         pending_ledge = 0;
         cpu_shield = 0;
+        cpu_pin = 0;
+        cpu_pin_have[0] = 0;
+        cpu_pin_have[1] = 0;
     }
     const int in_match = tgg_in_match();
     if (!in_match && was_in_match) {
@@ -360,6 +491,9 @@ static void on_frame(void)
         reset_point = NULL;
         pending_ledge = 0;
         cpu_shield = 0;
+        cpu_pin = 0;
+        cpu_pin_have[0] = 0;
+        cpu_pin_have[1] = 0;
     }
     was_in_match = in_match;
 }
