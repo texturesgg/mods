@@ -434,6 +434,7 @@ static char message_buf[64];
 static const char* message;
 static int message_age = SHOW;
 static int was_in_match;
+static unsigned frame_seq;
 
 void practice_say(const char* text)
 {
@@ -515,6 +516,7 @@ void practice_set_cpu_pin(int on)
 
 static void on_frame(void)
 {
+    frame_seq++;
     if (message_age < SHOW) {
         message_age++;
     }
@@ -600,13 +602,13 @@ TGG_ON(hud_draw, on_hud);
 
 /* ---- The stage select starts on the drill's stage -------------------------- */
 
-/* The stage select's icons (mnstagesel.c), as the game lays them out */
+/* The stage select's icons (mnstagesel.c), as the game lays them out on PC */
 typedef struct StageListInfo {
     HSD_JObj* icon;
     int x4;
     u8 shown;
     u8 x9, xA;
-    u8 stkind;
+    u16 stkind; /* TARGET_PC widens stkind to u16 for added stages */
     f32 xC, x10, x14, x18;
 } StageListInfo;
 static StageListInfo* stage_icons;
@@ -616,6 +618,7 @@ TGG_GAME_SYMBOL(stage_icons, "mnstagesel.c:mnStageSel_803F06D0");
  * so the cursor moves once they've settled, if the player hasn't moved it */
 #define SETTLED 60
 static int sss_frames;
+static unsigned sss_last_frame;
 static Vec3 sss_start;
 
 static void on_match_start_placed(const tgg_match* match)
@@ -627,7 +630,15 @@ TGG_ON(match_start, on_match_start_placed);
 
 static void before_sss_cursor(HSD_GObj* gobj)
 {
-    if (!drill.on || drill.how.stage == NULL || stage_icons == NULL || sss_frames > SETTLED) {
+    if (!drill.on || drill.how.stage == NULL || stage_icons == NULL) {
+        return;
+    }
+    /* A gap in cursor updates means the player left and re-entered stage select */
+    if (frame_seq - sss_last_frame > 10) {
+        sss_frames = 0;
+    }
+    sss_last_frame = frame_seq;
+    if (sss_frames > SETTLED) {
         return;
     }
     HSD_JObj* cursor = HSD_GObjGetHSDObj(gobj);
