@@ -10,6 +10,8 @@ set(CMAKE_RC_COMPILER x86_64-w64-mingw32-windres)
 foreach(kind EXE SHARED MODULE)
     # The same source and SDK give the same mod.dll on every build
     string(APPEND CMAKE_${kind}_LINKER_FLAGS_INIT " -Wl,--no-insert-timestamp")
+    # The game links libgcc statically and does not ship libgcc_s_seh-1.dll
+    string(APPEND CMAKE_${kind}_LINKER_FLAGS_INIT " -static-libgcc")
     # nixpkgs' MinGW GCC links with -lmcfgthread; the game ships its DLL
     string(APPEND CMAKE_${kind}_LINKER_FLAGS_INIT " -L$ENV{TGG_MINGW_MCFGTHREADS}/lib")
 endforeach()
