@@ -47,6 +47,7 @@
 #include <melee/mp/mplib.h>
 #include <melee/pl/player.h>
 #include <sysdolphin/baselib/cobj.h>
+#include <sysdolphin/baselib/controller.h>
 #include <sysdolphin/baselib/gobj.h>
 #include <sysdolphin/baselib/jobj.h>
 #include <sysdolphin/baselib/sislib.h>
@@ -58,6 +59,8 @@ static int setting_alone;
 TGG_SETTING_BOOL(setting_alone, "alone", "Empty stage in Training", 0);
 static int setting_clean;
 TGG_SETTING_BOOL(setting_clean, "clean", "Clean screen in Training", 0);
+static int setting_cstick;
+TGG_SETTING_BOOL(setting_cstick, "cstick", "C-stick attacks in Training", 0);
 
 /* The drill Training Mode was started for, from practice_start until the
  * game leaves Training Mode */
@@ -188,6 +191,11 @@ static int want_clean(void)
     return drill.on ? !drill.how.keep_screen : setting_clean;
 }
 
+static int want_cstick(void)
+{
+    return drill.on ? 1 : setting_cstick;
+}
+
 /* ---- The match --------------------------------------------------------------- */
 
 /* Simulation code reads want_alone(), want_clean(), cpu_shield and pending_ledge. */
@@ -265,7 +273,33 @@ TGG_ON(tick, on_tick);
 
 static void on_fighter_input(tgg_fighter fighter, tgg_input* in)
 {
-    if (!tgg_in_match() || !in_training() || !cpu_shield || tgg_fighter_port(fighter) != 1) {
+    if (!tgg_in_match() || !in_training()) {
+        return;
+    }
+    /* Vanilla Training Mode zeros P1's C-stick and uses C-stick Y to zoom the
+     * camera (Camera_8002B0E0). Restore VS-mode C-stick aerials/smashes here. */
+    if (tgg_fighter_port(fighter) == 0 && !tgg_fighter_follower(fighter) && want_cstick()) {
+        Fighter_GObj* p1 = Player_GetEntity(0);
+        if (p1 != NULL) {
+            Fighter* fp = p1->user_data;
+            float cx = HSD_PadGameStatus[fp->pad_port].nml_subStickX;
+            float cy = HSD_PadGameStatus[fp->pad_port].nml_subStickY;
+            if (cx > -p_ftCommonData->horizontal_stick_deadzone &&
+                cx < p_ftCommonData->horizontal_stick_deadzone)
+            {
+                cx = 0.0f;
+            }
+            if (cy > -p_ftCommonData->vertical_stick_deadzone &&
+                cy < p_ftCommonData->vertical_stick_deadzone)
+            {
+                cy = 0.0f;
+            }
+            in->cstick_x = cx;
+            in->cstick_y = cy;
+        }
+        return;
+    }
+    if (!cpu_shield || tgg_fighter_port(fighter) != 1) {
         return;
     }
     /* When repositioning Ice Climbers (e.g. grabbing/throwing Popo), let Nana
@@ -284,6 +318,17 @@ static void on_fighter_input(tgg_fighter fighter, tgg_input* in)
     in->trigger = 1.0f;
 }
 TGG_ON(fighter_input, on_fighter_input);
+
+/* Disable 1P/Training Mode's C-stick Y camera zoom when C-stick attacks are on */
+static void after_camera_zoom(void)
+{
+    if (!in_training() || !want_cstick() || g_cam == NULL) {
+        return;
+    }
+    g_cam->x2BC = 1.0f;
+    g_cam->x2BA = 0;
+}
+TGG_AFTER(Camera_8002B0E0, after_camera_zoom);
 
 static void on_tick_end(void)
 {
