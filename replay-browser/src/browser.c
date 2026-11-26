@@ -75,14 +75,14 @@ static void enter(int from_match)
 
 static void move(int by)
 {
-    if (br.n == 0) {
+    if (br.n_view == 0) {
         return;
     }
     int to = br.sel + by;
     if (by == 1 || by == -1) {
-        to = (to + br.n) % br.n;
+        to = (to + br.n_view) % br.n_view;
     } else {
-        to = to < 0 ? 0 : to >= br.n ? br.n - 1 : to;
+        to = to < 0 ? 0 : to >= br.n_view ? br.n_view - 1 : to;
     }
     if (to != br.sel) {
         br.sel = to;
@@ -103,9 +103,10 @@ static void go_up(void)
     snprintf(from, sizeof from, "%s", slash != NULL ? slash + 1 : br.folder);
     if (list_open(parent) == 0) {
         tgg_sound_menu(TGG_SOUND_BACK);
-        for (int i = 0; i < br.n; i++) {
-            if (strcmp(br.entries[i].name, from) == 0) {
+        for (int i = 0; i < br.n_view; i++) {
+            if (strcmp(br.entries[br.view[i]].name, from) == 0) {
                 br.sel = i;
+                break;
             }
         }
     }
@@ -128,16 +129,17 @@ static void play(const char* path)
 
 static void choose(void)
 {
-    if (br.n == 0) {
+    const int idx = list_selected_entry();
+    if (idx < 0) {
         return;
     }
-    if (strcmp(br.entries[br.sel].name, "..") == 0) {
+    if (strcmp(br.entries[idx].name, "..") == 0) {
         go_up();
         return;
     }
     char path[PATH_MAX_LEN + 256];
-    list_path(br.sel, path, sizeof path);
-    if (br.entries[br.sel].is_dir) {
+    list_path(idx, path, sizeof path);
+    if (br.entries[idx].is_dir) {
         if (list_open(path) == 0) {
             tgg_sound_menu(TGG_SOUND_ACCEPT);
         } else {
@@ -154,6 +156,130 @@ static void choose(void)
         br.restarting = 1;
     } else {
         play(path);
+    }
+}
+
+static void step_filter(int dir)
+{
+    if (br.filter_col == 0) {
+        br.filter_mode = (br.filter_mode + dir + 3) % 3;
+        list_rebuild_view(NULL);
+        tgg_sound_menu(TGG_SOUND_MOVE);
+        return;
+    }
+    if (br.filter_col == 1) {
+        if (br.n_fighters == 0) {
+            tgg_sound_menu(TGG_SOUND_ERROR);
+            return;
+        }
+        int pos = -1;
+        for (int i = 0; i < br.n_fighters; i++) {
+            if (br.fighters[i] == br.filter_fighter) {
+                pos = i;
+                break;
+            }
+        }
+        const int total = br.n_fighters + 1; /* -1 (any) plus each fighter */
+        const int next = ((pos + 1) + dir + total) % total;
+        br.filter_fighter = next == 0 ? -1 : br.fighters[next - 1];
+        list_rebuild_view(NULL);
+        tgg_sound_menu(TGG_SOUND_MOVE);
+        return;
+    }
+    if (br.filter_col == 2) {
+        if (br.n_stages == 0) {
+            tgg_sound_menu(TGG_SOUND_ERROR);
+            return;
+        }
+        int pos = -1;
+        for (int i = 0; i < br.n_stages; i++) {
+            if (br.stages[i] == br.filter_stage) {
+                pos = i;
+                break;
+            }
+        }
+        const int total = br.n_stages + 1; /* -1 (any) plus each stage */
+        const int next = ((pos + 1) + dir + total) % total;
+        br.filter_stage = next == 0 ? -1 : br.stages[next - 1];
+        list_rebuild_view(NULL);
+        tgg_sound_menu(TGG_SOUND_MOVE);
+        return;
+    }
+    if (br.filter_col == 3) {
+        list_clear_filters();
+        br.focus = FOCUS_LIST;
+        tgg_sound_menu(TGG_SOUND_ACCEPT);
+    }
+}
+
+static void delete_modal_frame(uint32_t in)
+{
+    if (in & (TGG_MENU_LEFT | TGG_MENU_RIGHT)) {
+        br.confirm_yes = !br.confirm_yes;
+        tgg_sound_menu(TGG_SOUND_MOVE);
+        return;
+    }
+    if (in & TGG_MENU_BACK) {
+        br.confirm_delete = 0;
+        br.confirm_yes = 0;
+        br.focus = FOCUS_LIST;
+        tgg_sound_menu(TGG_SOUND_BACK);
+        return;
+    }
+    if (in & (TGG_MENU_ACCEPT | TGG_MENU_START)) {
+        if (!br.confirm_yes) {
+            br.confirm_delete = 0;
+            br.focus = FOCUS_LIST;
+            tgg_sound_menu(TGG_SOUND_BACK);
+            return;
+        }
+        char deleted[256] = "";
+        if (list_delete_selected(deleted, sizeof deleted) == 0) {
+            tgg_sound_menu(TGG_SOUND_ACCEPT);
+            char msg[300];
+            snprintf(msg, sizeof msg, "Deleted %s.", deleted);
+            say(msg);
+        } else {
+            tgg_sound_menu(TGG_SOUND_ERROR);
+            say("Couldn't delete that file.");
+        }
+        br.confirm_delete = 0;
+        br.confirm_yes = 0;
+        br.focus = FOCUS_LIST;
+    }
+}
+
+static void filter_bar_frame(uint32_t in)
+{
+    const int max_col = list_has_filters() ? 3 : 2;
+    if (br.filter_col > max_col) {
+        br.filter_col = max_col;
+    }
+    if (in & (TGG_MENU_BACK | TGG_MENU_Z | TGG_MENU_DOWN)) {
+        br.focus = FOCUS_LIST;
+        tgg_sound_menu(in & TGG_MENU_BACK ? TGG_SOUND_BACK : TGG_SOUND_MOVE);
+        return;
+    }
+    if (in & TGG_MENU_LEFT) {
+        br.filter_col = (br.filter_col + max_col) % (max_col + 1);
+        tgg_sound_menu(TGG_SOUND_MOVE);
+    }
+    if (in & TGG_MENU_RIGHT) {
+        br.filter_col = (br.filter_col + 1) % (max_col + 1);
+        tgg_sound_menu(TGG_SOUND_MOVE);
+    }
+    if (in & (TGG_MENU_ACCEPT | TGG_MENU_START)) {
+        step_filter(1);
+    }
+    if (in & TGG_MENU_X) {
+        step_filter(-1);
+    }
+    if (in & TGG_MENU_Y) {
+        if (list_has_filters()) {
+            list_clear_filters();
+            tgg_sound_menu(TGG_SOUND_MOVE);
+            say("Cleared filters.");
+        }
     }
 }
 
@@ -205,11 +331,48 @@ static void frame(void)
     if (br.message_frames > 0) {
         br.message_frames--;
     }
+    if (br.focus == FOCUS_FILTERS || list_has_filters()) {
+        list_scan_step(48);
+    }
     const uint32_t in = tgg_menu_input();
     if (br.restarting) {
         restart_frame(in);
         return;
     }
+    if (br.confirm_delete) {
+        delete_modal_frame(in);
+        return;
+    }
+    if (br.focus == FOCUS_FILTERS) {
+        filter_bar_frame(in);
+        return;
+    }
+    if (br.focus == FOCUS_DELETE_BTN) {
+        const int idx = list_selected_entry();
+        if (idx < 0 || br.entries[idx].is_dir) {
+            br.focus = FOCUS_LIST;
+            return;
+        }
+        if (in & (TGG_MENU_LEFT | TGG_MENU_BACK | TGG_MENU_UP | TGG_MENU_DOWN)) {
+            br.focus = FOCUS_LIST;
+            tgg_sound_menu(in & TGG_MENU_BACK ? TGG_SOUND_BACK : TGG_SOUND_MOVE);
+            return;
+        }
+        if (in & TGG_MENU_Z) {
+            br.focus = FOCUS_FILTERS;
+            list_scan_step(48);
+            tgg_sound_menu(TGG_SOUND_MOVE);
+            return;
+        }
+        if (in & (TGG_MENU_ACCEPT | TGG_MENU_START)) {
+            br.confirm_delete = 1;
+            br.confirm_yes = 0;
+            tgg_sound_menu(TGG_SOUND_ACCEPT);
+            return;
+        }
+        return;
+    }
+
     if (in & TGG_MENU_BACK) {
         tgg_sound_menu(TGG_SOUND_BACK);
         tgg_screen_close();
@@ -221,11 +384,43 @@ static void frame(void)
     if (in & TGG_MENU_DOWN) {
         move(1);
     }
-    if (in & (TGG_MENU_LEFT | TGG_MENU_L)) {
+    if (in & (TGG_MENU_LEFT | TGG_MENU_L) || tgg_key_pressed(TGG_KEY_PAGEUP)) {
         move(-LIST_ROWS);
     }
-    if (in & (TGG_MENU_RIGHT | TGG_MENU_R)) {
+    if (in & TGG_MENU_R || tgg_key_pressed(TGG_KEY_PAGEDOWN)) {
         move(LIST_ROWS);
+    }
+    if (tgg_key_pressed(TGG_KEY_HOME) && br.n_view > 0 && br.sel != 0) {
+        br.sel = 0;
+        tgg_sound_menu(TGG_SOUND_MOVE);
+    }
+    if (tgg_key_pressed(TGG_KEY_END) && br.n_view > 0 && br.sel != br.n_view - 1) {
+        br.sel = br.n_view - 1;
+        tgg_sound_menu(TGG_SOUND_MOVE);
+    }
+    if (in & TGG_MENU_RIGHT) {
+        const int idx = list_selected_entry();
+        if (idx >= 0 && !br.entries[idx].is_dir) {
+            br.focus = FOCUS_DELETE_BTN;
+            tgg_sound_menu(TGG_SOUND_MOVE);
+        } else {
+            move(LIST_ROWS);
+        }
+    }
+    if (tgg_key_pressed(TGG_KEY_DELETE)) {
+        const int idx = list_selected_entry();
+        if (idx >= 0 && !br.entries[idx].is_dir) {
+            br.confirm_delete = 1;
+            br.confirm_yes = 0;
+            tgg_sound_menu(TGG_SOUND_ACCEPT);
+            return;
+        }
+    }
+    if (in & TGG_MENU_Z) {
+        br.focus = FOCUS_FILTERS;
+        list_scan_step(48);
+        tgg_sound_menu(TGG_SOUND_MOVE);
+        return;
     }
     if (in & (TGG_MENU_ACCEPT | TGG_MENU_START)) {
         choose();
