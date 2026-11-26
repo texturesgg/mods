@@ -6,6 +6,7 @@
   "experimental": true,
   "description": "Watch Slippi replays: pause, step frame by frame, speed up or slow down.",
   "icon": "icon.png",
+  "class": "offline",
   "tags": [
     "replays"
   ]
