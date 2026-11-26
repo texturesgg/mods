@@ -50,6 +50,12 @@ typedef struct Diff {
 int profile_diff(const char* host_json, const char* own_json, Diff* d);
 
 #define ADDRESS_MAX 64
+#define RECENT_MAX 5
+
+typedef struct RecentRoom {
+    char code[8];
+    char label[32]; /* optional friend/host name seen in the room */
+} RecentRoom;
 
 typedef struct Dc {
     int view;
@@ -60,12 +66,18 @@ typedef struct Dc {
     char note[320];            /* the submenu's line: what went wrong */
     meet_status meet;          /* the room, as last polled */
     int key;                   /* the keyboard's selected key */
+    int recent_focus;          /* VIEW_ADDRESS (room code): cursor on recent rooms strip */
+    int recent_idx;            /* selected chip in the recent rooms strip */
+    int code_hint_frames;      /* brief hint when an invalid room-code letter is pressed */
+    unsigned anim_frames;      /* frames in the current connecting/room view */
     char message[320];
     int message_frames;
     char why[320];             /* VIEW_FAILED */
     int failed_frames;         /* VIEW_FAILED: how long it's shown */
 
     char joined[ADDRESS_MAX + 8]; /* the host's full address, as last joined */
+    char remembered_code[8];      /* last room code saved to recent-rooms.txt */
+    char remembered_label[64];    /* last friend label saved for remembered_code */
     /* VIEW_DIFFERENT */
     int have_diff;
     int bad_profile; /* the host's profile couldn't be read */
@@ -92,6 +104,13 @@ void dc_full_address(const char* typed, char* out, int cap);
  * player asks to connect, -1 to go back, else 0. */
 int keyboard_frame(void);
 void keyboard_draw(void);
+
+/* recent.c: recent room codes persisted across sessions */
+int dc_is_room_char(char c);
+void recent_load(void);
+int recent_count(void);
+const RecentRoom* recent_get(int index);
+void recent_remember(const char* code, const char* label);
 
 /* draw.c */
 void dc_draw(void);

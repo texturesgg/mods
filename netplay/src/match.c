@@ -30,6 +30,7 @@
  *     a game can't leave the match before it has. */
 #include "internal.h"
 #include "netplay.h"
+#include "ui.h"
 
 #include "tgg/draw.h"
 #include "tgg/events.h"
@@ -100,12 +101,17 @@ static struct {
     int sum_newest[NET_PEERS];
     int compared_upto[NET_PEERS];
 
-    /* What happened, for the log */
+    /* What happened, for the log and the in-match HUD */
     int desync_frame;
     tgg_frame_parts blame;  /* this game's parts for desync_frame, sent on */
     int blame_ready;
     int blamed[NET_PEERS];  /* the link's parts were compared */
     unsigned desyncs, sums_compared, rollbacks, rolled_frames, max_depth, holds;
+    int waiting_start;      /* frame 0 waiting for every link to reach the match */
+    double wait_start_ms;
+    double hold_since_ms;   /* non-zero while holding on missing remote input */
+    double last_rb_ms;      /* when the latest rollback occurred */
+    unsigned recent_rb_max; /* deepest rollback in the recent 2s window */
 } mt;
 
 static void reset(uint32_t number, uint32_t seed)
@@ -644,12 +650,17 @@ static void on_advance(tgg_advance* adv)
     for (int l = 0; l < net_peers(); l++) {
         if (ss.link[l].greeted && !mt.link_in[l]) {
             /* The first frame waits for every link to reach the match */
+            if (!mt.waiting_start) {
+                mt.waiting_start = 1;
+                mt.wait_start_ms = net_now_ms();
+            }
             session_send_lobby(0);
             send_all_inputs();
             hold(adv, frame);
             return;
         }
     }
+    mt.waiting_start = 0;
     if (!mt.over) {
         fill_local(frame + ss.delay);
     }
@@ -662,11 +673,19 @@ static void on_advance(tgg_advance* adv)
         if (to < frame) {
             const int r = tgg_rollback(to);
             if (r == 0) {
+                const unsigned depth = (unsigned) (frame - to);
+                const double now = net_now_ms();
                 mt.rollbacks++;
-                mt.rolled_frames += (unsigned) (frame - to);
-                if ((unsigned) (frame - to) > mt.max_depth) {
-                    mt.max_depth = (unsigned) (frame - to);
+                mt.rolled_frames += depth;
+                if (depth > mt.max_depth) {
+                    mt.max_depth = depth;
                 }
+                if (mt.last_rb_ms == 0 || now - mt.last_rb_ms > 2000.0) {
+                    mt.recent_rb_max = depth;
+                } else if (depth > mt.recent_rb_max) {
+                    mt.recent_rb_max = depth;
+                }
+                mt.last_rb_ms = now;
             } else {
                 tgg_log("frame %d: can't roll back to frame %d (%d)", frame, to, r);
             }
@@ -684,7 +703,8 @@ static void on_advance(tgg_advance* adv)
 
     /* Hold when this frame would guess further ahead than a rollback reaches,
      * or when this game is ahead of one it talks to */
-    int wait = frame - known > ss.max_rollback;
+    const int input_wait = frame - known > ss.max_rollback;
+    int wait = input_wait;
     if (!wait) {
         const double frame_ms = 1000.0 / 60.0;
         double slowest = 1e18;
@@ -703,6 +723,13 @@ static void on_advance(tgg_advance* adv)
             mt.last_sync_hold = frame;
             wait = 1;
         }
+    }
+    if (input_wait) {
+        if (mt.hold_since_ms == 0) {
+            mt.hold_since_ms = net_now_ms();
+        }
+    } else {
+        mt.hold_since_ms = 0;
     }
     if (wait) {
         hold(adv, frame);
@@ -925,16 +952,133 @@ void match_abandon(void)
     tgg_match_finish();
 }
 
-/* From the first frame the games disagree on, the match says so on screen: it
- * plays on, but it isn't the same match on every game any more */
+/* Centered rounded status banner below the match timer */
+static void draw_hud_banner(const tgg_rect* b, tgg_color dot, tgg_color border, const char* text)
+{
+    const float font = 15.0f;
+    const float pad_x = 12.0f;
+    const float dot_r = 3.5f;
+    const float dot_gap = 8.0f;
+    const float tw = tgg_draw_text_width(font, text);
+    const float w = pad_x * 2.0f + dot_r * 2.0f + dot_gap + tw;
+    const float h = 28.0f;
+    const float x = b->x + (b->w - w) * 0.5f;
+    const float y = b->y + 84.0f;
+    tgg_ui_rounded_rect(x, y, w, h, 7.0f, TGG_UI_BG_PANEL_DEEP, border, 1.25f);
+    tgg_draw_circle(x + pad_x + dot_r, y + h * 0.5f, dot_r, dot);
+    tgg_draw_text(x + pad_x + dot_r * 2.0f + dot_gap, y + (h - font) * 0.5f - 0.5f, font,
+                  TGG_UI_TEXT_PRIMARY, TGG_ALIGN_LEFT, text);
+}
+
+/* Subtle top-right Slippi-style ping / delay / rollback pill */
+static void draw_hud_telemetry(const tgg_rect* b, double now)
+{
+    if (setting_hud <= 0) {
+        return;
+    }
+    double rtt = 0;
+    for (int l = 0; l < NET_PEERS; l++) {
+        if (ss.link[l].greeted && ss.link[l].rtt_ms > rtt) {
+            rtt = ss.link[l].rtt_ms;
+        }
+    }
+    const int recent_rb = (mt.last_rb_ms > 0 && now - mt.last_rb_ms < 2000.0 && mt.recent_rb_max > 0)
+                              ? (int) mt.recent_rb_max
+                              : 0;
+    char ping_txt[24];
+    if (rtt > 0) {
+        snprintf(ping_txt, sizeof ping_txt, "%d ms", (int) (rtt + 0.5));
+    } else {
+        snprintf(ping_txt, sizeof ping_txt, "-- ms");
+    }
+    char extra_txt[48] = "";
+    tgg_color extra_col = TGG_UI_TEXT_MUTED;
+    if (setting_hud >= 2) {
+        if (mt.rollbacks > 0) {
+            snprintf(extra_txt, sizeof extra_txt, "D%d  RB %df (%u)", ss.delay, recent_rb,
+                     mt.rollbacks);
+        } else {
+            snprintf(extra_txt, sizeof extra_txt, "D%d  RB 0f", ss.delay);
+        }
+        if (recent_rb >= 4) {
+            extra_col = TGG_UI_TEXT_BAD;
+        } else if (recent_rb > 0) {
+            extra_col = TGG_UI_TEXT_GOLD;
+        }
+    } else if (recent_rb > 0) {
+        snprintf(extra_txt, sizeof extra_txt, "RB %df", recent_rb);
+        extra_col = recent_rb >= 4 ? TGG_UI_TEXT_BAD : TGG_UI_TEXT_GOLD;
+    }
+
+    const float font = 13.0f;
+    const float pad_x = 8.0f;
+    const float dot_r = 3.0f;
+    const float dot_gap = 6.0f;
+    const float seg_gap = 8.0f;
+    const float ping_w = tgg_draw_text_width(font, ping_txt);
+    const float extra_w = extra_txt[0] != '\0' ? tgg_draw_text_width(font, extra_txt) : 0.0f;
+    const float w = pad_x * 2.0f + dot_r * 2.0f + dot_gap + ping_w +
+                    (extra_w > 0.0f ? seg_gap + extra_w : 0.0f);
+    const float h = 22.0f;
+    const float x = b->x + b->w - w - 10.0f;
+    const float y = b->y + 8.0f;
+    const tgg_color dot_col = tgg_ui_ping_color((float) rtt);
+    const tgg_color pill_bg = TGG_RGBA(9, 13, 32, 168);
+    const tgg_color pill_border = TGG_RGBA(106, 134, 226, 84);
+
+    tgg_ui_rounded_rect(x, y, w, h, 6.0f, pill_bg, pill_border, 1.0f);
+    tgg_draw_circle(x + pad_x + dot_r, y + h * 0.5f, dot_r, dot_col);
+    float tx = x + pad_x + dot_r * 2.0f + dot_gap;
+    const float ty = y + (h - font) * 0.5f - 0.5f;
+    tgg_draw_text(tx, ty, font, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_LEFT, ping_txt);
+    if (extra_w > 0.0f) {
+        tx += ping_w + seg_gap;
+        tgg_draw_text(tx, ty, font, extra_col, TGG_ALIGN_LEFT, extra_txt);
+    }
+}
+
+/* In-match netplay HUD: subtle ping/rollback readout, plus clear banners when
+ * syncing start, stalling/reconnecting, or desynced */
 static void on_hud(void)
 {
-    if (!mt.live || mt.desync_frame < 0) {
+    if (!mt.live) {
         return;
     }
     const tgg_rect b = tgg_draw_bounds();
-    const char* text = "The games stopped matching. This match won't count.";
-    tgg_draw_rect(b.x, b.y + 8, b.w, 34, TGG_RGBA(0, 0, 0, 170));
-    tgg_draw_text(b.x + b.w / 2, b.y + 14, 22, TGG_RGBA(255, 210, 90, 255), TGG_ALIGN_CENTER, text);
+    const double now = net_now_ms();
+    if (!mt.over && ss.state == NETPLAY_PLAYING) {
+        draw_hud_telemetry(&b, now);
+    }
+    if (mt.desync_frame >= 0) {
+        char text[96];
+        snprintf(text, sizeof text, "Games stopped matching (frame %d). This match won't count.",
+                 mt.desync_frame);
+        draw_hud_banner(&b, TGG_UI_TEXT_GOLD, TGG_UI_TEXT_GOLD, text);
+        return;
+    }
+    if (mt.over || mt.abandoned || ss.state != NETPLAY_PLAYING) {
+        return;
+    }
+    static const char* const dots[4] = { "", ".", "..", "..." };
+    const char* el = dots[((unsigned) (now / 350.0)) & 3u];
+    const double silence = session_silence_ms();
+    if (silence >= 1000.0) {
+        int secs = (int) ((SILENCE_MS - silence + 999.0) / 1000.0);
+        if (secs < 1) {
+            secs = 1;
+        }
+        char text[64];
+        snprintf(text, sizeof text, "Waiting for opponent%s (%ds)", el, secs);
+        const tgg_color col = secs <= 3 ? TGG_UI_TEXT_BAD : TGG_UI_TEXT_GOLD;
+        draw_hud_banner(&b, col, col, text);
+    } else if (mt.waiting_start && now - mt.wait_start_ms >= 250.0) {
+        char text[48];
+        snprintf(text, sizeof text, "Syncing match start%s", el);
+        draw_hud_banner(&b, TGG_UI_BG_FILL, TGG_UI_BORDER_BRIGHT, text);
+    } else if (mt.hold_since_ms > 0 && now - mt.hold_since_ms >= 350.0) {
+        char text[48];
+        snprintf(text, sizeof text, "Waiting for opponent%s", el);
+        draw_hud_banner(&b, TGG_UI_TEXT_GOLD, TGG_UI_BORDER_BRIGHT, text);
+    }
 }
 TGG_ON(hud_draw, on_hud);

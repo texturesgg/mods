@@ -166,6 +166,20 @@ static inline void tgg_ui_chip(float x, float y, float w, float h, tgg_color fil
     tgg_ui_rounded_rect(x, y, w, h, TGG_UI_RADIUS_CHIP, fill, border, 1.0f);
 }
 
+static inline tgg_color tgg_ui_ping_color(float rtt_ms)
+{
+    if (rtt_ms <= 0.0f) {
+        return TGG_UI_TEXT_MUTED;
+    }
+    if (rtt_ms < 50.0f) {
+        return TGG_UI_TEXT_GOOD;
+    }
+    if (rtt_ms < 100.0f) {
+        return TGG_UI_TEXT_GOLD;
+    }
+    return TGG_UI_TEXT_BAD;
+}
+
 static inline void tgg_ui_scrollbar(float x, float y, float h, int top, int visible, int total)
 {
     if (total <= visible || visible <= 0 || h <= 4.0f) {

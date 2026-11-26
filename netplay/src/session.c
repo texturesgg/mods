@@ -57,6 +57,9 @@ TGG_SETTING_CHOICE_LOCAL(setting_controller, "controller", "Your controller", 0,
 int setting_strict;
 TGG_SETTING_CHOICE_LOCAL(setting_strict, "match", "Mods to match when hosting", 0,
                          "Gameplay mods", "All mods");
+int setting_hud;
+TGG_SETTING_CHOICE_LOCAL(setting_hud, "hud", "Connection display", 1,
+                         "Off", "Ping", "Detailed");
 
 /* Messages waiting to be acknowledged, per link: a shared screen sends one
  * menu input per player per frame, and the host passes each on */

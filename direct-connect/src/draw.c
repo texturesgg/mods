@@ -14,6 +14,28 @@ static void band(const char* title, const char* status)
     tgg_ui_header(title, status);
 }
 
+static const char* anim_dots(unsigned frames)
+{
+    static const char* const dots[4] = { "", ".", "..", "..." };
+    return dots[(frames / 22u) & 3u];
+}
+
+static void draw_status_pill(float y, tgg_color dot, tgg_color border, const char* text)
+{
+    const float font = 17.0f;
+    const float pad_x = 14.0f;
+    const float dot_r = 4.0f;
+    const float dot_gap = 9.0f;
+    const float tw = tgg_draw_text_width(font, text);
+    const float w = pad_x * 2.0f + dot_r * 2.0f + dot_gap + tw;
+    const float h = 32.0f;
+    const float x = 320.0f - w * 0.5f;
+    tgg_ui_rounded_rect(x, y, w, h, 7.0f, TGG_UI_BG_PANEL_DEEP, border, 1.25f);
+    tgg_draw_circle(x + pad_x + dot_r, y + h * 0.5f, dot_r, dot);
+    tgg_draw_text(x + pad_x + dot_r * 2.0f + dot_gap, y + (h - font) * 0.5f - 0.5f, font,
+                  TGG_UI_TEXT_PRIMARY, TGG_ALIGN_LEFT, text);
+}
+
 static void footer_hints(const tgg_ui_hint* hints, int n)
 {
     if (dc.message_frames > 0) {
@@ -27,20 +49,20 @@ static void footer_hints(const tgg_ui_hint* hints, int n)
 static void draw_room_code(float y)
 {
     const meet_status* m = &dc.meet;
-    tgg_draw_text(320.0f, y, 17.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_CENTER, "Room code");
-    tgg_ui_modal(190.0f, y + 26.0f, 260.0f, 60.0f);
-    tgg_draw_text(320.0f, y + 38.0f, 36.0f, TGG_UI_TEXT_GOLD, TGG_ALIGN_CENTER, m->code);
-    y += 106.0f;
+    tgg_draw_text(320.0f, y, 16.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_CENTER, "Room code");
+    tgg_ui_modal(190.0f, y + 24.0f, 260.0f, 60.0f);
+    tgg_draw_text(320.0f, y + 36.0f, 36.0f, TGG_UI_TEXT_GOLD, TGG_ALIGN_CENTER, m->code);
+    y += 102.0f;
     for (int i = 0; i < m->n_members && i < MEET_MEMBERS; i++) {
         char fit[64];
-        tgg_draw_text_fit(fit, sizeof fit, 19.0f, 320.0f, m->members[i]);
-        const float w = tgg_draw_text_width(19.0f, fit) + 28.0f;
+        tgg_draw_text_fit(fit, sizeof fit, 18.0f, 320.0f, m->members[i]);
+        const float w = tgg_draw_text_width(18.0f, fit) + 28.0f;
         tgg_ui_chip(320.0f - w * 0.5f, y, w, 28.0f,
                     i == 0 ? TGG_UI_BG_ROW : TGG_UI_BG_CHIP,
                     i == 0 ? TGG_UI_BORDER_BRIGHT : TGG_UI_BORDER_ROW);
-        tgg_draw_text(320.0f, y + 4.0f, 19.0f,
+        tgg_draw_text(320.0f, y + 4.5f, 18.0f,
                       i == 0 ? TGG_UI_TEXT_PRIMARY : TGG_UI_TEXT_MUTED, TGG_ALIGN_CENTER, fit);
-        y += 34.0f;
+        y += 33.0f;
     }
 }
 
@@ -48,8 +70,18 @@ static void draw_room_code(float y)
 static void draw_room(void)
 {
     const meet_status* m = &dc.meet;
-    band("Online", NULL);
+    char sub[48] = "";
+    if (dc.reformed) {
+        snprintf(sub, sizeof sub, "Reconnecting");
+    } else if (m->n_members > 0 && m->games > 0) {
+        snprintf(sub, sizeof sub, "%d of %d players", m->n_members, m->games);
+    } else if (m->n_members > 0) {
+        snprintf(sub, sizeof sub, "%d in room", m->n_members);
+    }
+    band("Online", sub);
     char line[320];
+    const char* el = anim_dots(dc.anim_frames);
+    const unsigned secs = dc.anim_frames / 60u;
     switch (m->state) {
     case MEET_SIGN_IN:
         tgg_ui_panel(80.0f, 98.0f, 480.0f, 260.0f);
@@ -64,23 +96,44 @@ static void draw_room(void)
         tgg_draw_text(320.0f, 272.0f, 36.0f, TGG_UI_TEXT_GOLD, TGG_ALIGN_CENTER, m->signin_code);
         break;
     case MEET_IN_ROOM:
-        draw_room_code(102.0f);
-        tgg_draw_text(320.0f, 342.0f, 18.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_CENTER,
-                      m->n_members < 2 ? "Give your friends this code."
-                                       : "Waiting for everyone to connect.");
+        draw_room_code(90.0f);
+        if (dc.reformed) {
+            snprintf(line, sizeof line, "Reconnecting room%s", el);
+            draw_status_pill(344.0f, TGG_UI_TEXT_GOLD, TGG_UI_BORDER_BRIGHT, line);
+        } else if (m->n_members < 2) {
+            draw_status_pill(344.0f, TGG_UI_BG_FILL, TGG_UI_BORDER_SUBTLE,
+                             "Give your friends this code");
+        } else {
+            snprintf(line, sizeof line, "Waiting for everyone to connect%s", el);
+            draw_status_pill(344.0f, TGG_UI_TEXT_GOLD, TGG_UI_BORDER_BRIGHT, line);
+        }
         break;
     case MEET_PUNCHING:
-        draw_room_code(102.0f);
-        tgg_draw_text(320.0f, 342.0f, 21.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER, "Connecting");
+        draw_room_code(90.0f);
+        if (secs >= 1) {
+            snprintf(line, sizeof line, "%s%s  %u:%02u",
+                     dc.reformed ? "Reconnecting" : "Connecting", el, secs / 60u, secs % 60u);
+        } else {
+            snprintf(line, sizeof line, "%s%s", dc.reformed ? "Reconnecting" : "Connecting", el);
+        }
+        draw_status_pill(344.0f, TGG_UI_TEXT_GOLD, TGG_UI_BORDER_BRIGHT, line);
         break;
     case MEET_CONNECTED:
-        draw_room_code(102.0f);
-        tgg_draw_text(320.0f, 342.0f, 21.0f, TGG_UI_TEXT_GOOD, TGG_ALIGN_CENTER, "Connected");
+        draw_room_code(90.0f);
+        draw_status_pill(344.0f, TGG_UI_TEXT_GOOD, TGG_UI_TEXT_GOOD, "Connected");
         break;
     default:
-        tgg_ui_panel(110.0f, 176.0f, 420.0f, 84.0f);
-        tgg_draw_text(320.0f, 207.0f, 21.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER,
-                      "Getting a room on textures.gg");
+        tgg_ui_panel(110.0f, 166.0f, 420.0f, 108.0f);
+        if (secs >= 2) {
+            snprintf(line, sizeof line, "%s%s  %u:%02u",
+                     dc.mode == MODE_JOIN_ROOM ? "Joining room" : "Getting a room", el, secs / 60u,
+                     secs % 60u);
+        } else {
+            snprintf(line, sizeof line, "%s%s",
+                     dc.mode == MODE_JOIN_ROOM ? "Joining room" : "Getting a room", el);
+        }
+        draw_status_pill(192.0f, TGG_UI_BG_FILL, TGG_UI_BORDER_BRIGHT, line);
+        tgg_draw_text(320.0f, 238.0f, 15.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_CENTER, "textures.gg");
         break;
     }
     const tgg_ui_hint hints[] = { { TGG_UI_BTN_B, "Leave" } };
@@ -89,14 +142,23 @@ static void draw_room(void)
 
 static void draw_address(void)
 {
-    band(dc.typing_code ? "Join a room" : "Join", NULL);
-    tgg_draw_text(320.0f, 70.0f, 17.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_CENTER,
+    band(dc.typing_code ? "Join a room" : "Join",
+         dc.typing_code ? "4-letter code" : "Direct connect");
+    tgg_draw_text(320.0f, 67.0f, 15.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_CENTER,
                   dc.typing_code ? "Room code" : "Host address");
     keyboard_draw();
+    if (dc.typing_code && dc.recent_focus) {
+        const tgg_ui_hint hints[] = {
+            { TGG_UI_BTN_A, "Join recent" },
+            { TGG_UI_BTN_B, "Back" },
+        };
+        footer_hints(hints, 2);
+        return;
+    }
     const tgg_ui_hint hints[] = {
         { TGG_UI_BTN_A, "Type" },
         { TGG_UI_BTN_X, "Delete" },
-        { TGG_UI_BTN_START, "Connect" },
+        { TGG_UI_BTN_START, dc.typing_code ? "Join" : "Connect" },
         { TGG_UI_BTN_B, "Back" },
     };
     footer_hints(hints, 4);
@@ -104,16 +166,24 @@ static void draw_address(void)
 
 static void draw_connecting(void)
 {
-    band("Join", NULL);
+    band("Join", "Direct connect");
     netplay_info info;
     netplay_status(&info);
-    tgg_ui_panel(80.0f, 168.0f, 480.0f, 116.0f);
-    char line[128], fit[128];
-    snprintf(line, sizeof line, "Connecting to %s", info.peer[0] != '\0' ? info.peer : "...");
-    tgg_draw_text_fit(fit, sizeof fit, 24.0f, 444.0f, line);
-    tgg_draw_text(320.0f, 194.0f, 24.0f, TGG_UI_TEXT_PRIMARY, TGG_ALIGN_CENTER, fit);
-    tgg_draw_text(320.0f, 236.0f, 17.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_CENTER,
-                  "The host needs to be on the Hosting screen.");
+    tgg_ui_panel(76.0f, 146.0f, 488.0f, 150.0f);
+    char fit[128], status[64];
+    const char* target = info.peer[0] != '\0' ? info.peer : dc.joined;
+    tgg_draw_text_fit(fit, sizeof fit, 23.0f, 444.0f, target[0] != '\0' ? target : "...");
+    tgg_draw_text(320.0f, 168.0f, 23.0f, TGG_UI_TEXT_GOLD, TGG_ALIGN_CENTER, fit);
+    const unsigned secs = dc.anim_frames / 60u;
+    if (secs >= 1) {
+        snprintf(status, sizeof status, "Connecting%s  %u:%02u", anim_dots(dc.anim_frames),
+                 secs / 60u, secs % 60u);
+    } else {
+        snprintf(status, sizeof status, "Connecting%s", anim_dots(dc.anim_frames));
+    }
+    draw_status_pill(208.0f, TGG_UI_TEXT_GOLD, TGG_UI_BORDER_BRIGHT, status);
+    tgg_draw_text(320.0f, 258.0f, 15.0f, TGG_UI_TEXT_MUTED, TGG_ALIGN_CENTER,
+                  "The host needs to be on Host by address.");
     const tgg_ui_hint hints[] = { { TGG_UI_BTN_B, "Cancel" } };
     footer_hints(hints, 1);
 }

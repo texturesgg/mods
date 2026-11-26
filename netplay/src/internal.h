@@ -352,6 +352,7 @@ int side_link(int side);
 extern int setting_delay;
 extern int setting_controller; /* 0 any, else the port + 1 */
 extern int setting_strict; /* 1: every mod must match, display mods too (the host's) */
+extern int setting_hud; /* 0 off, 1 ping, 2 detailed */
 /* The display mods only this game or link `link`'s has, "a (yours), b
  * (theirs)", or "" */
 void session_display_difference(int link, char* out, size_t cap);

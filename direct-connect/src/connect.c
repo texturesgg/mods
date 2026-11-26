@@ -17,6 +17,7 @@
  * it. The screen also shows when the host has other mods (and gets them),
  * and why a session ended. */
 #include "dc.h"
+#include "ui.h"
 
 #include "tgg/control.h"
 #include "tgg/draw.h"
@@ -118,6 +119,7 @@ static void join(const char* typed)
     tgg_setting_store(setting_peer);
     snprintf(dc.joined, sizeof dc.joined, "%s", full);
     dc.mode = MODE_JOIN;
+    dc.anim_frames = 0;
     dc.view = VIEW_CONNECTING;
 }
 
@@ -155,22 +157,50 @@ static void join_room(const char* typed)
 {
     char code[sizeof dc.meet.code];
     size_t n = 0;
-    for (const char* p = typed; *p != '\0' && n + 1 < sizeof code; p++) {
-        if (*p != ' ' && *p != '-') {
-            code[n++] = (char) (*p >= 'a' && *p <= 'z' ? *p - 32 : *p);
+    int bad = 0;
+    for (const char* p = typed; *p != '\0'; p++) {
+        if (*p == ' ' || *p == '-') {
+            continue;
         }
+        if (n >= 4 || !dc_is_room_char(*p)) {
+            bad = 1;
+            break;
+        }
+        code[n++] = (char) (*p >= 'a' && *p <= 'z' ? *p - 32 : *p);
     }
     code[n] = '\0';
+    if (bad || n != 4) {
+        tgg_sound_menu(TGG_SOUND_ERROR);
+        if (tgg_screen_shown() == &screen) {
+            say("Room codes are 4 letters (no I, L, or O).");
+        } else {
+            note("Room codes are 4 letters.");
+        }
+        return;
+    }
     memset(&dc.meet, 0, sizeof dc.meet);
-    if (n == 0 || meet_join(code) != 0) {
+    if (meet_join(code) != 0) {
         tgg_sound_menu(TGG_SOUND_ERROR);
         meet_poll(&dc.meet);
-        note(dc.meet.why[0] != '\0' ? dc.meet.why : "Can't join a room here.");
+        const char* err = dc.meet.why[0] != '\0' ? dc.meet.why : "Can't join a room here.";
+        if (tgg_screen_shown() == &screen) {
+            say(err);
+        } else {
+            note(err);
+        }
         return;
     }
     tgg_sound_menu(TGG_SOUND_ACCEPT);
+    recent_remember(code, NULL);
+    snprintf(dc.remembered_code, sizeof dc.remembered_code, "%s", code);
+    dc.remembered_label[0] = '\0';
+    dc.reformed = 0;
+    dc.anim_frames = 0;
     dc.room = 1;
     dc.mode = MODE_JOIN_ROOM;
+    if (tgg_screen_shown() == &screen) {
+        dc.view = VIEW_ROOM;
+    }
 }
 
 /* Each frame of joining a room: signing in, waiting in it, connecting */
@@ -338,6 +368,7 @@ static int room_again(void)
     }
     tgg_log("room %s: %s Meeting the others again.", dc.meet.code, info.why);
     dc.reformed = 1;
+    dc.anim_frames = 0;
     roomplay_reset();
     meet_poll(&dc.meet);
     return 1;
@@ -347,6 +378,7 @@ static int room_again(void)
 
 static void frame(void)
 {
+    dc.anim_frames++;
     if (dc.message_frames > 0) {
         dc.message_frames--;
     }
@@ -474,6 +506,10 @@ static void start_typing(int code)
     }
     dc.typing_code = code;
     dc.key = 0;
+    dc.recent_focus = 0;
+    dc.recent_idx = 0;
+    dc.code_hint_frames = 0;
+    dc.message_frames = 0;
     dc.view = VIEW_ADDRESS;
     snprintf(dc.address, sizeof dc.address, "%s", code ? "" : setting_peer);
     tgg_sound_menu(TGG_SOUND_ACCEPT);
@@ -506,39 +542,10 @@ static void make_room_entry(void)
     }
 }
 
-/* A room's code, typed on the game's own Name Entry keyboard: four letters,
- * no I, L or O */
-static void code_typed(const char* text)
-{
-    if (text == NULL) {
-        return;
-    }
-    char code[8];
-    int n = 0;
-    for (const char* p = text; *p != '\0'; p++) {
-        const char c = (char) (*p >= 'a' && *p <= 'z' ? *p - 32 : *p);
-        if (n == 4 || c < 'A' || c > 'Z' || c == 'I' || c == 'L' || c == 'O') {
-            n = -1;
-            break;
-        }
-        code[n++] = c;
-    }
-    if (n != 4) {
-        tgg_sound_menu(TGG_SOUND_ERROR);
-        note("Room codes are 4 letters.");
-        return;
-    }
-    code[4] = '\0';
-    join_room(code);
-}
-
 static void join_room_entry(void)
 {
-    if (dc.mode != MODE_NONE || tgg_menu_keyboard(code_typed) != 0) {
-        tgg_sound_menu(TGG_SOUND_ERROR);
-        return;
-    }
     dc.note[0] = '\0';
+    start_typing(1);
 }
 
 static void host_entry(void)
@@ -656,7 +663,23 @@ static const char* host_line(void)
 
 static const char* join_room_line(void)
 {
-    return session_line("Join a friend's room with its code.");
+    static char line[160];
+    const char* busy = session_line(NULL);
+    if (busy != NULL) {
+        return busy;
+    }
+    const RecentRoom* last = recent_get(0);
+    if (last != NULL) {
+        if (last->label[0] != '\0') {
+            snprintf(line, sizeof line, "Join a friend's room with its code. Last: %s (%s).",
+                     last->code, last->label);
+        } else {
+            snprintf(line, sizeof line, "Join a friend's room with its code. Last: %s.",
+                     last->code);
+        }
+        return line;
+    }
+    return "Join a friend's room with its code.";
 }
 
 static const char* join_line(void)
@@ -733,6 +756,7 @@ static int autostart_games;
 
 static void init(void)
 {
+    recent_load();
     static char rejoin[ADDRESS_MAX + 16];
     const char* games = getenv("TGG_DIRECT_CONNECT_GAMES");
     autostart_games = games != NULL ? atoi(games) : 0;
@@ -768,6 +792,29 @@ static void on_frame(void)
     }
     if (dc.room) {
         meet_poll(&dc.meet); /* a room lets more games in until the host starts */
+        if (dc.meet.code[0] != '\0') {
+            const char* peer = NULL;
+            if (dc.meet.n_peers > 0 && dc.meet.peers[0][0] != '\0') {
+                peer = dc.meet.peers[0];
+            } else {
+                for (int i = 0; i < dc.meet.n_members && i < MEET_MEMBERS; i++) {
+                    if (dc.meet.members[i][0] != '\0' &&
+                        (dc.meet.name[0] == '\0' || strcmp(dc.meet.members[i], dc.meet.name) != 0))
+                    {
+                        peer = dc.meet.members[i];
+                        break;
+                    }
+                }
+            }
+            const char* want_label = peer != NULL ? peer : "";
+            if (strcmp(dc.remembered_code, dc.meet.code) != 0 ||
+                (want_label[0] != '\0' && strcmp(dc.remembered_label, want_label) != 0))
+            {
+                recent_remember(dc.meet.code, want_label);
+                snprintf(dc.remembered_code, sizeof dc.remembered_code, "%s", dc.meet.code);
+                snprintf(dc.remembered_label, sizeof dc.remembered_label, "%s", want_label);
+            }
+        }
         if ((dc.mode == MODE_ROOM || (dc.mode == MODE_JOIN_ROOM && tgg_screen_shown() != &screen)) &&
             dc.meet.state == MEET_FAILED)
         {
@@ -885,16 +932,16 @@ static void on_panel(const tgg_panel* panel)
     }
     const float size = h * 0.8f;
     const float top = y + (h - size) / 2;
-    const tgg_color white = TGG_RGBA(255, 255, 255, 230);
+    const tgg_color white = TGG_RGBA(255, 255, 255, 235);
     char ping[16] = "";
     const float rtt = netplay_rtt(port);
     if (port != info.side && rtt > 0) {
         snprintf(ping, sizeof ping, "%d ms", (int) (rtt + 0.5f));
-        tgg_draw_text(x + w - 2, top, size, TGG_RGBA(200, 200, 200, 230), TGG_ALIGN_RIGHT, ping);
+        tgg_draw_text(x + w - 2, top, size, tgg_ui_ping_color(rtt), TGG_ALIGN_RIGHT, ping);
     }
     /* Their Name Tag, else their textures.gg name, else "P2" */
     const char* who = tgg_session_name(port);
-    char fallback[8];
+    char fallback[16];
     if (who == NULL && dc.room && port < dc.meet.n_members && dc.meet.members[port][0] != '\0') {
         who = dc.meet.members[port];
     }
@@ -907,10 +954,20 @@ static void on_panel(const tgg_panel* panel)
     tgg_draw_text_fit(name, sizeof name, size, room, who);
     tgg_draw_text(x + 2, top, size, white, TGG_ALIGN_LEFT, name);
     if (port == 0 && dc.room && dc.meet.code[0] != '\0') {
-        /* The room, below the panels, so more friends can join */
-        char line[32];
-        snprintf(line, sizeof line, "Room %s", dc.meet.code);
-        tgg_draw_text(320, 456, 18, white, TGG_ALIGN_CENTER, line);
+        /* The room code pill, below the panels, so more friends can join */
+        const float font = 15.0f;
+        const float prefix_w = tgg_draw_text_width(font, "Room");
+        const float code_w = tgg_draw_text_width(font, dc.meet.code);
+        const float gap = 7.0f;
+        const float pad_x = 12.0f;
+        const float pw = pad_x * 2.0f + prefix_w + gap + code_w;
+        const float ph = 24.0f;
+        const float px = 320.0f - pw * 0.5f;
+        const float py = 450.0f;
+        tgg_ui_chip(px, py, pw, ph, TGG_UI_BG_PANEL_DEEP, TGG_UI_BORDER_SUBTLE);
+        tgg_draw_text(px + pad_x, py + 4.0f, font, TGG_UI_TEXT_MUTED, TGG_ALIGN_LEFT, "Room");
+        tgg_draw_text(px + pad_x + prefix_w + gap, py + 4.0f, font, TGG_UI_TEXT_GOLD,
+                      TGG_ALIGN_LEFT, dc.meet.code);
     }
 }
 TGG_ON(character_select_panel_draw, on_panel);
