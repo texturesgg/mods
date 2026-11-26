@@ -48,18 +48,16 @@ jobs:
           curl -fsSL --retry 3 "$SDKS/tgg-melee-sdk-x86_64-linux.tar.gz" | tar -xz -C sdk --strip-components=1
           nix develop --command ci/build-all.sh sdk
 
-      # Each mod's API tier and what the mods use of the game
-      # (tgg-melee-goals/api-strategy.md); never fails the job
+      # Each mod's API tier and what the mods use of the game; never fails the job
       - name: Tier report
         if: always()
-        run: nix develop --command ci/tier-report.sh sdk tier-report.json
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: tier-report
-          path: tier-report.json
-          if-no-files-found: ignore
+        run: |
+          {
+            echo '## Tier report'
+            echo '```'
+            nix develop --command ci/tier-report.sh sdk | tee /dev/stderr
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   windows-x86_64:
     runs-on: blacksmith-4vcpu-ubuntu-2404
