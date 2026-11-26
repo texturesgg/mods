@@ -1,0 +1,66 @@
+{
+  "api": "tgg-melee/1",
+  "id": "tgg.input-display",
+  "name": "Input display",
+  "version": "1.0.0",
+  "description": "Shows a live GameCube controller overlay with stick, C-stick, triggers, and buttons.",
+  "icon": "icon.png",
+  "tags": [
+    "training"
+  ],
+  "script": true,
+  "settings": [
+    {
+      "key": "where",
+      "label": "Show in",
+      "choices": [
+        "Off",
+        "Training & replays",
+        "Every match"
+      ],
+      "default": "Training & replays",
+      "local": true
+    },
+    {
+      "key": "port",
+      "label": "Port",
+      "choices": [
+        "Auto",
+        "Port 1",
+        "Port 2",
+        "Port 3",
+        "Port 4"
+      ],
+      "default": "Auto",
+      "local": true
+    },
+    {
+      "key": "position",
+      "label": "Position",
+      "choices": [
+        "Bottom left",
+        "Bottom right",
+        "Top left",
+        "Top right"
+      ],
+      "default": "Bottom left",
+      "local": true
+    },
+    {
+      "key": "size",
+      "label": "Size",
+      "choices": [
+        "Compact",
+        "Normal"
+      ],
+      "default": "Normal",
+      "local": true
+    },
+    {
+      "key": "trail",
+      "label": "Stick trail",
+      "default": true,
+      "local": true
+    }
+  ]
+}
