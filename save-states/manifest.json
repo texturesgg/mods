@@ -2,8 +2,8 @@
   "api": "tgg-melee/1",
   "id": "tgg.save-states",
   "name": "Save states",
-  "version": "1.0.0",
-  "description": "For practice. D-pad left saves the match, D-pad right loads it. Off in netplay.",
+  "version": "1.1.0",
+  "description": "Three quick save slots for practice. D-pad left saves, D-pad right loads, D-pad up switches slots. Off in netplay.",
   "icon": "icon.png",
   "class": "offline",
   "tags": [
@@ -19,6 +19,12 @@
         "Every match"
       ],
       "default": "Training Mode",
+      "local": true
+    },
+    {
+      "key": "auto_load_ko",
+      "label": "Auto-load on KO",
+      "default": false,
       "local": true
     }
   ]
