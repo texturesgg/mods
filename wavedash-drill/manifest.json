@@ -1,0 +1,16 @@
+{
+  "api": "tgg-melee/1",
+  "id": "tgg.wavedash-drill",
+  "name": "Wavedash drill",
+  "version": "1.0.0",
+  "description": "Adds Practice > Wavedash. An empty stage with quick resets for wavedash and waveland reps.",
+  "icon": "icon.png",
+  "class": "offline",
+  "depends": {
+    "tgg.practice-stage": "^1.0"
+  },
+  "tags": [
+    "training"
+  ],
+  "script": true
+}

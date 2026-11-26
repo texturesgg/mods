@@ -9,7 +9,7 @@ Most are Luau scripts: a folder with `manifest.json` (`"script": true`), `script
 | Scripts | |
 |---|---|
 | Rules | `ucf`, `ucf-legacy`, `neutral-spawns`, `offscreen-damage`, `stadium-monitor`, `frozen-stadium`, `whispy-blow-dir-fix`, `skip-results`, `competitive-rules`, `legal-stages`, `unlocks`, `quick-start` |
-| Practice | `lcancel-trainer`, `ledgedash-trainer`, `lcancel-drill`, `ledgedash-drill`, `practice-menu`, `save-states` |
+| Practice | `input-display`, `lcancel-trainer`, `ledgedash-trainer`, `wavedash-trainer`, `lcancel-drill`, `ledgedash-drill`, `wavedash-drill`, `practice-menu`, `save-states` |
 
 The rest are C, for what a script can't do: sockets, files, replays, loading files from outside
 the mod, and patches to the game's own functions. Those are `netplay`, `direct-connect`,

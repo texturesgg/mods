@@ -1,0 +1,36 @@
+{
+  "api": "tgg-melee/1",
+  "id": "tgg.wavedash-trainer",
+  "name": "Wavedash trainer",
+  "version": "1.0.0",
+  "description": "Shows airdodge timing, stick angle, slide distance, and recent attempts after each wavedash.",
+  "icon": "icon.png",
+  "tags": [
+    "training"
+  ],
+  "script": true,
+  "settings": [
+    {
+      "key": "where",
+      "label": "Show in",
+      "choices": [
+        "Training Mode",
+        "Every match"
+      ],
+      "default": "Training Mode",
+      "local": true
+    },
+    {
+      "key": "flash",
+      "label": "Flash fighter",
+      "default": true,
+      "local": true
+    },
+    {
+      "key": "strip",
+      "label": "Recent attempts",
+      "default": true,
+      "local": true
+    }
+  ]
+}
