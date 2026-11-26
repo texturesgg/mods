@@ -6,7 +6,8 @@
   "description": "Shows a live GameCube controller overlay with stick, C-stick, triggers, and buttons.",
   "icon": "icon.png",
   "tags": [
-    "training"
+    "training",
+    "hud"
   ],
   "script": true,
   "settings": [

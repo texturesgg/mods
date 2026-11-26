@@ -6,7 +6,8 @@
   "description": "Shows airdodge timing, stick angle, slide distance, and recent attempts after each wavedash.",
   "icon": "icon.png",
   "tags": [
-    "training"
+    "training",
+    "hud"
   ],
   "script": true,
   "settings": [

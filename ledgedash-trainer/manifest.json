@@ -6,7 +6,8 @@
   "description": "Shows your timing on each ledge dash and how much intangibility you had left.",
   "icon": "icon.png",
   "tags": [
-    "training"
+    "training",
+    "hud"
   ],
   "settings": [
     {

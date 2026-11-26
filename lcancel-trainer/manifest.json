@@ -6,7 +6,8 @@
   "description": "Shows whether each aerial landing was L-canceled, and by how many frames you missed.",
   "icon": "icon.png",
   "tags": [
-    "training"
+    "training",
+    "hud"
   ],
   "script": true,
   "settings": [
