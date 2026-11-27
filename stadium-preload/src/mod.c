@@ -17,12 +17,14 @@
  * - back on the neutral stage (step 6 of a return to it), the next one isn't
  *   picked yet.
  */
+#include "tgg/events.h"
 #include "tgg/game/hooks.h"
 
 #include <melee/gr/ground.h>
 #include <melee/gr/grpstadium.h>
 #include <melee/gr/stage.h>
 #include <melee/gr/types.h>
+#include <melee/kind_table.h>
 #include <melee/lb/lbfile.h>
 #include <sysdolphin/baselib/random.h>
 
@@ -31,21 +33,41 @@ static const char* const files[] = { "GrPs1.dat", "GrPs2.dat", "GrPs4.dat", "GrP
 
 static bool preloaded;
 static int preloaded_kind;
+static bool loading;
 /* What a later frame reads: rolled back with the game */
 TGG_STATE(preloaded);
 TGG_STATE(preloaded_kind);
+TGG_STATE(loading);
 
 /* While grStadium_801D4548 runs: its stage and its step when it started */
 static Ground* deciding;
 static int step_before;
 static bool picked;
 
+static void reset_state(void)
+{
+    preloaded = false;
+    preloaded_kind = 0;
+    loading = false;
+}
+
+static void on_match_setup(const tgg_match* match)
+{
+    (void) match;
+    reset_state();
+}
+TGG_ON(match_setup, on_match_setup);
+
 static void loaded(int req, uintptr_t args, void* buf, bool cancel)
 {
     (void) req;
     (void) args;
     (void) buf;
-    (void) cancel;
+    loading = false;
+    if (cancel) {
+        preloaded = false;
+        preloaded_kind = 0;
+    }
 }
 
 static void preload(Ground* gp)
@@ -55,6 +77,7 @@ static void preload(Ground* gp)
         r = HSD_Randi(4);
     } while (gp->u.stadium.xE2 == kinds[r]);
     preloaded_kind = kinds[r];
+    loading = true;
     lbFile_80016580(files[r], gp->u.stadium.xCC, &gp->u.stadium.xC8, loaded, 0);
     preloaded = true;
 }
@@ -62,7 +85,7 @@ static void preload(Ground* gp)
 static void stage_init(Ground_GObj* gobj)
 {
     (void) gobj;
-    preloaded = false;
+    reset_state();
 }
 TGG_AFTER(grStadium_801D13E0, stage_init);
 
@@ -71,6 +94,9 @@ static void before_decide(Ground_GObj* gobj)
     deciding = gobj->user_data;
     step_before = deciding->u.stadium.xDC;
     picked = false;
+    if (step_before == 1 && preloaded && !loading) {
+        deciding->u.stadium.xC4_b1 = false;
+    }
 }
 TGG_BEFORE(grStadium_801D4548, before_decide);
 
@@ -79,7 +105,9 @@ TGG_BEFORE(grStadium_801D4548, before_decide);
 static StKind stage_kind(void)
 {
     const StKind kind = TGG_ORIGINAL(Stage_80225194)();
-    if (deciding != NULL && kind != 0xF0 && deciding->u.stadium.xDC == 0 && !preloaded) {
+    if (deciding != NULL && ST_CODE(kind) != 0xF0 && deciding->u.stadium.xDC == 0 &&
+        deciding->u.stadium.xDE == 5 && deciding->u.stadium.xCC != NULL && !preloaded)
+    {
         preload(deciding);
     }
     return kind;
@@ -117,7 +145,7 @@ TGG_REPLACE(lbFile_80016580, load);
 static void after_decide(Ground_GObj* gobj)
 {
     Ground* gp = gobj->user_data;
-    if (picked && gp->u.stadium.xDC == 1) {
+    if (picked && gp->u.stadium.xDC == 1 && !loading) {
         /* The game marked the file as loading; it's in */
         gp->u.stadium.xC4_b1 = false;
         if (grStadium_801D42B8()) {
@@ -126,6 +154,7 @@ static void after_decide(Ground_GObj* gobj)
     }
     if (step_before == 6 && gp->u.stadium.xDE == 5) {
         preloaded = false;
+        preloaded_kind = 0;
     }
     deciding = NULL;
     picked = false;
