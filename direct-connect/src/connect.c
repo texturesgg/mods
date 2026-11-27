@@ -790,11 +790,11 @@ static int on_companion_cmd(const char* cmd, const char* arg, char* reason, int 
         }
         return 0;
     }
-    if (tgg_in_match()) {
-        snprintf(reason, (size_t) reason_cap, "in-match");
-        return -1;
-    }
     if (strcmp(cmd, "start_search") == 0) {
+        if (tgg_in_match()) {
+            snprintf(reason, (size_t) reason_cap, "in-match");
+            return -1;
+        }
         if (dc.mode != MODE_NONE || queue_busy()) {
             snprintf(reason, (size_t) reason_cap, "busy");
             return -1;
@@ -803,6 +803,10 @@ static int on_companion_cmd(const char* cmd, const char* arg, char* reason, int 
         return 0;
     }
     if (strcmp(cmd, "host_room") == 0) {
+        if (tgg_in_match()) {
+            snprintf(reason, (size_t) reason_cap, "in-match");
+            return -1;
+        }
         if (dc.mode != MODE_NONE || queue_busy()) {
             snprintf(reason, (size_t) reason_cap, "busy");
             return -1;
@@ -815,6 +819,10 @@ static int on_companion_cmd(const char* cmd, const char* arg, char* reason, int 
         return 0;
     }
     if (strcmp(cmd, "join_room") == 0) {
+        if (tgg_in_match()) {
+            snprintf(reason, (size_t) reason_cap, "in-match");
+            return -1;
+        }
         if (arg == NULL || arg[0] == '\0') {
             snprintf(reason, (size_t) reason_cap, "invalid");
             return -1;
@@ -832,8 +840,7 @@ static int on_companion_cmd(const char* cmd, const char* arg, char* reason, int 
         tgg_screen_open(&screen);
         return 0;
     }
-    snprintf(reason, (size_t) reason_cap, "unsupported");
-    return -1;
+    return TGG_COMPANION_UNHANDLED;
 }
 
 static void init(void)
