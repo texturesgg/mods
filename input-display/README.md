@@ -12,7 +12,7 @@ On the Mods page (Y on the main menu):
 |---|---|
 | Show in | Off, Training & replays (default), or Every match |
 | Port | Auto (default), or Port 1 through Port 4 |
-| Position | Bottom left (default), Bottom right, Top left, or Top right |
+| Position | Bottom left, Bottom right (default), Top left, or Top right |
 | Size | Compact or Normal (default) |
 | Stick trail | Show a fading trail behind the control stick (on by default) |
 

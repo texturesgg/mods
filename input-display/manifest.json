@@ -2,7 +2,7 @@
   "api": "tgg-melee/1",
   "id": "tgg.input-display",
   "name": "Input display",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Shows a live GameCube controller overlay with stick, C-stick, triggers, and buttons.",
   "icon": "icon.png",
   "tags": [
@@ -44,7 +44,7 @@
         "Top left",
         "Top right"
       ],
-      "default": "Bottom left",
+      "default": "Bottom right",
       "local": true
     },
     {
