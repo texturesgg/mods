@@ -89,6 +89,8 @@ typedef struct Dc {
     int for_netplay;
     /* The room met again after a session ended (meet_room_again) */
     int reformed;
+    /* Last room failure/end reason surfaced to companion after auto-cleanup */
+    char ended_why[320];
 } Dc;
 
 extern Dc dc;

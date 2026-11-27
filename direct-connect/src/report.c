@@ -62,6 +62,13 @@ void report_frame(void)
         return;
     }
 
+    if (dc.ended_why[0] != '\0') {
+        out.state = "ended";
+        out.why = dc.ended_why;
+        tgg_companion_set_online(&out);
+        return;
+    }
+
     out.state = "idle";
     tgg_companion_set_online(&out);
 }

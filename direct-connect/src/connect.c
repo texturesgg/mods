@@ -126,6 +126,7 @@ static void join(const char* typed)
 
 static void leave_session(void)
 {
+    dc.ended_why[0] = '\0';
     if (dc.room) {
         meet_leave();
         dc.room = 0;
@@ -141,6 +142,7 @@ static void leave_session(void)
 
 static void make_room(void)
 {
+    dc.ended_why[0] = '\0';
     memset(&dc.meet, 0, sizeof dc.meet);
     dc.note[0] = '\0';
     if (meet_make() != 0) {
@@ -156,6 +158,7 @@ static void make_room(void)
 
 static void join_room(const char* typed)
 {
+    dc.ended_why[0] = '\0';
     char code[sizeof dc.meet.code];
     size_t n = 0;
     int bad = 0;
@@ -757,13 +760,28 @@ static int autostart_games;
 
 static int on_companion_cmd(const char* cmd, const char* arg, char* reason, int reason_cap)
 {
+    if (strcmp(cmd, "leave_match") == 0) {
+        dc.ended_why[0] = '\0';
+        if (queue_shown() || queue_busy()) {
+            queue_companion_stop();
+        }
+        if (dc.mode != MODE_NONE || dc.room) {
+            leave_session();
+            if (tgg_screen_shown() == &screen) {
+                tgg_screen_close();
+            }
+        }
+        return 0;
+    }
     if (strcmp(cmd, "stop_search") == 0) {
+        dc.ended_why[0] = '\0';
         if (queue_shown() || queue_busy()) {
             queue_companion_stop();
         }
         return 0;
     }
     if (strcmp(cmd, "leave_room") == 0) {
+        dc.ended_why[0] = '\0';
         if (dc.mode != MODE_NONE || dc.room) {
             leave_session();
             if (tgg_screen_shown() == &screen) {
@@ -790,6 +808,10 @@ static int on_companion_cmd(const char* cmd, const char* arg, char* reason, int 
             return -1;
         }
         make_room();
+        if (!dc.room) {
+            snprintf(reason, (size_t) reason_cap, "failed");
+            return -1;
+        }
         return 0;
     }
     if (strcmp(cmd, "join_room") == 0) {
@@ -802,6 +824,10 @@ static int on_companion_cmd(const char* cmd, const char* arg, char* reason, int 
             return -1;
         }
         join_room(arg);
+        if (!dc.room) {
+            snprintf(reason, (size_t) reason_cap, "invalid");
+            return -1;
+        }
         dc.view = VIEW_ROOM;
         tgg_screen_open(&screen);
         return 0;
@@ -877,6 +903,8 @@ static void on_frame(void)
         {
             tgg_log("room: %s", dc.meet.why);
             note(dc.meet.why);
+            snprintf(dc.ended_why, sizeof dc.ended_why, "%s",
+                     dc.meet.why[0] != '\0' ? dc.meet.why : "The room ended.");
             meet_leave();
             dc.room = 0;
             dc_netplay_close();

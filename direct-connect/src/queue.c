@@ -814,7 +814,7 @@ int queue_autostart(const char* spec)
 
 int queue_busy(void)
 {
-    return q.view >= Q_SEARCH && q.view <= Q_AFTER;
+    return (q.view >= Q_SEARCH && q.view <= Q_AFTER) || (q.view == Q_CHARACTER && q.choosing);
 }
 
 int queue_companion_state(tgg_companion_online* out)
@@ -838,7 +838,10 @@ int queue_companion_state(tgg_companion_online* out)
         break;
     case Q_SEARCH:
         out->state = "searching";
-        out->search_ms = dc.meet.search_ms > 0.0 ? (uint64_t) dc.meet.search_ms : 0;
+        /* Quantize to whole seconds so companion deduplication sends at most 1 msg/sec */
+        out->search_ms = dc.meet.search_ms > 0.0
+                             ? ((uint64_t) dc.meet.search_ms / 1000) * 1000
+                             : 0;
         break;
     case Q_LOBBY:
     case Q_PLAYING:
@@ -858,16 +861,19 @@ int queue_companion_state(tgg_companion_online* out)
 
 void queue_companion_stop(void)
 {
+    const int was_choosing = q.choosing;
+    dc.ended_why[0] = '\0';
     meet_leave();
     dc_netplay_close();
     memset(&q, 0, sizeof q);
-    if (tgg_screen_shown() == &screen) {
+    if (tgg_screen_shown() == &screen || was_choosing) {
         tgg_screen_close();
     }
 }
 
 void queue_companion_start(const char* mode)
 {
+    dc.ended_why[0] = '\0';
     if (mode != NULL && mode[0] != '\0') {
         snprintf(auto_mode, sizeof auto_mode, "%s", mode);
     } else {
