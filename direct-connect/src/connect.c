@@ -18,6 +18,7 @@
  * and why a session ended. */
 #include "dc.h"
 #include "ui.h"
+#include "tgg/internal/companion.h"
 
 #include "tgg/control.h"
 #include "tgg/draw.h"
@@ -754,8 +755,64 @@ TGG_MENU_ADD("online/join", join_item);
 static const char* autostart;
 static int autostart_games;
 
+static int on_companion_cmd(const char* cmd, const char* arg, char* reason, int reason_cap)
+{
+    if (strcmp(cmd, "stop_search") == 0) {
+        if (queue_shown() || queue_busy()) {
+            queue_companion_stop();
+        }
+        return 0;
+    }
+    if (strcmp(cmd, "leave_room") == 0) {
+        if (dc.mode != MODE_NONE || dc.room) {
+            leave_session();
+            if (tgg_screen_shown() == &screen) {
+                tgg_screen_close();
+            }
+        }
+        return 0;
+    }
+    if (tgg_in_match()) {
+        snprintf(reason, (size_t) reason_cap, "in-match");
+        return -1;
+    }
+    if (strcmp(cmd, "start_search") == 0) {
+        if (dc.mode != MODE_NONE || queue_busy()) {
+            snprintf(reason, (size_t) reason_cap, "busy");
+            return -1;
+        }
+        queue_companion_start(arg);
+        return 0;
+    }
+    if (strcmp(cmd, "host_room") == 0) {
+        if (dc.mode != MODE_NONE || queue_busy()) {
+            snprintf(reason, (size_t) reason_cap, "busy");
+            return -1;
+        }
+        make_room();
+        return 0;
+    }
+    if (strcmp(cmd, "join_room") == 0) {
+        if (arg == NULL || arg[0] == '\0') {
+            snprintf(reason, (size_t) reason_cap, "invalid");
+            return -1;
+        }
+        if (dc.mode != MODE_NONE || queue_busy()) {
+            snprintf(reason, (size_t) reason_cap, "busy");
+            return -1;
+        }
+        join_room(arg);
+        dc.view = VIEW_ROOM;
+        tgg_screen_open(&screen);
+        return 0;
+    }
+    snprintf(reason, (size_t) reason_cap, "unsupported");
+    return -1;
+}
+
 static void init(void)
 {
+    tgg_companion_on_command(on_companion_cmd);
     recent_load();
     static char rejoin[ADDRESS_MAX + 16];
     const char* games = getenv("TGG_DIRECT_CONNECT_GAMES");

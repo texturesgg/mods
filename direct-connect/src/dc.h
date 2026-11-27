@@ -122,6 +122,10 @@ int queue_autostart(const char* spec); /* 1 once its screen is up */
 int queue_shown(void);
 /* In a queue's search or match, the screen shown or not */
 int queue_busy(void);
+struct tgg_companion_online;
+int queue_companion_state(struct tgg_companion_online* out);
+void queue_companion_stop(void);
+void queue_companion_start(const char* mode);
 
 /* addr.c: this machine's addresses to tell the other player, the tailnet's
  * first; and its name */

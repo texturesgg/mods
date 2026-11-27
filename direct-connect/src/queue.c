@@ -28,6 +28,7 @@
 #include "tgg/events.h"
 #include "tgg/files.h"
 #include "tgg/input.h"
+#include "tgg/internal/companion.h"
 #include "tgg/match.h"
 #include "tgg/menu.h"
 #include "tgg/net.h"
@@ -814,4 +815,63 @@ int queue_autostart(const char* spec)
 int queue_busy(void)
 {
     return q.view >= Q_SEARCH && q.view <= Q_AFTER;
+}
+
+int queue_companion_state(tgg_companion_online* out)
+{
+    if (!queue_shown() && !queue_busy()) {
+        return 0;
+    }
+    memset(out, 0, sizeof *out);
+    out->queue_label = dc.meet.label;
+    out->opponent = q.opponent;
+    out->signin_url = dc.meet.signin_url;
+    out->signin_code = dc.meet.signin_code;
+    switch (q.view) {
+    case Q_CONNECT:
+        out->state = dc.meet.state == MEET_SIGN_IN ? "signing-in" : "connecting";
+        break;
+    case Q_MODES:
+    case Q_NOTICE:
+    case Q_CHARACTER:
+        out->state = "choosing";
+        break;
+    case Q_SEARCH:
+        out->state = "searching";
+        out->search_ms = dc.meet.search_ms > 0.0 ? (uint64_t) dc.meet.search_ms : 0;
+        break;
+    case Q_LOBBY:
+    case Q_PLAYING:
+    case Q_AFTER:
+        out->state = "matched";
+        break;
+    case Q_FAILED:
+        out->state = "ended";
+        out->why = q.why;
+        break;
+    default:
+        out->state = "idle";
+        break;
+    }
+    return 1;
+}
+
+void queue_companion_stop(void)
+{
+    meet_leave();
+    dc_netplay_close();
+    memset(&q, 0, sizeof q);
+    if (tgg_screen_shown() == &screen) {
+        tgg_screen_close();
+    }
+}
+
+void queue_companion_start(const char* mode)
+{
+    if (mode != NULL && mode[0] != '\0') {
+        snprintf(auto_mode, sizeof auto_mode, "%s", mode);
+    } else {
+        snprintf(auto_mode, sizeof auto_mode, "vs");
+    }
+    queue_open();
 }
