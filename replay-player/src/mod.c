@@ -196,6 +196,7 @@ static int on_companion_cmd(const char* cmd, const char* arg, char* reason, int 
 
 static void init(void)
 {
+    tgg_companion_add_cap("replay");
     tgg_companion_on_command(on_companion_cmd);
     const char* path = getenv("TGG_REPLAY_PLAYER_FILE");
     if (path == NULL || path[0] == '\0') {

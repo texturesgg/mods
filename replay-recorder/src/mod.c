@@ -23,6 +23,7 @@
 #include "tgg/control.h"
 #include "tgg/events.h"
 #include "tgg/files.h"
+#include "tgg/internal/companion.h"
 #include "tgg/rollback.h"
 #include "tgg/settings.h"
 
@@ -82,6 +83,7 @@ TGG_GAME_SYMBOL(pad_copy, "HSD_PadCopyStatus");
 
 static void init(void)
 {
+    tgg_companion_add_cap("replay_record");
     player_playing = (int (*)(void)) tgg_mod_export("tgg.replay-player", "replay_playing@1");
     /* Every match starts fresh, as the player plays the replay */
     tgg_match_start_fresh(1);
@@ -287,6 +289,29 @@ static void write_final(void)
     }
 }
 
+static void emit_replay_saved(const char* file_path, int frames)
+{
+    char escaped[2048];
+    size_t n = 0;
+    for (const char* s = file_path; s != NULL && *s != '\0' && n + 8 < sizeof escaped; s++) {
+        const unsigned char c = (unsigned char) *s;
+        if (c == '"' || c == '\\') {
+            escaped[n++] = '\\';
+            escaped[n++] = (char) c;
+        } else if (c < 0x20) {
+            n += (size_t) snprintf(escaped + n, sizeof escaped - n, "\\u%04x", c);
+        } else {
+            escaped[n++] = (char) c;
+        }
+    }
+    escaped[n] = '\0';
+    char data[2200];
+    int len = snprintf(data, sizeof data, "{\"path\":\"%s\",\"frames\":%d}", escaped, frames);
+    if (len > 0 && (size_t) len < sizeof data) {
+        tgg_companion_emit_event("replay_saved", data);
+    }
+}
+
 static void finish(void)
 {
     write_final();
@@ -299,6 +324,7 @@ static void finish(void)
     } else {
         tgg_log("saved %s, %d frames%s", path, frames,
                 end != NULL && end->known ? "" : ", no end");
+        emit_replay_saved(path, frames);
     }
     file = NULL;
     pending = 0;

@@ -824,7 +824,10 @@ int queue_companion_state(tgg_companion_online* out)
     }
     memset(out, 0, sizeof *out);
     out->queue_label = dc.meet.label;
-    out->opponent = q.opponent;
+    if (q.opponent[0] != '\0') {
+        out->players[0] = q.opponent;
+        out->n_players = 1;
+    }
     out->signin_url = dc.meet.signin_url;
     out->signin_code = dc.meet.signin_code;
     switch (q.view) {

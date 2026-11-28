@@ -845,6 +845,7 @@ static int on_companion_cmd(const char* cmd, const char* arg, char* reason, int 
 
 static void init(void)
 {
+    tgg_companion_add_cap("online");
     tgg_companion_on_command(on_companion_cmd);
     recent_load();
     static char rejoin[ADDRESS_MAX + 16];
