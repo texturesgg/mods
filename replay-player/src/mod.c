@@ -34,6 +34,7 @@
 #include "tgg/events.h"
 #include "tgg/game/events.h"
 #include "tgg/input.h"
+#include "tgg/internal/companion.h"
 #include "tgg/restart.h"
 #include "tgg/screen.h"
 #include "tgg/settings.h"
@@ -65,8 +66,12 @@ TGG_SETTING_CHOICE_LOCAL(setting_timeline, "timeline", "Timeline bar", TIMELINE_
 /* The replay, read outside a match and only read during one */
 static Slp slp;
 static int loaded;
-/* It came from a screen (replay_play), which comes back after */
+static char loaded_path[1024];
+/* It came from a screen (replay_play or companion load_replay), which comes back after */
 static int from_screen;
+/* Companion-triggered replay waiting for its hidden launcher screen to open */
+static tgg_match comp_match;
+static int comp_pending;
 
 /* While a replay is loaded its matches start fresh, as a recording's did
  * (tgg_match_start_fresh) */
@@ -76,6 +81,10 @@ static void set_loaded(int now)
         tgg_match_start_fresh(now);
     }
     loaded = now;
+    if (!loaded) {
+        loaded_path[0] = '\0';
+        tgg_companion_set_replay(NULL);
+    }
 }
 
 /* What the simulation counts from frame to frame */
@@ -114,14 +123,80 @@ static const char* load(const char* path)
         tgg_log("%s: %s", path, why);
         return why;
     }
+    snprintf(loaded_path, sizeof loaded_path, "%s", path);
     set_loaded(1);
+    tgg_companion_set_replay(loaded_path);
     tgg_log("playing %s", path);
     player_log_rules(&slp);
     return NULL;
 }
 
+static void reset_controls(void);
+
+static void comp_screen_enter(int from_match)
+{
+    if (from_match) {
+        tgg_screen_close();
+        return;
+    }
+    if (comp_pending) {
+        comp_pending = 0;
+        from_screen = 1;
+        if (tgg_screen_play_match(&comp_match) != 0) {
+            set_loaded(0);
+            from_screen = 0;
+            tgg_screen_close();
+        }
+        return;
+    }
+    tgg_screen_close();
+}
+
+static const tgg_screen comp_screen = {
+    .title = NULL,
+    .enter = comp_screen_enter,
+};
+TGG_SCREEN("companion", comp_screen);
+
+static int on_companion_cmd(const char* cmd, const char* arg, char* reason, int reason_cap)
+{
+    if (strcmp(cmd, "leave_match") == 0) {
+        comp_pending = 0;
+        if (loaded) {
+            reset_controls();
+            if (!tgg_in_match()) {
+                takeover_match_end();
+                set_loaded(0);
+                from_screen = 0;
+            }
+        }
+        return 0;
+    }
+    if (strcmp(cmd, "load_replay") == 0) {
+        if (arg == NULL || arg[0] == '\0') {
+            snprintf(reason, (size_t) reason_cap, "bad-replay");
+            return -1;
+        }
+        if (tgg_in_match()) {
+            snprintf(reason, (size_t) reason_cap, "in-match");
+            return -1;
+        }
+        if (load(arg) != NULL) {
+            snprintf(reason, (size_t) reason_cap, "bad-replay");
+            return -1;
+        }
+        player_match(&slp, &comp_match);
+        takeover_reset(&comp_match);
+        comp_pending = 1;
+        (void) tgg_screen_open(&comp_screen);
+        return 0;
+    }
+    return TGG_COMPANION_UNHANDLED;
+}
+
 static void init(void)
 {
+    tgg_companion_on_command(on_companion_cmd);
     const char* path = getenv("TGG_REPLAY_PLAYER_FILE");
     if (path == NULL || path[0] == '\0') {
         return;
@@ -316,9 +391,13 @@ static void on_frame(void)
              * own game, when this one is a restart */
             if (loaded && !from_screen) {
                 tgg_restart_back();
+                set_loaded(0);
             }
         }
         view.was_in_match = 0;
+        if (comp_pending && tgg_screen_shown() != &comp_screen) {
+            (void) tgg_screen_open(&comp_screen);
+        }
         return;
     }
     view.was_in_match = 1;
